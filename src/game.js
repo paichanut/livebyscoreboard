@@ -1,23 +1,39 @@
 // Pure game-state model + logic. No React, no network.
+import { defaultOptions } from './options.js'
 
-export const PERIODS = ['1', '2', '3', 'OT', 'SO']
 export const MIN = 60_000
+
+export function periodList(state) {
+  const n = Math.max(1, Math.min(9, Number(state?.opts?.periods) || 3))
+  const list = []
+  for (let i = 1; i <= n; i++) list.push(String(i))
+  list.push('OT', 'SO')
+  return list
+}
+
+export function periodLabel(state) {
+  const p = state.period
+  if (p === 'OT') return state.opts?.otLabel || 'OT'
+  if (p === 'SO') return 'SO'
+  return p
+}
 
 export function newGame(overrides = {}) {
   return {
-    v: 1,
+    v: 2,
     home: { name: 'HOME', score: 0, shots: 0, color: '#e63946' },
     away: { name: 'AWAY', score: 0, shots: 0, color: '#3a86ff' },
     period: '1',
     periodLengthMs: 15 * MIN,
-    skaters: 5, // 5 for full ice, 3 for 3-on-3
-    theme: 'dark', // dark | light | led | ice
+    skaters: 5,
+    theme: 'dark',
     clock: { remainingMs: 15 * MIN, running: false, since: null },
-    // penalties: remaining is derived from the game clock so both devices tick identically
     penalties: [], // { id, team, player, durationMs, clockAtStart }
-    horn: 0, // bump to make the display play the horn
+    horn: 0,
+    buzzer: 0,
     timeout: null, // { team, durationMs, since }
     goalFlash: null, // { team, at }
+    opts: defaultOptions(),
     updatedAt: Date.now(),
     ...overrides,
   }
@@ -29,6 +45,19 @@ export function clockRemaining(state, now = Date.now()) {
   return Math.max(0, c.remainingMs - (now - c.since))
 }
 
+// What the display shows: remaining (count-down) or elapsed (count-up)
+export function clockShown(state, now = Date.now()) {
+  const rem = clockRemaining(state, now)
+  if (state.opts?.clockDir === 'up') return Math.max(0, periodLength(state) - rem)
+  return rem
+}
+
+export function periodLength(state) {
+  if (state.period === 'OT') return 5 * MIN
+  if (state.period === 'SO') return 0
+  return state.periodLengthMs
+}
+
 export function penaltyRemaining(state, p, now = Date.now()) {
   const elapsed = p.clockAtStart - clockRemaining(state, now)
   return Math.max(0, p.durationMs - elapsed)
@@ -38,7 +67,6 @@ export function activePenalties(state, team, now = Date.now()) {
   return state.penalties.filter(p => p.team === team && penaltyRemaining(state, p, now) > 0)
 }
 
-// Skaters per side. Never below 3; in 3-on-3 a penalty gives the other side a 4v3.
 export function skaters(state, now = Date.now()) {
   const nH = Math.min(activePenalties(state, 'home', now).length, 2)
   const nA = Math.min(activePenalties(state, 'away', now).length, 2)
@@ -70,8 +98,18 @@ export function fmtClock(ms, { tenths = true } = {}) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-// ---- mutations (each returns a new state) ----
+export function timeoutRemaining(s, now = Date.now()) {
+  if (!s.timeout) return 0
+  return Math.max(0, s.timeout.durationMs - (now - s.timeout.since))
+}
 
+export function goalFlashActive(s, now = Date.now()) {
+  if (!s.goalFlash || !s.opts?.goalIndicator) return null
+  const offMs = (s.opts.goalOffSec ?? 15) * 1000
+  return now - s.goalFlash.at < offMs ? s.goalFlash.team : null
+}
+
+// ---- mutations ----
 const touch = s => ({ ...s, updatedAt: Date.now() })
 
 export function startClock(s) {
@@ -93,7 +131,6 @@ export function toggleClock(s) {
 export function setClock(s, ms) {
   ms = Math.max(0, ms)
   const stopped = stopClock(s)
-  // keep penalties' remaining time stable across a manual clock edit
   const pens = stopped.penalties.map(p => ({
     ...p,
     durationMs: penaltyRemaining(stopped, p),
@@ -106,17 +143,25 @@ export function adjustClock(s, deltaMs) {
   return setClock(s, clockRemaining(s) + deltaMs)
 }
 
+export function resetClock(s) {
+  return setClock(s, periodLength(s))
+}
+
 export function setPeriod(s, period) {
-  let len = s.periodLengthMs
-  if (period === 'OT') len = 5 * MIN
-  if (period === 'SO') len = 0
-  const next = setClock(s, len)
-  return touch({ ...next, period })
+  const next = { ...s, period }
+  return touch(setClock(next, periodLength(next)))
 }
 
 export function nextPeriod(s) {
-  const i = PERIODS.indexOf(s.period)
-  return setPeriod(s, PERIODS[Math.min(i + 1, PERIODS.length - 1)])
+  const list = periodList(s)
+  const i = list.indexOf(s.period)
+  return setPeriod(s, list[Math.min(i + 1, list.length - 1)])
+}
+
+export function prevPeriod(s) {
+  const list = periodList(s)
+  const i = list.indexOf(s.period)
+  return setPeriod(s, list[Math.max(i - 1, 0)])
 }
 
 export function addScore(s, team, delta) {
@@ -125,18 +170,8 @@ export function addScore(s, team, delta) {
   return touch({ ...s, [team]: { ...s[team], score }, goalFlash })
 }
 
-export function timeoutRemaining(s, now = Date.now()) {
-  if (!s.timeout) return 0
-  return Math.max(0, s.timeout.durationMs - (now - s.timeout.since))
-}
-
-export function startTimeout(s, team, seconds) {
-  const stopped = stopClock(s)
-  return touch({ ...stopped, timeout: { team, durationMs: seconds * 1000, since: Date.now() } })
-}
-
-export function clearTimeout_(s) {
-  return s.timeout ? touch({ ...s, timeout: null }) : s
+export function clearGoalFlash(s) {
+  return s.goalFlash ? touch({ ...s, goalFlash: null }) : s
 }
 
 export function addShot(s, team, delta) {
@@ -172,12 +207,29 @@ export function fireHorn(s) {
   return touch({ ...s, horn: (s.horn || 0) + 1 })
 }
 
+export function fireBuzzer(s) {
+  return touch({ ...s, buzzer: (s.buzzer || 0) + 1 })
+}
+
+export function startTimeout(s, team, seconds) {
+  const stopped = stopClock(s)
+  return touch({ ...stopped, timeout: { team, durationMs: seconds * 1000, since: Date.now() } })
+}
+
+export function clearTimeout_(s) {
+  return s.timeout ? touch({ ...s, timeout: null }) : s
+}
+
 export function setSettings(s, patch) {
   const next = { ...s, ...patch }
-  if (patch.periodLengthMs != null && !s.clock.running && ['1', '2', '3'].includes(s.period)) {
+  if (patch.periodLengthMs != null && !s.clock.running && !['OT', 'SO'].includes(s.period)) {
     return setClock(touch(next), patch.periodLengthMs)
   }
   return touch(next)
+}
+
+export function setOptions(s, opts) {
+  return touch({ ...s, opts })
 }
 
 export function resetGame(s) {
@@ -187,6 +239,7 @@ export function resetGame(s) {
     periodLengthMs: s.periodLengthMs,
     skaters: s.skaters,
     theme: s.theme,
+    opts: s.opts,
     clock: { remainingMs: s.periodLengthMs, running: false, since: null },
   })
 }

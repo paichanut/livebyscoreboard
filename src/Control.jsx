@@ -2,23 +2,19 @@ import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
 import * as G from './game.js'
 import { ONLINE } from './sync.js'
-import { useTheme } from './App.jsx'
-
-const THEMES = [
-  ['dark', 'Dark arena'],
-  ['light', 'Light'],
-  ['led', 'LED classic'],
-  ['ice', 'Ice'],
-]
+import { useAppearance } from './useOptions.jsx'
+import Options from './Options.jsx'
 
 export default function Control() {
   const gameId = useGameId()
   const [s, update] = useGame(gameId)
-  useTheme(s?.theme)
+  useAppearance(s)
   useTick(100, Boolean(s?.clock.running || s?.timeout))
-  const [sheet, setSheet] = useState(null) // 'pen-home' | 'pen-away' | 'settings' | 'qr' | 'setclock'
+  const [sheet, setSheet] = useState(null)
 
-  // Operator is the authority: stop the clock when it reaches 0, prune expired penalties
+  const ask = (key, msg) => !s.opts.confirm[key] || confirm(msg)
+
+  // Operator is the authority: stop clock at 0, prune expired penalties, end timeouts
   const remainingNow = s ? G.clockRemaining(s) : 0
   useEffect(() => {
     if (s?.clock.running && remainingNow <= 0) update(G.stopClock)
@@ -32,31 +28,46 @@ export default function Control() {
     return () => clearInterval(id)
   }, [])
 
-  // Keyboard shortcuts (laptop at the bench)
+  // Keyboard shortcuts — rebindable in Options → Keys
   useEffect(() => {
+    if (!s) return
     const on = e => {
-      if (sheet || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
-      const k = e.key.toLowerCase()
-      if (e.code === 'Space') { e.preventDefault(); update(G.toggleClock) }
-      else if (k === 'h') update(x => G.addScore(x, 'home', 1))
-      else if (k === 'a') update(x => G.addScore(x, 'away', 1))
-      else if (k === 'j') update(x => G.addShot(x, 'home', 1))
-      else if (k === 's') update(x => G.addShot(x, 'away', 1))
-      else if (k === 'n') update(G.nextPeriod)
-      else if (k === 'b') update(G.fireHorn)
-      else if (e.key === 'ArrowUp') update(x => G.adjustClock(x, 1000))
-      else if (e.key === 'ArrowDown') update(x => G.adjustClock(x, -1000))
+      if (sheet || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return
+      const k = s.opts.keys
+      const code = e.code
+      const act = Object.keys(k).find(name => k[name] && k[name] === code)
+      if (!act) return
+      e.preventDefault()
+      const map = {
+        startStop: G.toggleClock,
+        homeGoal: x => G.addScore(x, 'home', 1), homeGoalMinus: x => G.addScore(x, 'home', -1),
+        homeShot: x => G.addShot(x, 'home', 1), homeShotMinus: x => G.addShot(x, 'home', -1),
+        awayGoal: x => G.addScore(x, 'away', 1), awayGoalMinus: x => G.addScore(x, 'away', -1),
+        awayShot: x => G.addShot(x, 'away', 1), awayShotMinus: x => G.addShot(x, 'away', -1),
+        periodPlus: x => (ask('period', 'Next period? Clock will reset.') ? G.nextPeriod(x) : x),
+        periodMinus: x => (ask('period', 'Previous period? Clock will reset.') ? G.prevPeriod(x) : x),
+        clockPlus: x => G.adjustClock(x, 1000), clockMinus: x => G.adjustClock(x, -1000),
+        horn: G.fireHorn, buzzer: G.fireBuzzer,
+        timeout1: () => { setSheet('timeout-1'); return null }, timeout2: () => { setSheet('timeout-2'); return null },
+        newGame: x => (ask('newGame', 'Start a new game? Scores and clock reset.') ? G.resetGame(x) : x),
+      }
+      const fn = map[act]
+      if (fn) update(x => fn(x) ?? x)
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [sheet])
+  }, [sheet, s?.opts?.keys, s?.opts?.confirm])
 
   if (!s) return <div className="loading">connecting…</div>
 
+  const o = s.opts
   const remaining = G.clockRemaining(s)
   const running = s.clock.running
   const strength = G.strengthLabel(s)
-  const boardUrl = `${window.location.origin}/board?g=${encodeURIComponent(gameId)}`
+  const origin = window.location.origin
+  const boardUrl = `${origin}/board?g=${encodeURIComponent(gameId)}`
+  const bannerUrl = `${origin}/banner?g=${encodeURIComponent(gameId)}`
+  const isNum = !['OT', 'SO'].includes(s.period)
 
   return (
     <div className="control">
@@ -67,10 +78,11 @@ export default function Control() {
 
       <div className="card clockcard">
         <div className="p">
-          <span>{s.period === 'OT' || s.period === 'SO' ? <b>{s.period}</b> : <>PERIOD <b>{s.period}</b></>}</span>
+          <span>{isNum ? <>{o.labels.period} <b>{G.periodLabel(s)}</b></> : <b>{G.periodLabel(s)}</b>}</span>
           {strength && <span className="st">{strength}</span>}
+          {o.clockDir === 'up' && <span style={{ fontSize: 12 }}>▲ up</span>}
         </div>
-        <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(remaining)}</div>
+        <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s))}</div>
         <div className="row">
           <button className={`btn big ${running ? 'danger' : 'primary'}`} onClick={() => update(G.toggleClock)} disabled={!running && remaining <= 0}>
             {running ? 'STOP' : 'START'}
@@ -84,19 +96,21 @@ export default function Control() {
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, 60000))}>+1:00</button>
         </div>
         <div className="row">
-          <button className="btn sm" onClick={() => { const i = G.PERIODS.indexOf(s.period); if (i > 0 && confirm(`Go back to period ${G.PERIODS[i - 1]}? Clock will reset.`)) update(x => G.setPeriod(x, G.PERIODS[i - 1])) }}>◀ Period</button>
-          <button className="btn sm" onClick={() => { if (confirm('Next period? Clock will reset.')) update(G.nextPeriod) }}>Period ▶</button>
-          <button className="btn sm" onClick={() => update(G.fireHorn)}>📯 Horn</button>
+          <button className="btn sm" onClick={() => { if (ask('period', 'Previous period? Clock will reset.')) update(G.prevPeriod) }}>◀ Period</button>
+          <button className="btn sm" onClick={() => { if (ask('period', 'Reset period clock?')) update(G.resetClock) }}>Reset</button>
+          <button className="btn sm" onClick={() => { if (ask('period', 'Next period? Clock will reset.')) update(G.nextPeriod) }}>Period ▶</button>
         </div>
         <div className="row">
+          <button className="btn sm" onClick={() => update(G.fireHorn)}>📯 Horn</button>
+          <button className="btn sm" onClick={() => update(G.fireBuzzer)}>🔔 Buzzer</button>
           {s.timeout && G.timeoutRemaining(s) > 0 ? (
-            <button className="btn sm accent" onClick={() => update(G.clearTimeout_)}>
-              Timeout {s[s.timeout.team].name} · {G.fmtClock(G.timeoutRemaining(s))} — end
+            <button className="btn sm accent" onClick={() => update(G.clearTimeout_)} style={{ flex: 2 }}>
+              {o.labels.timeout} {s[s.timeout.team].name} · {G.fmtClock(G.timeoutRemaining(s))} — end
             </button>
           ) : (
             <>
-              <button className="btn sm" onClick={() => setSheet('timeout-30')}>Timeout 0:30</button>
-              <button className="btn sm" onClick={() => setSheet('timeout-60')}>Timeout 1:00</button>
+              <button className="btn sm" onClick={() => setSheet('timeout-1')}>T/O {G.fmtClock(o.timeout1Sec * 1000, { tenths: false })}</button>
+              <button className="btn sm" onClick={() => setSheet('timeout-2')}>T/O {G.fmtClock(o.timeout2Sec * 1000, { tenths: false })}</button>
             </>
           )}
         </div>
@@ -115,12 +129,12 @@ export default function Control() {
                 <button className="btn" onClick={() => update(x => G.addShot(x, team, 1))}>Shot +</button>
                 <button className="btn" onClick={() => setSheet(`pen-${team}`)}>Penalty</button>
               </div>
-              <div className="sh">Shots <b className="tnum">{t.shots}</b> <button onClick={() => update(x => G.addShot(x, team, -1))}>−</button></div>
+              <div className="sh">{o.labels.shots} <b className="tnum">{t.shots}</b> <button onClick={() => update(x => G.addShot(x, team, -1))}>−</button></div>
               {G.activePenalties(s, team).map(p => (
                 <div className="pen" key={p.id}>
                   <div>{p.player ? `#${p.player}` : 'PEN'}</div>
                   <span className="tnum">{G.fmtClock(G.penaltyRemaining(s, p), { tenths: false })}</span>
-                  <button onClick={() => update(x => G.removePenalty(x, p.id))}>✕</button>
+                  <button onClick={() => { if (ask('removePenalty', 'Remove this penalty?')) update(x => G.removePenalty(x, p.id)) }}>✕</button>
                 </div>
               ))}
             </div>
@@ -129,7 +143,7 @@ export default function Control() {
       </div>
 
       <div className="bottom">
-        <button className="btn" onClick={() => setSheet('settings')}>⚙ Settings</button>
+        <button className="btn" onClick={() => setSheet('options')}>⚙ Options</button>
         <a className="btn" href={boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>📺 Display</a>
         <button className="btn" onClick={() => setSheet('qr')}>QR</button>
       </div>
@@ -138,18 +152,18 @@ export default function Control() {
       {sheet === 'setclock' && <SetClockSheet s={s} update={update} close={() => setSheet(null)} />}
       {sheet?.startsWith('timeout-') && (
         <Sheet close={() => setSheet(null)}>
-          <h3>Timeout {sheet === 'timeout-30' ? '0:30' : '1:00'} — which team?</h3>
+          <h3>{o.labels.timeout} {G.fmtClock((sheet === 'timeout-1' ? o.timeout1Sec : o.timeout2Sec) * 1000, { tenths: false })} — which team?</h3>
           <div className="choices">
             {['home', 'away'].map(team => (
               <button key={team} className="btn" style={{ background: s[team].color, color: '#fff' }}
-                onClick={() => { update(x => G.startTimeout(x, team, sheet === 'timeout-30' ? 30 : 60)); setSheet(null) }}>{s[team].name}</button>
+                onClick={() => { update(x => G.startTimeout(x, team, sheet === 'timeout-1' ? o.timeout1Sec : o.timeout2Sec)); setSheet(null) }}>{s[team].name}</button>
             ))}
           </div>
           <button className="btn ghost" onClick={() => setSheet(null)}>Cancel</button>
         </Sheet>
       )}
-      {sheet === 'settings' && <SettingsSheet s={s} update={update} close={() => setSheet(null)} />}
-      {sheet === 'qr' && <QrSheet url={boardUrl} close={() => setSheet(null)} />}
+      {sheet === 'options' && <Options s={s} update={update} close={() => setSheet(null)} />}
+      {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} close={() => setSheet(null)} />}
     </div>
   )
 }
@@ -163,18 +177,19 @@ function Sheet({ children, close }) {
 }
 
 function PenaltySheet({ team, s, update, close }) {
+  const lens = s.opts.penaltyLengths?.length ? s.opts.penaltyLengths : [2, 5, 10]
   const [player, setPlayer] = useState('')
-  const [mins, setMins] = useState(2)
+  const [mins, setMins] = useState(lens[0])
   const add = () => { update(x => G.addPenalty(x, team, player, mins)); close() }
   return (
     <Sheet close={close}>
-      <h3 style={{ color: s[team].color }}>Penalty · {s[team].name}</h3>
-      <label>Player number
+      <h3 style={{ color: s[team].color }}>{s.opts.labels.penalty} · {s[team].name}</h3>
+      <label>{s.opts.labels.player}
         <input inputMode="numeric" autoFocus value={player} onChange={e => setPlayer(e.target.value)} placeholder="#" onKeyDown={e => e.key === 'Enter' && add()} />
       </label>
       <label>Length
-        <div className="choices">
-          {[2, 4, 5, 10].map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{m} min</button>)}
+        <div className="choices" style={{ flexWrap: 'wrap' }}>
+          {lens.map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{m} min</button>)}
         </div>
       </label>
       <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={add}>Add penalty</button><button className="btn ghost" onClick={close}>Cancel</button></div>
@@ -189,7 +204,7 @@ function SetClockSheet({ s, update, close }) {
   const apply = () => { update(x => G.setClock(x, (Number(m) || 0) * 60000 + (Number(sec) || 0) * 1000)); close() }
   return (
     <Sheet close={close}>
-      <h3>Set clock</h3>
+      <h3>Set clock {s.opts.clockDir === 'up' ? '(remaining time)' : ''}</h3>
       <div className="grid2">
         <label>Minutes<input inputMode="numeric" value={m} onChange={e => setM(e.target.value)} autoFocus /></label>
         <label>Seconds<input inputMode="numeric" value={sec} onChange={e => setSec(e.target.value)} /></label>
@@ -199,62 +214,17 @@ function SetClockSheet({ s, update, close }) {
   )
 }
 
-function SettingsSheet({ s, update, close }) {
-  const [home, setHome] = useState(s.home)
-  const [away, setAway] = useState(s.away)
-  const [periodMin, setPeriodMin] = useState(s.periodLengthMs / 60000)
-  const [skaters, setSkaters] = useState(s.skaters)
-  const [theme, setTheme] = useState(s.theme || 'dark')
-  const save = () => {
-    update(x => {
-      let n = G.setTeam(x, 'home', { name: home.name.trim() || 'HOME', color: home.color })
-      n = G.setTeam(n, 'away', { name: away.name.trim() || 'AWAY', color: away.color })
-      n = G.setSettings(n, { periodLengthMs: Math.max(1, Number(periodMin) || 15) * 60000, skaters: Number(skaters), theme })
-      return n
-    })
-    close()
-  }
-  return (
-    <Sheet close={close}>
-      <h3>Settings</h3>
-      <div className="grid2">
-        <label>Home team<input value={home.name} onChange={e => setHome({ ...home, name: e.target.value })} /></label>
-        <label>Color<input type="color" value={home.color} onChange={e => setHome({ ...home, color: e.target.value })} /></label>
-        <label>Away team<input value={away.name} onChange={e => setAway({ ...away, name: e.target.value })} /></label>
-        <label>Color<input type="color" value={away.color} onChange={e => setAway({ ...away, color: e.target.value })} /></label>
-        <label>Period length (min)<input inputMode="numeric" value={periodMin} onChange={e => setPeriodMin(e.target.value)} /></label>
-        <label>Skaters per side
-          <div className="choices">
-            {[3, 4, 5].map(n => <button key={n} className={`btn ${skaters === n ? 'on' : ''}`} onClick={() => setSkaters(n)}>{n}v{n}</button>)}
-          </div>
-        </label>
-      </div>
-      <label>Theme
-        <div className="choices" style={{ flexWrap: 'wrap' }}>
-          {THEMES.map(([id, label]) => <button key={id} className={`btn sm ${theme === id ? 'on' : ''}`} onClick={() => setTheme(id)}>{label}</button>)}
-        </div>
-      </label>
-      <div className="keys">
-        Keyboard: <kbd>Space</kbd> start/stop · <kbd>H</kbd>/<kbd>A</kbd> goal · <kbd>J</kbd>/<kbd>S</kbd> shot · <kbd>N</kbd> next period · <kbd>B</kbd> horn · <kbd>↑</kbd><kbd>↓</kbd> ±1s
-      </div>
-      <div className="row">
-        <button className="btn primary" style={{ flex: 1 }} onClick={save}>Save</button>
-        <button className="btn ghost" onClick={close}>Cancel</button>
-      </div>
-      <button className="btn danger sm" onClick={() => { if (confirm('Reset scores, clock and penalties for a new game?')) { update(G.resetGame); close() } }}>Reset game</button>
-    </Sheet>
-  )
-}
-
-function QrSheet({ url, close }) {
-  const src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=0&data=${encodeURIComponent(url)}`
+function QrSheet({ boardUrl, bannerUrl, close }) {
+  const src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=0&data=${encodeURIComponent(boardUrl)}`
   return (
     <Sheet close={close}>
       <h3>Share display</h3>
       <div className="qr">
         <img src={src} alt="QR code" />
-        <div className="url">{url}</div>
-        <button className="btn sm" onClick={() => navigator.clipboard?.writeText(url)}>Copy link</button>
+        <div className="url">{boardUrl}</div>
+        <button className="btn sm" onClick={() => navigator.clipboard?.writeText(boardUrl)}>Copy display link</button>
+        <div className="url" style={{ marginTop: 8 }}>OBS overlay: {bannerUrl}</div>
+        <button className="btn sm" onClick={() => navigator.clipboard?.writeText(bannerUrl)}>Copy banner link</button>
       </div>
       <button className="btn ghost" onClick={close}>Close</button>
     </Sheet>

@@ -6,6 +6,19 @@ Browser-based ice hockey scoreboard. Open the **display** on a TV, run the **con
 - `/board?g=CODE` — TV display (fullscreen it with F11)
 - `/control?g=CODE` — operator panel (phone or laptop)
 
+## Options (⚙ on the control page)
+
+Mirrors the PC Scoreboards options dialog:
+
+- **Game** — full/minimal layout, period length, number of periods, OT label, clock direction up/down, 3v3/4v4/5v5, timeout 1 & 2 durations, timeout warning time, goal indicator on/off + auto-off, custom penalty lengths
+- **Teams** — names, colors, logos (upload or URL)
+- **Keys** — rebind every keyboard shortcut (click, press key)
+- **Colors** — theme presets + per-element colors (background, clock, scores, period, shots, penalty player/time, goal)
+- **Sounds** — horn / buzzer / beep / none for: horn, buzzer, end of period, timeout start, timeout warning, timeout end
+- **Text** — rename every label (Thai etc.), font, 7-segment digit style
+- **Banner** — OBS overlay at `/banner?g=CODE`: choose fields, mirror, chroma-key color, banner/clock colors
+- **Other** — scoreboard title or banner image, top-left/right pictures, logo, confirm toggles, new game, reset options
+
 Features: game clock with tenths under 1:00 · periods 1/2/3/OT/SO · goals · shots on goal · penalties with player number and live countdown (2/4/5/10 min) · power-play strength badge (5v4, 4v3, …) · 3v3 / 4v4 / 5v5 mode · team names & colors · 4 themes (dark arena, light, LED classic, ice) · timeouts (0:30 / 1:00) · goal flash · horn (button + automatic at 0:00) · keyboard shortcuts · QR share.
 
 Keyboard (control page): `Space` start/stop · `H`/`A` goal · `J`/`S` shot · `N` next period · `B` horn · `↑`/`↓` ±1 s.
