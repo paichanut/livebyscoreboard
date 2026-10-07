@@ -257,3 +257,13 @@ input, select { font-family: inherit; }
 .opts .penlens .chip button { background: transparent; color: var(--muted); }
 .opts .hint { font-size: 12px; color: var(--dim); line-height: 1.5; }
 .board .team.flash .shots { visibility: hidden; }
+
+/* ---------- Home: my boards ---------- */
+.home .mine { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 480px; }
+.home .mineRow { display: flex; gap: 8px; align-items: center; background: var(--card); padding: 10px 12px; border-radius: 12px; }
+.home .mineRow code { flex: 1; text-align: left; font-size: 16px; letter-spacing: .1em; text-transform: uppercase; }
+.home .mineRow a { text-decoration: none; }
+.readonly { background: var(--card); border-radius: 16px; padding: 24px; text-align: center; color: var(--muted); line-height: 1.6; max-width: 440px; margin: 40px auto; }
+.readonly b { color: var(--text); }
+.readonly a { color: var(--go); }
+.board .viewonly { position: absolute; top: 1.5vh; right: 1.5vw; font-family: var(--font-ui); font-size: 1.1vw; letter-spacing: .15em; text-transform: uppercase; color: var(--dim); }

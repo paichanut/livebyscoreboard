@@ -16,8 +16,8 @@ function usePath() {
 
 export default function App() {
   const path = usePath()
-  if (path === '/board') return <Board />
-  if (path === '/control') return <Control />
-  if (path === '/banner') return <Banner />
+  if (path === '/board' || path.startsWith('/b/')) return <Board />
+  if (path === '/control' || path.startsWith('/c/')) return <Control />
+  if (path === '/banner' || path.startsWith('/o/')) return <Banner />
   return <Home />
 }

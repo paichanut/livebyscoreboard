@@ -6,12 +6,13 @@ import { useAppearance, useGameSounds, SoundToggle } from './useOptions.jsx'
 
 export default function Board() {
   const gameId = useGameId()
-  const [s] = useGame(gameId)
+  const [s, , access] = useGame(gameId)
   useAppearance(s)
   const [sound, setSound] = useState(false)
   useGameSounds(s, sound)
   useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
 
+  if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
 
   const o = s.opts

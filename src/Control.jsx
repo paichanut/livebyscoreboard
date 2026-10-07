@@ -1,14 +1,24 @@
 import React, { useEffect, useState } from 'react'
-import { useGame, useGameId, useTick } from './useGame.js'
+import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
-import { ONLINE } from './sync.js'
+import { ONLINE, randomKey, rememberKey, storedKey } from './sync.js'
 import { useAppearance } from './useOptions.jsx'
 import Options from './Options.jsx'
 
 export default function Control() {
   const gameId = useGameId()
-  const [s, update] = useGame(gameId)
+  // operator key: from URL ?k=, else remembered in this browser, else a fresh one (creates the game if it doesn't exist)
+  const [key] = useState(() => {
+    const k = useUrlKey() || storedKey(gameId) || randomKey()
+    rememberKey(gameId, k)
+    return k
+  })
+  const [s, update, access] = useGame(gameId, { key, canWrite: true })
   useAppearance(s)
+  useEffect(() => {
+    const u = new URL(window.location.href)
+    if (u.searchParams.get('k') !== key) { u.searchParams.set('k', key); window.history.replaceState(null, '', u) }
+  }, [key])
   useTick(100, Boolean(s?.clock.running || s?.timeout))
   const [sheet, setSheet] = useState(null)
 
@@ -58,6 +68,7 @@ export default function Control() {
     return () => window.removeEventListener('keydown', on)
   }, [sheet, s?.opts?.keys, s?.opts?.confirm])
 
+  if (access === 'locked') return <LockedScreen gameId={gameId} />
   if (!s) return <div className="loading">connecting…</div>
 
   const o = s.opts
@@ -65,8 +76,9 @@ export default function Control() {
   const running = s.clock.running
   const strength = G.strengthLabel(s)
   const origin = window.location.origin
-  const boardUrl = `${origin}/board?g=${encodeURIComponent(gameId)}`
-  const bannerUrl = `${origin}/banner?g=${encodeURIComponent(gameId)}`
+  const boardUrl = `${origin}/b/${encodeURIComponent(gameId)}`
+  const bannerUrl = `${origin}/o/${encodeURIComponent(gameId)}`
+  const controlUrl = `${origin}/c/${encodeURIComponent(gameId)}?k=${key}`
   const isNum = !['OT', 'SO'].includes(s.period)
 
   return (
@@ -163,7 +175,7 @@ export default function Control() {
         </Sheet>
       )}
       {sheet === 'options' && <Options s={s} update={update} close={() => setSheet(null)} />}
-      {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} close={() => setSheet(null)} />}
+      {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} />}
     </div>
   )
 }
@@ -214,19 +226,43 @@ function SetClockSheet({ s, update, close }) {
   )
 }
 
-function QrSheet({ boardUrl, bannerUrl, close }) {
+function QrSheet({ boardUrl, bannerUrl, controlUrl, close }) {
   const src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=0&data=${encodeURIComponent(boardUrl)}`
+  const share = () => navigator.share?.({ title: 'Live scoreboard', url: boardUrl }).catch(() => {})
   return (
     <Sheet close={close}>
-      <h3>Share display</h3>
+      <h3>Public link (read-only)</h3>
       <div className="qr">
         <img src={src} alt="QR code" />
         <div className="url">{boardUrl}</div>
-        <button className="btn sm" onClick={() => navigator.clipboard?.writeText(boardUrl)}>Copy display link</button>
+        <div className="row">
+          <button className="btn sm" onClick={() => navigator.clipboard?.writeText(boardUrl)}>Copy link</button>
+          {navigator.share && <button className="btn sm" onClick={share}>Share…</button>}
+        </div>
+        <div className="hint" style={{ textAlign: 'center' }}>Anyone with this link can watch. Nobody can change scores without your operator link.</div>
         <div className="url" style={{ marginTop: 8 }}>OBS overlay: {bannerUrl}</div>
         <button className="btn sm" onClick={() => navigator.clipboard?.writeText(bannerUrl)}>Copy banner link</button>
+        <div className="url" style={{ marginTop: 8 }}>Operator link (keep private)</div>
+        <button className="btn sm accent" onClick={() => navigator.clipboard?.writeText(controlUrl)}>Copy operator link</button>
       </div>
       <button className="btn ghost" onClick={close}>Close</button>
     </Sheet>
+  )
+}
+
+function LockedScreen({ gameId }) {
+  const [k, setK] = useState('')
+  const go = () => { if (k.trim()) { rememberKey(gameId, k.trim()); window.location.href = `/c/${gameId}?k=${encodeURIComponent(k.trim())}` } }
+  return (
+    <div className="home">
+      <h1>Locked</h1>
+      <p>Game <b>{gameId}</b> exists and this browser doesn't have its operator key. Paste the key from the operator link, or open the public display.</p>
+      <div className="code"><input value={k} onChange={e => setK(e.target.value)} placeholder="operator key" onKeyDown={e => e.key === 'Enter' && go()} /></div>
+      <div className="links">
+        <button className="btn primary" onClick={go}>Unlock</button>
+        <a className="btn" href={`/b/${gameId}`}>Open public display</a>
+        <a className="btn ghost" href="/">New game</a>
+      </div>
+    </div>
   )
 }

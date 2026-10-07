@@ -2,9 +2,17 @@
 
 Browser-based ice hockey scoreboard. Open the **display** on a TV, run the **control** from your phone, share the display link/QR with spectators.
 
-- `/` — pick a game code, open display or control
-- `/board?g=CODE` — TV display (fullscreen it with F11)
-- `/control?g=CODE` — operator panel (phone or laptop)
+## Links (like ScoreLeader's `/b/CODE`)
+
+| Link | Who | Can edit? |
+|---|---|---|
+| `/b/CODE` | public display — TV, spectators' phones, QR | no |
+| `/o/CODE` | OBS overlay / score banner | no |
+| `/c/CODE?k=KEY` | operator — keep this private | yes |
+
+Create a game on `/` (optionally pick your own code). You get the operator link; the QR/Share button shows all three.
+The key is remembered in the operator's browser, so reopening `/c/CODE` on the same phone still works.
+Writes go through a Supabase function that checks the key, so the public links are read-only even for someone who reads the source.
 
 ## Options (⚙ on the control page)
 
