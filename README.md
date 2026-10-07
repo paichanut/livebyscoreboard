@@ -1,0 +1,58 @@
+# Rinkboard
+
+Browser-based ice hockey scoreboard. Open the **display** on a TV, run the **control** from your phone, share the display link/QR with spectators.
+
+- `/` — pick a game code, open display or control
+- `/board?g=CODE` — TV display (fullscreen it with F11)
+- `/control?g=CODE` — operator panel (phone or laptop)
+
+Features: game clock with tenths under 1:00 · periods 1/2/3/OT/SO · goals · shots on goal · penalties with player number and live countdown (2/4/5/10 min) · power-play strength badge (5v4, 4v3, …) · 3v3 / 4v4 / 5v5 mode · team names & colors · 4 themes (dark arena, light, LED classic, ice) · timeouts (0:30 / 1:00) · goal flash · horn (button + automatic at 0:00) · keyboard shortcuts · QR share.
+
+Keyboard (control page): `Space` start/stop · `H`/`A` goal · `J`/`S` shot · `N` next period · `B` horn · `↑`/`↓` ±1 s.
+
+## Deploy to Vercel (5 minutes)
+
+1. Push this folder to a GitHub repo.
+2. [vercel.com/new](https://vercel.com/new) → import the repo. Framework: **Vite** (auto-detected). Deploy.
+3. You get `https://<project>.vercel.app`. Rename the project in Settings → General if the name is taken.
+
+At this point it works in **local mode**: display and control must be in the same browser (e.g. a laptop plugged into the TV, with the control tab open). For phone → TV sync, add Supabase:
+
+## Live sync with Supabase (free)
+
+1. [supabase.com](https://supabase.com) → New project (free tier).
+2. SQL Editor → paste `supabase.sql` → Run.
+3. Project Settings → API → copy **Project URL** and **anon public** key.
+4. Vercel → Project → Settings → Environment Variables:
+   - `VITE_SUPABASE_URL` = project URL
+   - `VITE_SUPABASE_ANON_KEY` = anon key
+5. Deployments → Redeploy. The home page now says "live sync on".
+
+Anyone with the anon key can edit any game — fine for a rink; if you ever need to lock it down, add a secret to the game code (e.g. `?g=3on3-x7k2`) or tighten the RLS policies.
+
+## Run locally
+
+```bash
+npm install
+cp .env.example .env   # optional: add Supabase keys
+npm run dev
+```
+
+## Use it at the rink
+
+- TV/laptop: open `/board?g=yourcode`, press F11, tap **"tap to enable horn"** once (browsers need a tap before playing sound).
+- Phone: open `/control?g=yourcode`. Settings → team names, colors, period length, 3v3/5v5, theme.
+- QR button on the control page shows a QR for spectators to follow on their phones.
+- OBS / stream overlay: add `/board?g=yourcode` as a Browser Source (1920×1080).
+
+## Project layout
+
+```
+src/game.js      pure game logic (clock, penalties, strength) — no React
+src/sync.js      Supabase realtime or localStorage+BroadcastChannel fallback
+src/useGame.js   React hook binding the store
+src/Board.jsx    TV display
+src/Control.jsx  operator panel + sheets (penalty, set clock, settings, QR)
+src/styles.css   layout + themes
+supabase.sql     table + policies + realtime
+```
