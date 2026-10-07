@@ -21,6 +21,7 @@ export default function Home() {
       <div className="links">
         <button className="btn primary" onClick={newGame}>Create new game</button>
         {g && <a className="btn" href={`/b/${g}`}>View display for "{g}"</a>}
+        <a className="btn ghost" href="/live">Live games</a>
       </div>
       <div className="mode">{ONLINE ? 'live sync on' : 'local mode — set Supabase keys for cross-device sync'}</div>
     </div>

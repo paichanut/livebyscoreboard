@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { DEFAULT_KEYS, KEY_LABELS, SOUND_CHOICES, FONT_CHOICES, COLOR_FIELDS, defaultOptions, keyName } from './options.js'
 import { unlockAudio, playSound } from './horn.js'
 import * as G from './game.js'
+import { LANGS, translator } from './i18n.js'
 
 const TABS = ['Game', 'Teams', 'Keys', 'Colors', 'Sounds', 'Text', 'Banner', 'Other']
 
@@ -37,9 +38,11 @@ export default function Options({ s, update, close }) {
   }
 
   const P = { o, set, get }
+  const t = translator(o.uiLang)
+  const tabName = name => t('tabs')[name] || name
   return (
     <div className="opts">
-      <div className="tabs">{TABS.map(t => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>)}</div>
+      <div className="tabs">{TABS.map(name => <button key={name} className={tab === name ? 'on' : ''} data-tab={name} onClick={() => setTab(name)}>{tabName(name)}</button>)}</div>
       <div className="body">
         {tab === 'Game' && <GameTab {...P} periodMin={periodMin} setPeriodMin={setPeriodMin} skaters={skaters} setSkaters={setSkaters} />}
         {tab === 'Teams' && <TeamsTab {...P} home={home} setHome={setHome} away={away} setAway={setAway} />}
@@ -51,8 +54,8 @@ export default function Options({ s, update, close }) {
         {tab === 'Other' && <OtherTab {...P} update={update} close={close} resetAll={() => setO(defaultOptions())} />}
       </div>
       <div className="foot">
-        <button className="btn primary" onClick={save}>Save</button>
-        <button className="btn ghost" onClick={close}>Cancel</button>
+        <button className="btn primary" onClick={save}>{t('save')}</button>
+        <button className="btn ghost" onClick={close}>{t('cancel')}</button>
       </div>
     </div>
   )
@@ -220,8 +223,13 @@ function SoundsTab({ o, set }) {
 
 function TextTab({ o, set }) {
   const FIELDS = [['period', 'Period'], ['shots', 'Shots on goal'], ['player', 'Penalty player'], ['penalty', 'Penalty'], ['goal', 'Goal indicator'], ['timeout', 'Timeout'], ['pp', 'Power play']]
+  const t = translator(o.uiLang)
   return (
     <>
+      <h4>{t('language')}</h4>
+      <Row label={t('language')}>
+        <select value={o.uiLang || 'en'} onChange={e => set('uiLang', e.target.value)} style={{ width: 160 }}>{LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+      </Row>
       <h4>Text</h4>
       <div className="hint">Rename any label — e.g. Thai: ช่วงที่ / ยิง / โทษ / ประตู!</div>
       {FIELDS.map(([k, l]) => <Row key={k} label={l}><input type="text" value={o.labels[k]} onChange={e => set(`labels.${k}`, e.target.value)} style={{ width: 160 }} /></Row>)}

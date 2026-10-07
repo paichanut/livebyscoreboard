@@ -147,3 +147,88 @@ test('withDefaults deep-merges new options into an old saved game', () => {
   assert.equal(s.opts.periods, 3)
   assert.deepEqual(s.opts.penaltyLengths, [2, 5, 10])
 })
+
+// ---- game log, shootout, summary ----
+
+test('goals and penalties are logged with period and clock; undo removes the last goal', () => {
+  let s = { ...game(), clock: { remainingMs: 12 * MIN, running: false, since: null } }
+  s = G.addScore(s, 'home', 1)
+  s = G.addPenalty(s, 'away', '12', 2)
+  s = G.setPeriod(s, '2')
+  s = G.addScore(s, 'away', 1)
+  assert.deepEqual(s.events.map(e => [e.type, e.team, e.period, e.clockMs]), [
+    ['goal', 'home', '1', 12 * MIN], ['penalty', 'away', '1', 12 * MIN], ['goal', 'away', '2', 15 * MIN],
+  ])
+  s = G.addScore(s, 'away', -1)
+  assert.equal(s.away.score, 0)
+  assert.equal(s.events.filter(e => e.type === 'goal').length, 1, 'the mistaken goal left the log')
+  s = G.addScore(s, 'away', -1)
+  assert.equal(s.events.length, 2, 'nothing to undo at 0')
+})
+
+test('removing a penalty that never ran drops it from the log; one that ran stays', () => {
+  let s = game()
+  s = G.addPenalty(s, 'home', '4', 2)
+  s = G.removePenalty(s, s.penalties[0].id)
+  assert.equal(s.events.length, 0)
+  s = G.addPenalty(s, 'home', '5', 2)
+  const id = s.penalties[0].id
+  s = { ...s, clock: { remainingMs: 15 * MIN, running: true, since: Date.now() - 30_000 } } // 30 s served
+  s = G.removePenalty(s, id)
+  assert.equal(s.events.length, 1, 'early release stays in the log')
+})
+
+test('shootout attempts, undo, clear', () => {
+  let s = G.setPeriod(game(), 'SO')
+  s = G.soAttempt(s, 'home', true)
+  s = G.soAttempt(s, 'home', false)
+  s = G.soAttempt(s, 'away', true)
+  assert.deepEqual(s.shootout, { home: ['goal', 'miss'], away: ['goal'] })
+  assert.equal(G.soGoals(s, 'home'), 1)
+  assert.equal(s.home.score, 0, 'shootout does not change the score by itself')
+  s = G.soUndo(s, 'home')
+  assert.deepEqual(s.shootout.home, ['goal'])
+  assert.equal(s.events.filter(e => e.type === 'so').length, 2)
+  const emptied = G.soUndo(s, 'away')
+  assert.equal(G.soUndo(emptied, 'away'), emptied, 'undo on empty is a no-op')
+  s = G.soClear(s)
+  assert.deepEqual(s.shootout, { home: [], away: [] })
+  assert.equal(s.events.filter(e => e.type === 'so').length, 0)
+  assert.deepEqual(G.resetGame(G.soAttempt(s, 'home', true)).shootout, { home: [], away: [] })
+})
+
+test('summary text and CSV', () => {
+  let s = G.setTeam(G.setTeam(game(), 'home', { name: 'Bears' }), 'away', { name: 'Sharks' })
+  s = { ...s, clock: { remainingMs: 10 * MIN + 30_000, running: false, since: null } }
+  s = G.addScore(s, 'home', 1)
+  s = G.addPenalty(s, 'away', '12', 2)
+  s = G.setPeriod(s, 'OT')
+  s = { ...s, clock: { remainingMs: 4 * MIN, running: false, since: null } }
+  s = G.addScore(s, 'away', 1)
+  s = G.addShot(G.addShot(s, 'home', 1), 'away', 1)
+  const text = G.summaryText(s)
+  assert.match(text, /^Bears 1 - 1 Sharks\n/)
+  assert.match(text, /SHOTS: Bears 1 - 1 Sharks/)
+  assert.match(text, /PERIOD 1\n  10:30  GOAL  Bears \(1-0\)\n  10:30  PENALTY  Sharks #12 2 min/)
+  assert.match(text, /\nOT\n  4:00  GOAL  Sharks \(1-1\)/)
+  // count-up clock shows elapsed time
+  const up = { ...s, opts: { ...s.opts, clockDir: 'up' } }
+  assert.match(G.summaryText(up), /4:30  GOAL  Bears/)
+  const csv = G.summaryCsv(s).split('\n')
+  assert.equal(csv[0], 'period,time,event,team,player,minutes,detail,home,away')
+  assert.equal(csv[1], '1,10:30,goal,Bears,,,,1,0')
+  assert.equal(csv[2], '1,10:30,penalty,Sharks,12,2,#12 2 min,1,0')
+  assert.equal(csv[3], 'OT,4:00,goal,Sharks,,,,1,1')
+  // quoting
+  const q = G.setTeam(game(), 'home', { name: 'A, "B"' })
+  assert.match(G.summaryCsv(G.addScore(q, 'home', 1)), /"A, ""B"""/)
+})
+
+test('withDefaults adds events and shootout to games saved before they existed', () => {
+  const old = { ...game() }
+  delete old.events; delete old.shootout
+  const s = withDefaults(old)
+  assert.deepEqual(s.events, [])
+  assert.deepEqual(s.shootout, { home: [], away: [] })
+  assert.equal(s.opts.uiLang, 'en')
+})

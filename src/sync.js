@@ -143,3 +143,48 @@ function localStore(gameId) {
     destroy() { bc?.close(); window.removeEventListener('storage', onStorage) },
   }
 }
+
+// ---------- List of games (tournament / live page) ----------
+// rows: [{ id, state, updatedAt }] newest first. Online: public select on `games` + realtime on the whole table.
+// Local: every rinkboard:* game in this browser's localStorage.
+export function createGamesList() {
+  const listeners = new Set()
+  let rows = []
+  const emit = () => listeners.forEach(fn => fn(rows))
+  const api = {
+    subscribe(fn) { listeners.add(fn); fn(rows); return () => listeners.delete(fn) },
+    destroy() {},
+  }
+  if (ONLINE) {
+    const toRow = r => ({ id: r.id, state: r.state, updatedAt: new Date(r.updated_at).getTime() })
+    supabase.from('games').select('id,state,updated_at').order('updated_at', { ascending: false }).limit(100)
+      .then(({ data, error }) => { if (error) console.error('list failed', error); rows = (data || []).map(toRow); emit() })
+    const channel = supabase
+      .channel('games:list')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, payload => {
+        if (payload.eventType === 'DELETE') rows = rows.filter(r => r.id !== payload.old?.id)
+        else if (payload.new?.state) { const r = toRow(payload.new); rows = [r, ...rows.filter(x => x.id !== r.id)] }
+        emit()
+      })
+      .subscribe()
+    api.destroy = () => supabase.removeChannel(channel)
+    return api
+  }
+  const scan = () => {
+    const out = []
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (!k.startsWith('rinkboard:') || k.startsWith('rinkboard:key:')) continue
+        const st = JSON.parse(localStorage.getItem(k))
+        if (st?.home && st?.clock) out.push({ id: k.slice('rinkboard:'.length), state: st, updatedAt: st.updatedAt || 0 })
+      }
+    } catch {}
+    rows = out.sort((a, b) => b.updatedAt - a.updatedAt)
+    emit()
+  }
+  window.addEventListener('storage', scan)
+  scan()
+  api.destroy = () => window.removeEventListener('storage', scan)
+  return api
+}

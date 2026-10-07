@@ -3,6 +3,7 @@ import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
 import { ONLINE, randomKey, rememberKey, storedKey } from './sync.js'
 import { useAppearance } from './useOptions.jsx'
+import { translator } from './i18n.js'
 import Options from './Options.jsx'
 
 export default function Control() {
@@ -21,6 +22,7 @@ export default function Control() {
   }, [key])
   useTick(100, Boolean(s?.clock.running || s?.timeout))
   const [sheet, setSheet] = useState(null)
+  const t = translator(s?.opts?.uiLang)
 
   const ask = (key, msg) => !s.opts.confirm[key] || confirm(msg)
 
@@ -54,22 +56,22 @@ export default function Control() {
         homeShot: x => G.addShot(x, 'home', 1), homeShotMinus: x => G.addShot(x, 'home', -1),
         awayGoal: x => G.addScore(x, 'away', 1), awayGoalMinus: x => G.addScore(x, 'away', -1),
         awayShot: x => G.addShot(x, 'away', 1), awayShotMinus: x => G.addShot(x, 'away', -1),
-        periodPlus: x => (ask('period', 'Next period? Clock will reset.') ? G.nextPeriod(x) : x),
-        periodMinus: x => (ask('period', 'Previous period? Clock will reset.') ? G.prevPeriod(x) : x),
+        periodPlus: x => (ask('period', t('confirmNext')) ? G.nextPeriod(x) : x),
+        periodMinus: x => (ask('period', t('confirmPrev')) ? G.prevPeriod(x) : x),
         clockPlus: x => G.adjustClock(x, 1000), clockMinus: x => G.adjustClock(x, -1000),
         horn: G.fireHorn, buzzer: G.fireBuzzer,
         timeout1: () => { setSheet('timeout-1'); return null }, timeout2: () => { setSheet('timeout-2'); return null },
-        newGame: x => (ask('newGame', 'Start a new game? Scores and clock reset.') ? G.resetGame(x) : x),
+        newGame: x => (ask('newGame', t('confirmNewGame')) ? G.resetGame(x) : x),
       }
       const fn = map[act]
       if (fn) update(x => fn(x) ?? x)
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [sheet, s?.opts?.keys, s?.opts?.confirm])
+  }, [sheet, s?.opts?.keys, s?.opts?.confirm, s?.opts?.uiLang])
 
-  if (access === 'locked') return <LockedScreen gameId={gameId} />
-  if (!s) return <div className="loading">connecting…</div>
+  if (access === 'locked') return <LockedScreen gameId={gameId} t={t} />
+  if (!s) return <div className="loading">{t('connecting')}</div>
 
   const o = s.opts
   const remaining = G.clockRemaining(s)
@@ -80,73 +82,86 @@ export default function Control() {
   const bannerUrl = `${origin}/o/${encodeURIComponent(gameId)}`
   const controlUrl = `${origin}/c/${encodeURIComponent(gameId)}?k=${key}`
   const isNum = !['OT', 'SO'].includes(s.period)
+  const isSO = s.period === 'SO'
 
   return (
     <div className="control">
       <div className="top">
-        <span>game · {gameId}</span>
-        <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? '● live' : '● local only'}</span>
+        <span>{t('game')} · {gameId}</span>
+        <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}</span>
       </div>
 
       <div className="card clockcard">
         <div className="p">
           <span>{isNum ? <>{o.labels.period} <b>{G.periodLabel(s)}</b></> : <b>{G.periodLabel(s)}</b>}</span>
           {strength && <span className="st">{strength}</span>}
-          {o.clockDir === 'up' && <span style={{ fontSize: 12 }}>▲ up</span>}
+          {o.clockDir === 'up' && <span style={{ fontSize: 12 }}>{t('up')}</span>}
         </div>
         <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s))}</div>
         <div className="row">
           <button className={`btn big ${running ? 'danger' : 'primary'}`} onClick={() => update(G.toggleClock)} disabled={!running && remaining <= 0}>
-            {running ? 'STOP' : 'START'}
+            {running ? t('stop') : t('start')}
           </button>
         </div>
         <div className="row">
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, -60000))}>−1:00</button>
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, -1000))}>−0:01</button>
-          <button className="btn sm accent" onClick={() => setSheet('setclock')}>SET</button>
+          <button className="btn sm accent" onClick={() => setSheet('setclock')}>{t('set')}</button>
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, 1000))}>+0:01</button>
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, 60000))}>+1:00</button>
         </div>
         <div className="row">
-          <button className="btn sm" onClick={() => { if (ask('period', 'Previous period? Clock will reset.')) update(G.prevPeriod) }}>◀ Period</button>
-          <button className="btn sm" onClick={() => { if (ask('period', 'Reset period clock?')) update(G.resetClock) }}>Reset</button>
-          <button className="btn sm" onClick={() => { if (ask('period', 'Next period? Clock will reset.')) update(G.nextPeriod) }}>Period ▶</button>
+          <button className="btn sm" onClick={() => { if (ask('period', t('confirmPrev'))) update(G.prevPeriod) }}>{t('periodPrev')}</button>
+          <button className="btn sm" onClick={() => { if (ask('period', t('confirmResetClock'))) update(G.resetClock) }}>{t('reset')}</button>
+          <button className="btn sm" onClick={() => { if (ask('period', t('confirmNext'))) update(G.nextPeriod) }}>{t('periodNext')}</button>
         </div>
         <div className="row">
-          <button className="btn sm" onClick={() => update(G.fireHorn)}>📯 Horn</button>
-          <button className="btn sm" onClick={() => update(G.fireBuzzer)}>🔔 Buzzer</button>
+          <button className="btn sm" onClick={() => update(G.fireHorn)}>{t('horn')}</button>
+          <button className="btn sm" onClick={() => update(G.fireBuzzer)}>{t('buzzer')}</button>
           {s.timeout && G.timeoutRemaining(s) > 0 ? (
             <button className="btn sm accent" onClick={() => update(G.clearTimeout_)} style={{ flex: 2 }}>
-              {o.labels.timeout} {s[s.timeout.team].name} · {G.fmtClock(G.timeoutRemaining(s))} — end
+              {o.labels.timeout} {s[s.timeout.team].name} · {G.fmtClock(G.timeoutRemaining(s))} — {t('end')}
             </button>
           ) : (
             <>
-              <button className="btn sm" onClick={() => setSheet('timeout-1')}>T/O {G.fmtClock(o.timeout1Sec * 1000, { tenths: false })}</button>
-              <button className="btn sm" onClick={() => setSheet('timeout-2')}>T/O {G.fmtClock(o.timeout2Sec * 1000, { tenths: false })}</button>
+              <button className="btn sm" onClick={() => setSheet('timeout-1')}>{t('to')} {G.fmtClock(o.timeout1Sec * 1000, { tenths: false })}</button>
+              <button className="btn sm" onClick={() => setSheet('timeout-2')}>{t('to')} {G.fmtClock(o.timeout2Sec * 1000, { tenths: false })}</button>
             </>
           )}
         </div>
+        {isSO && <div className="hint sohint">{t('soHint')}</div>}
       </div>
 
       <div className="teams">
         {['home', 'away'].map(team => {
-          const t = s[team]
+          const tm = s[team]
+          const so = s.shootout?.[team] || []
           return (
-            <div className="tc" key={team} style={{ '--c': t.color }}>
-              <div className="n">{t.name}</div>
-              <div className="s tnum">{t.score}</div>
-              <button className="goal" onClick={() => update(x => G.addScore(x, team, 1))}>+ GOAL</button>
+            <div className="tc" key={team} style={{ '--c': tm.color }}>
+              <div className="n">{tm.name}</div>
+              <div className="s tnum">{tm.score}</div>
+              <button className="goal" onClick={() => update(x => G.addScore(x, team, 1))}>{t('goal')}</button>
+              {isSO && (
+                <div className="so">
+                  <div className="marks" aria-label={`shootout ${team}`}>{so.length ? so.map((a, i) => <span key={i} className={`so-${a}`}>{a === 'goal' ? '●' : '○'}</span>) : <span className="none">—</span>}</div>
+                  <div className="mini">
+                    <button className="btn on" onClick={() => update(x => G.soAttempt(x, team, true))}>{t('soGoal')}</button>
+                    <button className="btn" onClick={() => update(x => G.soAttempt(x, team, false))}>{t('soMiss')}</button>
+                    <button className="btn" onClick={() => update(x => G.soUndo(x, team))} disabled={!so.length}>↶</button>
+                  </div>
+                </div>
+              )}
               <div className="mini">
-                <button className="btn" onClick={() => update(x => G.addScore(x, team, -1))}>−1</button>
-                <button className="btn" onClick={() => update(x => G.addShot(x, team, 1))}>Shot +</button>
-                <button className="btn" onClick={() => setSheet(`pen-${team}`)}>Penalty</button>
+                <button className="btn" onClick={() => update(x => G.addScore(x, team, -1))}>{t('minus1')}</button>
+                <button className="btn" onClick={() => update(x => G.addShot(x, team, 1))}>{t('shotPlus')}</button>
+                <button className="btn" onClick={() => setSheet(`pen-${team}`)}>{t('penalty')}</button>
               </div>
-              <div className="sh">{o.labels.shots} <b className="tnum">{t.shots}</b> <button onClick={() => update(x => G.addShot(x, team, -1))}>−</button></div>
+              <div className="sh">{o.labels.shots} <b className="tnum">{tm.shots}</b> <button onClick={() => update(x => G.addShot(x, team, -1))}>−</button></div>
               {G.activePenalties(s, team).map(p => (
                 <div className="pen" key={p.id}>
-                  <div>{p.player ? `#${p.player}` : 'PEN'}</div>
+                  <div>{p.player ? `#${p.player}` : t('pen')}</div>
                   <span className="tnum">{G.fmtClock(G.penaltyRemaining(s, p), { tenths: false })}</span>
-                  <button onClick={() => { if (ask('removePenalty', 'Remove this penalty?')) update(x => G.removePenalty(x, p.id)) }}>✕</button>
+                  <button onClick={() => { if (ask('removePenalty', t('confirmRemovePenalty'))) update(x => G.removePenalty(x, p.id)) }}>✕</button>
                 </div>
               ))}
             </div>
@@ -155,27 +170,29 @@ export default function Control() {
       </div>
 
       <div className="bottom">
-        <button className="btn" onClick={() => setSheet('options')}>⚙ Options</button>
-        <a className="btn" href={boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>📺 Display</a>
-        <button className="btn" onClick={() => setSheet('qr')}>QR</button>
+        <button className="btn" onClick={() => setSheet('options')}>{t('options')}</button>
+        <a className="btn" href={boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>
+        <button className="btn" onClick={() => setSheet('summary')}>{t('summary')}</button>
+        <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>
       </div>
 
-      {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={s} update={update} close={() => setSheet(null)} />}
-      {sheet === 'setclock' && <SetClockSheet s={s} update={update} close={() => setSheet(null)} />}
+      {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={s} update={update} close={() => setSheet(null)} t={t} />}
+      {sheet === 'setclock' && <SetClockSheet s={s} update={update} close={() => setSheet(null)} t={t} />}
       {sheet?.startsWith('timeout-') && (
         <Sheet close={() => setSheet(null)}>
-          <h3>{o.labels.timeout} {G.fmtClock((sheet === 'timeout-1' ? o.timeout1Sec : o.timeout2Sec) * 1000, { tenths: false })} — which team?</h3>
+          <h3>{o.labels.timeout} {G.fmtClock((sheet === 'timeout-1' ? o.timeout1Sec : o.timeout2Sec) * 1000, { tenths: false })} {t('whichTeam')}</h3>
           <div className="choices">
             {['home', 'away'].map(team => (
               <button key={team} className="btn" style={{ background: s[team].color, color: '#fff' }}
                 onClick={() => { update(x => G.startTimeout(x, team, sheet === 'timeout-1' ? o.timeout1Sec : o.timeout2Sec)); setSheet(null) }}>{s[team].name}</button>
             ))}
           </div>
-          <button className="btn ghost" onClick={() => setSheet(null)}>Cancel</button>
+          <button className="btn ghost" onClick={() => setSheet(null)}>{t('cancel')}</button>
         </Sheet>
       )}
       {sheet === 'options' && <Options s={s} update={update} close={() => setSheet(null)} />}
-      {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} />}
+      {sheet === 'summary' && <SummarySheet s={s} gameId={gameId} close={() => setSheet(null)} t={t} />}
+      {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} t={t} />}
     </div>
   )
 }
@@ -188,7 +205,7 @@ function Sheet({ children, close }) {
   )
 }
 
-function PenaltySheet({ team, s, update, close }) {
+function PenaltySheet({ team, s, update, close, t }) {
   const lens = s.opts.penaltyLengths?.length ? s.opts.penaltyLengths : [2, 5, 10]
   const [player, setPlayer] = useState('')
   const [mins, setMins] = useState(lens[0])
@@ -199,69 +216,95 @@ function PenaltySheet({ team, s, update, close }) {
       <label>{s.opts.labels.player}
         <input inputMode="numeric" autoFocus value={player} onChange={e => setPlayer(e.target.value)} placeholder="#" onKeyDown={e => e.key === 'Enter' && add()} />
       </label>
-      <div className="field">Length
+      {/* a <div>, not a <label>: label text would "click" the first button */}
+      <div className="field">{t('length')}
         <div className="choices" style={{ flexWrap: 'wrap' }}>
-          {lens.map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{m} min</button>)}
+          {lens.map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{m} {t('min')}</button>)}
         </div>
       </div>
-      <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={add}>Add penalty</button><button className="btn ghost" onClick={close}>Cancel</button></div>
+      <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={add}>{t('addPenalty')}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
     </Sheet>
   )
 }
 
-function SetClockSheet({ s, update, close }) {
+function SetClockSheet({ s, update, close, t }) {
   const rem = G.clockRemaining(s)
   const [m, setM] = useState(Math.floor(rem / 60000))
   const [sec, setSec] = useState(Math.floor((rem % 60000) / 1000))
   const apply = () => { update(x => G.setClock(x, (Number(m) || 0) * 60000 + (Number(sec) || 0) * 1000)); close() }
   return (
     <Sheet close={close}>
-      <h3>Set clock {s.opts.clockDir === 'up' ? '(remaining time)' : ''}</h3>
+      <h3>{t('setClock')} {s.opts.clockDir === 'up' ? t('remainingTime') : ''}</h3>
       <div className="grid2">
-        <label>Minutes<input inputMode="numeric" value={m} onChange={e => setM(e.target.value)} autoFocus /></label>
-        <label>Seconds<input inputMode="numeric" value={sec} onChange={e => setSec(e.target.value)} /></label>
+        <label>{t('minutes')}<input inputMode="numeric" value={m} onChange={e => setM(e.target.value)} autoFocus /></label>
+        <label>{t('seconds')}<input inputMode="numeric" value={sec} onChange={e => setSec(e.target.value)} /></label>
       </div>
-      <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={apply}>Set</button><button className="btn ghost" onClick={close}>Cancel</button></div>
+      <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={apply}>{t('setBtn')}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
     </Sheet>
   )
 }
 
-function QrSheet({ boardUrl, bannerUrl, controlUrl, close }) {
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }))
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function SummarySheet({ s, gameId, close, t }) {
+  const text = G.summaryText(s)
+  const [copied, setCopied] = useState(false)
+  const stamp = new Date().toISOString().slice(0, 10)
+  const base = `${gameId}-${stamp}`
+  return (
+    <Sheet close={close}>
+      <h3>{t('summaryTitle')}</h3>
+      <pre className="summary">{text}</pre>
+      <div className="row">
+        <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>{copied ? t('copied') : t('copy')}</button>
+        <button className="btn sm" onClick={() => download(`${base}.txt`, text, 'text/plain')}>{t('downloadTxt')}</button>
+        <button className="btn sm" onClick={() => download(`${base}.csv`, G.summaryCsv(s), 'text/csv')}>{t('downloadCsv')}</button>
+      </div>
+      <button className="btn ghost" onClick={close}>{t('close')}</button>
+    </Sheet>
+  )
+}
+
+function QrSheet({ boardUrl, bannerUrl, controlUrl, close, t }) {
   const src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=0&data=${encodeURIComponent(boardUrl)}`
   const share = () => navigator.share?.({ title: 'Live scoreboard', url: boardUrl }).catch(() => {})
   return (
     <Sheet close={close}>
-      <h3>Public link (read-only)</h3>
+      <h3>{t('publicLink')}</h3>
       <div className="qr">
         <img src={src} alt="QR code" />
         <div className="url">{boardUrl}</div>
         <div className="row">
-          <button className="btn sm" onClick={() => navigator.clipboard?.writeText(boardUrl)}>Copy link</button>
-          {navigator.share && <button className="btn sm" onClick={share}>Share…</button>}
+          <button className="btn sm" onClick={() => navigator.clipboard?.writeText(boardUrl)}>{t('copyLink')}</button>
+          {navigator.share && <button className="btn sm" onClick={share}>{t('share')}</button>}
         </div>
-        <div className="hint" style={{ textAlign: 'center' }}>Anyone with this link can watch. Nobody can change scores without your operator link.</div>
-        <div className="url" style={{ marginTop: 8 }}>OBS overlay: {bannerUrl}</div>
-        <button className="btn sm" onClick={() => navigator.clipboard?.writeText(bannerUrl)}>Copy banner link</button>
-        <div className="url" style={{ marginTop: 8 }}>Operator link (keep private)</div>
-        <button className="btn sm accent" onClick={() => navigator.clipboard?.writeText(controlUrl)}>Copy operator link</button>
+        <div className="hint" style={{ textAlign: 'center' }}>{t('publicHint')}</div>
+        <div className="url" style={{ marginTop: 8 }}>{t('obsOverlay')} {bannerUrl}</div>
+        <button className="btn sm" onClick={() => navigator.clipboard?.writeText(bannerUrl)}>{t('copyBanner')}</button>
+        <div className="url" style={{ marginTop: 8 }}>{t('operatorLink')}</div>
+        <button className="btn sm accent" onClick={() => navigator.clipboard?.writeText(controlUrl)}>{t('copyOperator')}</button>
       </div>
-      <button className="btn ghost" onClick={close}>Close</button>
+      <button className="btn ghost" onClick={close}>{t('close')}</button>
     </Sheet>
   )
 }
 
-function LockedScreen({ gameId }) {
+function LockedScreen({ gameId, t }) {
   const [k, setK] = useState('')
   const go = () => { if (k.trim()) { rememberKey(gameId, k.trim()); window.location.href = `/c/${gameId}?k=${encodeURIComponent(k.trim())}` } }
   return (
     <div className="home">
-      <h1>Locked</h1>
-      <p>Game <b>{gameId}</b> exists and this browser doesn't have its operator key. Paste the key from the operator link, or open the public display.</p>
-      <div className="code"><input value={k} onChange={e => setK(e.target.value)} placeholder="operator key" onKeyDown={e => e.key === 'Enter' && go()} /></div>
+      <h1>{t('lockedTitle')}</h1>
+      <p>{t('lockedText', { id: gameId })}</p>
+      <div className="code"><input value={k} onChange={e => setK(e.target.value)} placeholder={t('keyPlaceholder')} onKeyDown={e => e.key === 'Enter' && go()} /></div>
       <div className="links">
-        <button className="btn primary" onClick={go}>Unlock</button>
-        <a className="btn" href={`/b/${gameId}`}>Open public display</a>
-        <a className="btn ghost" href="/">New game</a>
+        <button className="btn primary" onClick={go}>{t('unlock')}</button>
+        <a className="btn" href={`/b/${gameId}`}>{t('openDisplay')}</a>
+        <a className="btn ghost" href="/">{t('newGame')}</a>
       </div>
     </div>
   )

@@ -9,6 +9,7 @@ Browser-based ice hockey scoreboard. Open the **display** on a TV, run the **con
 | `/b/CODE` | public display — TV, spectators' phones, QR | no |
 | `/o/CODE` | OBS overlay / score banner | no |
 | `/c/CODE?k=KEY` | operator — keep this private | yes |
+| `/live` | tournament page: all games, running ones first | no |
 
 Create a game on `/` (optionally pick your own code). You get the operator link; the QR/Share button shows all three.
 The key is remembered in the operator's browser, so reopening `/c/CODE` on the same phone still works.
@@ -23,11 +24,13 @@ Mirrors the PC Scoreboards options dialog:
 - **Keys** — rebind every keyboard shortcut (click, press key)
 - **Colors** — theme presets + per-element colors (background, clock, scores, period, shots, penalty player/time, goal)
 - **Sounds** — horn / buzzer / beep / none for: horn, buzzer, end of period, timeout start, timeout warning, timeout end
-- **Text** — rename every label (Thai etc.), font, 7-segment digit style
+- **Text** — control page language (English / ไทย), rename every display label (Thai etc.), font, 7-segment digit style
 - **Banner** — OBS overlay at `/banner?g=CODE`: choose fields, mirror, chroma-key color, banner/clock colors
 - **Other** — scoreboard title or banner image, top-left/right pictures, logo, confirm toggles, new game, reset options
 
-Features: game clock with tenths under 1:00 · periods 1/2/3/OT/SO · goals · shots on goal · penalties with player number and live countdown (2/4/5/10 min) · power-play strength badge (5v4, 4v3, …) · 3v3 / 4v4 / 5v5 mode · team names & colors · 4 themes (dark arena, light, LED classic, ice) · timeouts (0:30 / 1:00) · goal flash · horn (button + automatic at 0:00) · keyboard shortcuts · QR share.
+Features: game clock with tenths under 1:00 · periods 1/2/3/OT/SO · goals · shots on goal · penalties with player number and live countdown (2/4/5/10 min) · power-play strength badge (5v4, 4v3, …) · 3v3 / 4v4 / 5v5 mode · team names & colors · 4 themes (dark arena, light, LED classic, ice) · timeouts (0:30 / 1:00) · goal flash · horn (button + automatic at 0:00) · keyboard shortcuts · QR share · shootout attempts (● / ○ on the display and banner) · game summary export (📋 Summary → copy / .txt / .csv with goals, penalties, timeouts, running score) · Thai control page.
+
+Shootout: in period **SO** each team card gets Goal / Miss / undo buttons. The deciding goal is not added by itself — tap **+ GOAL** for the winner when it's decided.
 
 Keyboard (control page): `Space` start/stop · `H`/`A` goal · `J`/`S` shot · `N` next period · `B` horn · `↑`/`↓` ±1 s.
 
@@ -49,7 +52,9 @@ At this point it works in **local mode**: display and control must be in the sam
    - `VITE_SUPABASE_ANON_KEY` = anon key
 5. Deployments → Redeploy. The home page now says "live sync on".
 
-Anyone with the anon key can edit any game — fine for a rink; if you ever need to lock it down, add a secret to the game code (e.g. `?g=3on3-x7k2`) or tighten the RLS policies.
+The anon key only allows reading. Scores can only be changed through the `save_game` function with the game's operator key, which lives in a table nobody can read — so sharing the public link (or even the source) never lets anyone edit a game.
+
+Checklist after the redeploy: `/` shows **live sync on**; create a game on a laptop, open its `/b/CODE` link on a phone, tap + GOAL on the laptop → the phone updates within a second. If the phone shows "Board not found", the SQL did not run (table missing); if the home page still says "local mode", the env vars are not on the Production environment or the deploy ran before they were added.
 
 ## Run locally
 

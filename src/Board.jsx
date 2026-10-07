@@ -26,6 +26,7 @@ export default function Board() {
   const toRem = timeoutRemaining(s)
   const flash = goalFlashActive(s)
   const isNum = !['OT', 'SO'].includes(s.period)
+  const isSO = s.period === 'SO'
 
   return (
     <div className={`board ${minimal ? 'minimal' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}>
@@ -40,7 +41,7 @@ export default function Board() {
         </div>
       )}
 
-      <Team t={s.home} logo={!minimal && o.homeLogo} flash={flash === 'home'} L={L} showShots={!minimal} />
+      <Team t={s.home} logo={!minimal && o.homeLogo} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null} />
 
       <div className="mid">
         {toRem > 0 && (
@@ -57,20 +58,34 @@ export default function Board() {
         </div>
       </div>
 
-      <Team t={s.away} logo={!minimal && o.awayLogo} flash={flash === 'away'} L={L} showShots={!minimal} />
+      <Team t={s.away} logo={!minimal && o.awayLogo} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
       {!minimal && o.logoImg ? <img className="brandlogo" src={o.logoImg} alt="" /> : <div className="brand">rinkboard</div>}
     </div>
   )
 }
 
-function Team({ t, logo, flash, L, showShots }) {
+function Team({ t, logo, flash, L, showShots, so }) {
   return (
     <div className={`team ${flash ? 'flash' : ''}`} style={{ '--c': t.color }}>
       {flash && <div className="goalflash">{L.goal}</div>}
       {logo && <img className="logo" src={logo} alt="" />}
       <div className="name">{t.name}</div>
       <div className="score tnum">{t.score}</div>
-      {showShots && <div className="shots">{L.shots} <b className="tnum">{t.shots}</b></div>}
+      {so ? <Shootout attempts={so} /> : showShots && <div className="shots">{L.shots} <b className="tnum">{t.shots}</b></div>}
+    </div>
+  )
+}
+
+// Shootout attempts: ● goal, ○ miss. Always shows at least 3 slots so the row doesn't jump.
+export function Shootout({ attempts, className = 'so' }) {
+  const slots = Math.max(3, attempts.length)
+  return (
+    <div className={className} aria-label="shootout">
+      {Array.from({ length: slots }, (_, i) => {
+        const a = attempts[i]
+        // class names are so-* on purpose: a plain "goal" class would pick up the control page's goal-button style
+        return <span key={i} className={a ? `so-${a}` : 'so-empty'}>{a === 'goal' ? '●' : a === 'miss' ? '○' : '·'}</span>
+      })}
     </div>
   )
 }

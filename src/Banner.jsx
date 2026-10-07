@@ -3,6 +3,7 @@ import React from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
 import { clockShown, fmtClock, periodLabel, activePenalties, penaltyRemaining, strengthLabel } from './game.js'
 import { useAppearance } from './useOptions.jsx'
+import { Shootout } from './Board.jsx'
 
 export default function Banner() {
   const gameId = useGameId()
@@ -30,6 +31,7 @@ export default function Banner() {
               {sh.teamLogo && s.opts[team + 'Logo'] && <img className="btlogo" src={s.opts[team + 'Logo']} alt="" />}
               {sh.teamName && <div className="btname">{t.name}</div>}
               {sh.score && <div className="btscore tnum">{t.score}</div>}
+              {s.period === 'SO' && s.shootout[team].length > 0 && <Shootout attempts={s.shootout[team]} className="btso" />}
               {sh.shots && <div className="btshots">{L.shots} {t.shots}</div>}
               {pens.map(p => <div className="btpen tnum" key={p.id}>{p.player ? `#${p.player} ` : ''}{fmtClock(penaltyRemaining(s, p), { tenths: false })}</div>)}
             </div>

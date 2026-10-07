@@ -56,6 +56,7 @@ export function defaultOptions() {
     goalOffSec: 15,
     penaltyLengths: [2, 5, 10],
     layout: 'full', // 'full' | 'minimal' (no shots/logos/title, bigger numbers)
+    uiLang: 'en', // control page language: 'en' | 'th' (display labels are the free-text `labels` below)
     // Teams
     homeLogo: '', awayLogo: '',
     // Keys
@@ -97,7 +98,10 @@ function deepMerge(base, over) {
 export function withDefaults(state) {
   if (!state) return state
   const opts = deepMerge(defaultOptions(), state.opts || {})
-  return { ...state, opts }
+  // fields added after v2 games were first saved
+  const events = Array.isArray(state.events) ? state.events : []
+  const shootout = state.shootout && Array.isArray(state.shootout.home) ? state.shootout : { home: [], away: [] }
+  return { ...state, opts, events, shootout }
 }
 
 export function keyName(code) {

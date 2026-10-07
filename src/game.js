@@ -33,6 +33,8 @@ export function newGame(overrides = {}) {
     buzzer: 0,
     timeout: null, // { team, durationMs, since }
     goalFlash: null, // { team, at }
+    events: [], // game log, see logEvent(): { id, t, type, team, period, clockMs, periodMs, player?, minutes?, seconds? }
+    shootout: { home: [], away: [] }, // 'goal' | 'miss' per attempt
     opts: defaultOptions(),
     updatedAt: Date.now(),
     ...overrides,
@@ -109,6 +111,25 @@ export function goalFlashActive(s, now = Date.now()) {
   return now - s.goalFlash.at < offMs ? s.goalFlash.team : null
 }
 
+// ---- game log ----
+const MAX_EVENTS = 400
+const uid = () => Math.random().toString(36).slice(2, 9)
+
+// Append an entry to the game log, stamped with period and game clock.
+export function logEvent(s, type, data = {}) {
+  const e = { id: uid(), t: Date.now(), type, period: s.period, clockMs: clockRemaining(s), periodMs: periodLength(s), ...data }
+  const events = [...(s.events || []), e]
+  return { ...s, events: events.length > MAX_EVENTS ? events.slice(-MAX_EVENTS) : events }
+}
+
+function dropLastEvent(s, pred) {
+  const events = s.events || []
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (pred(events[i])) return { ...s, events: [...events.slice(0, i), ...events.slice(i + 1)] }
+  }
+  return s
+}
+
 // ---- mutations ----
 const touch = s => ({ ...s, updatedAt: Date.now() })
 
@@ -167,7 +188,10 @@ export function prevPeriod(s) {
 export function addScore(s, team, delta) {
   const score = Math.max(0, s[team].score + delta)
   const goalFlash = delta > 0 ? { team, at: Date.now() } : s.goalFlash
-  return touch({ ...s, [team]: { ...s[team], score }, goalFlash })
+  let next = { ...s, [team]: { ...s[team], score }, goalFlash }
+  if (delta > 0) next = logEvent(next, 'goal', { team })
+  else if (score !== s[team].score) next = dropLastEvent(next, e => e.type === 'goal' && e.team === team) // undo a mistaken goal
+  return touch(next)
 }
 
 export function clearGoalFlash(s) {
@@ -191,11 +215,15 @@ export function addPenalty(s, team, player, minutes) {
     durationMs: minutes * MIN,
     clockAtStart: clockRemaining(s),
   }
-  return touch({ ...s, penalties: [...s.penalties, p] })
+  return touch(logEvent({ ...s, penalties: [...s.penalties, p] }, 'penalty', { team, player: p.player, minutes, penaltyId: p.id }))
 }
 
 export function removePenalty(s, id) {
-  return touch({ ...s, penalties: s.penalties.filter(p => p.id !== id) })
+  const p = s.penalties.find(x => x.id === id)
+  let next = { ...s, penalties: s.penalties.filter(p => p.id !== id) }
+  // a penalty removed before it ran at all was a mistake: drop it from the log too
+  if (p && penaltyRemaining(s, p) >= p.durationMs) next = dropLastEvent(next, e => e.type === 'penalty' && e.penaltyId === id)
+  return touch(next)
 }
 
 export function pruneExpiredPenalties(s) {
@@ -213,7 +241,7 @@ export function fireBuzzer(s) {
 
 export function startTimeout(s, team, seconds) {
   const stopped = stopClock(s)
-  return touch({ ...stopped, timeout: { team, durationMs: seconds * 1000, since: Date.now() } })
+  return touch(logEvent({ ...stopped, timeout: { team, durationMs: seconds * 1000, since: Date.now() } }, 'timeout', { team, seconds }))
 }
 
 export function clearTimeout_(s) {
@@ -242,4 +270,88 @@ export function resetGame(s) {
     opts: s.opts,
     clock: { remainingMs: s.periodLengthMs, running: false, since: null },
   })
+}
+
+// ---- shootout ----
+// Attempts are recorded per team as 'goal' | 'miss'. The winning goal is NOT added to the score
+// automatically: when the shootout is decided the operator taps + GOAL for the winner, as on a rink board.
+export function soAttempt(s, team, scored) {
+  const so = s.shootout || { home: [], away: [] }
+  const list = [...(so[team] || []), scored ? 'goal' : 'miss']
+  return touch(logEvent({ ...s, shootout: { ...so, [team]: list } }, 'so', { team, scored: Boolean(scored), attempt: list.length }))
+}
+
+export function soUndo(s, team) {
+  const so = s.shootout || { home: [], away: [] }
+  const list = so[team] || []
+  if (!list.length) return s
+  return touch(dropLastEvent({ ...s, shootout: { ...so, [team]: list.slice(0, -1) } }, e => e.type === 'so' && e.team === team))
+}
+
+export function soClear(s) {
+  return touch({ ...s, shootout: { home: [], away: [] }, events: (s.events || []).filter(e => e.type !== 'so') })
+}
+
+export function soGoals(s, team) {
+  return ((s.shootout || {})[team] || []).filter(a => a === 'goal').length
+}
+
+// ---- game summary (export) ----
+function fmtEventClock(e, clockDir) {
+  const ms = clockDir === 'up' ? Math.max(0, (e.periodMs ?? 0) - (e.clockMs ?? 0)) : (e.clockMs ?? 0)
+  return fmtClock(ms, { tenths: false })
+}
+
+function periodTitle(s, p) {
+  if (p === 'OT') return s.opts?.otLabel || 'OT'
+  if (p === 'SO') return 'SO'
+  return `${s.opts?.labels?.period || 'Period'} ${p}`
+}
+
+// Rows for the summary: [{ period, time, type, team, teamName, detail, home, away }] in game order, with the running score.
+export function summaryRows(s) {
+  const rows = []
+  let h = 0, a = 0
+  for (const e of s.events || []) {
+    if (e.type === 'goal') e.team === 'home' ? h++ : a++
+    const name = s[e.team]?.name || e.team?.toUpperCase() || ''
+    let detail = ''
+    if (e.type === 'penalty') detail = `${e.player ? `#${e.player} ` : ''}${e.minutes} min`
+    else if (e.type === 'timeout') detail = `${e.seconds} s`
+    else if (e.type === 'so') detail = `attempt ${e.attempt} ${e.scored ? 'goal' : 'miss'}`
+    rows.push({ period: e.period, time: fmtEventClock(e, s.opts?.clockDir), type: e.type, team: e.team, teamName: name, detail, home: h, away: a, player: e.player || '', minutes: e.minutes ?? '' })
+  }
+  return rows
+}
+
+export function summaryText(s) {
+  const L = s.opts?.labels || {}
+  const out = []
+  if (s.opts?.title) out.push(s.opts.title)
+  out.push(`${s.home.name} ${s.home.score} - ${s.away.score} ${s.away.name}`)
+  out.push(`${L.shots || 'SHOTS'}: ${s.home.name} ${s.home.shots} - ${s.away.shots} ${s.away.name}`)
+  const soH = soGoals(s, 'home'), soA = soGoals(s, 'away')
+  if ((s.shootout?.home?.length || 0) + (s.shootout?.away?.length || 0) > 0) {
+    const mark = l => l.map(x => (x === 'goal' ? 'O' : 'X')).join('') || '-'
+    out.push(`SO: ${s.home.name} ${soH} (${mark(s.shootout.home)}) - ${soA} (${mark(s.shootout.away)}) ${s.away.name}`)
+  }
+  const rows = summaryRows(s)
+  let cur = null
+  const TYPE = { goal: (L.goal || 'GOAL').replace(/!$/, ''), penalty: L.penalty || 'PENALTY', timeout: L.timeout || 'TIMEOUT', so: 'SO' }
+  for (const r of rows) {
+    if (r.period !== cur) { cur = r.period; out.push('', periodTitle(s, cur)) }
+    const score = r.type === 'goal' ? ` (${r.home}-${r.away})` : ''
+    out.push(`  ${r.time}  ${TYPE[r.type] || r.type}  ${r.teamName}${r.detail ? ' ' + r.detail : ''}${score}`)
+  }
+  if (!rows.length) out.push('', '(no events)')
+  return out.join('\n')
+}
+
+const csvCell = v => { const t = String(v ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t }
+
+export function summaryCsv(s) {
+  const head = ['period', 'time', 'event', 'team', 'player', 'minutes', 'detail', 'home', 'away']
+  const lines = [head.join(',')]
+  for (const r of summaryRows(s)) lines.push([r.period, r.time, r.type, r.teamName, r.player, r.minutes, r.detail, r.home, r.away].map(csvCell).join(','))
+  return lines.join('\n')
 }
