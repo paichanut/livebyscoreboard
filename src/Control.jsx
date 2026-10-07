@@ -199,11 +199,11 @@ function PenaltySheet({ team, s, update, close }) {
       <label>{s.opts.labels.player}
         <input inputMode="numeric" autoFocus value={player} onChange={e => setPlayer(e.target.value)} placeholder="#" onKeyDown={e => e.key === 'Enter' && add()} />
       </label>
-      <label>Length
+      <div className="field">Length
         <div className="choices" style={{ flexWrap: 'wrap' }}>
           {lens.map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{m} min</button>)}
         </div>
-      </label>
+      </div>
       <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={add}>Add penalty</button><button className="btn ghost" onClick={close}>Cancel</button></div>
     </Sheet>
   )

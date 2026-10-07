@@ -66,6 +66,14 @@ npm run dev
 - QR button on the control page shows a QR for spectators to follow on their phones.
 - OBS / stream overlay: add `/board?g=yourcode` as a Browser Source (1920×1080).
 
+## Tests
+
+```bash
+npm run test:unit            # game logic (node:test)
+npm run test:e2e:install     # once, downloads Chromium
+npm run test:e2e             # Playwright: control + display in one browser, local mode
+```
+
 ## Project layout
 
 ```
@@ -76,4 +84,5 @@ src/Board.jsx    TV display
 src/Control.jsx  operator panel + sheets (penalty, set clock, settings, QR)
 src/styles.css   layout + themes
 supabase.sql     table + policies + realtime
+tests/unit       game.js unit tests · tests/e2e  Playwright flows
 ```

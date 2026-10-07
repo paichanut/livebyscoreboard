@@ -50,7 +50,15 @@ The clock is NOT ticked over the network. State stores `{remainingMs, running, s
 - Fonts from Google Fonts (Barlow Condensed default; Share Tech Mono for 7-segment look).
 
 ## Testing
-No unit tests yet. Previous verification was Playwright scripts driving `vite preview` (control + board tabs, same browser, local mode) and screenshotting. A good next step: add `tests/` with Playwright and a few game.js unit tests (penalty math, strength, period list).
+
+```bash
+npm run test:unit          # node:test — tests/unit/game.test.js (clock, penalties, strength, periods, option merge)
+npm run test:e2e:install   # once: downloads Chromium for Playwright
+npm run test:e2e           # Playwright — tests/e2e/*.spec.js, builds + serves `vite preview` on :4173, local mode
+npm test                   # both
+```
+
+E2E tests open the control page and the board in the same browser context (local mode = localStorage + BroadcastChannel), each with a unique game code. `PW_CHROMIUM_PATH=/path/to/chrome` uses a system Chromium instead of the downloaded one. Helpers live in `tests/e2e/helpers.js`. Keep game-rule tests in the unit file; keep e2e tests to flows a user would do.
 
 ## Ideas / backlog (not started)
 - Thai UI for the control page itself (labels on the display are already configurable)

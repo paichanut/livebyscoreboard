@@ -164,7 +164,7 @@ input, select { font-family: inherit; }
 .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; z-index: 10; }
 .sheet { background: var(--card); width: 100%; max-width: 520px; border-radius: 20px 20px 0 0; padding: 18px 16px 28px; display: flex; flex-direction: column; gap: 12px; max-height: 90vh; overflow: auto; }
 .sheet h3 { font-family: var(--font-display); font-size: 22px; letter-spacing: .06em; text-transform: uppercase; }
-.sheet label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.sheet label, .sheet .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
 .sheet input, .sheet select { background: var(--bg); color: var(--text); border: 1px solid var(--dim); border-radius: 10px; padding: 12px; font-size: 18px; width: 100%; }
 .sheet input[type=color] { padding: 4px; height: 48px; }
 .sheet .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -231,8 +231,8 @@ input, select { font-family: inherit; }
 .opts .foot .btn { flex: 1; }
 .opts h4 { font-family: var(--font-display); font-size: 18px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
 .opts label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
-.opts label.row { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); padding: 12px 14px; border-radius: 12px; color: var(--text); font-size: 15px; }
-.opts label.row input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--go); }
+.opts .row { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); padding: 12px 14px; border-radius: 12px; color: var(--text); font-size: 15px; }
+.opts .row input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--go); }
 .opts input[type=text], .opts input[type=number], .opts input[type=url], .opts select { background: var(--card); color: var(--text); border: 1px solid var(--dim); border-radius: 10px; padding: 11px 12px; font-size: 16px; width: 100%; }
 .opts input[type=color] { width: 56px; height: 36px; border: 0; background: transparent; padding: 0; }
 .opts .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

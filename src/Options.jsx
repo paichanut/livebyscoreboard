@@ -58,7 +58,8 @@ export default function Options({ s, update, close }) {
   )
 }
 
-const Row = ({ label, children }) => <label className="row"><span>{label}</span>{children}</label>
+// `as="div"` for rows whose control is a group of buttons: a <label> would make its text click the first button.
+const Row = ({ label, children, as: Tag = 'label' }) => <Tag className="row"><span>{label}</span>{children}</Tag>
 const Check = ({ label, path, get, set }) => <Row label={label}><input type="checkbox" checked={Boolean(get(path))} onChange={e => set(path, e.target.checked)} /></Row>
 const Num = ({ label, path, get, set, min = 0, max = 999, suffix }) => (
   <Row label={label}><span className="inline"><input type="number" min={min} max={max} value={get(path)} onChange={e => set(path, Number(e.target.value))} />{suffix}</span></Row>
@@ -80,7 +81,7 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters }) 
       <Row label="Period time direction">
         <select value={o.clockDir} onChange={e => set('clockDir', e.target.value)} style={{ width: 120 }}><option value="down">Down</option><option value="up">Up</option></select>
       </Row>
-      <Row label="Skaters per side">
+      <Row label="Skaters per side" as="div">
         <span className="chips">{[3, 4, 5].map(n => <button key={n} className={`btn ${skaters === n ? 'on' : ''}`} onClick={() => setSkaters(n)}>{n}v{n}</button>)}</span>
       </Row>
       <h4>Timeouts</h4>
