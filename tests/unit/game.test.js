@@ -232,3 +232,9 @@ test('withDefaults adds events and shootout to games saved before they existed',
   assert.deepEqual(s.shootout, { home: [], away: [] })
   assert.equal(s.opts.uiLang, 'en')
 })
+
+test('default sounds are valid choices', async () => {
+  const { SOUND_CHOICES } = await import('../../src/options.js')
+  const valid = new Set(SOUND_CHOICES.map(([v]) => v))
+  for (const [event, kind] of Object.entries(defaultOptions().sounds)) assert.ok(valid.has(kind), `${event}: ${kind}`)
+})

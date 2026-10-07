@@ -20,7 +20,17 @@ export const KEY_LABELS = {
   newGame: 'New game',
 }
 
-export const SOUND_CHOICES = ['horn', 'buzzer', 'beep', 'none']
+// value → label. Samples are in public/sounds (see horn.js); synth-* are the built-in fallbacks.
+export const SOUND_CHOICES = [
+  ['horn', 'Horn'],
+  ['horn-loop', 'Horn, long (3 s loop)'],
+  ['horn-short', 'Horn, short'],
+  ['buzzer', 'Buzzer'],
+  ['beep', 'Beep ×3'],
+  ['synth-horn', 'Synth horn'],
+  ['synth-buzzer', 'Synth buzzer'],
+  ['none', 'None'],
+]
 export const FONT_CHOICES = [
   ['Barlow Condensed', 'Arena (Barlow Condensed)'],
   ['Share Tech Mono', 'LED segments (Share Tech Mono)'],
@@ -64,7 +74,8 @@ export function defaultOptions() {
     // Colors (null = theme default)
     colors: {},
     // Sounds
-    sounds: { horn: 'horn', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn', timeoutWarn: 'beep', timeoutEnd: 'horn' },
+    // same defaults as PC Scoreboards: horn button loops, timeout warning is the short blast
+    sounds: { horn: 'horn-loop', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn', timeoutWarn: 'horn-short', timeoutEnd: 'horn' },
     // Text
     labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP' },
     font: 'Barlow Condensed',

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { DEFAULT_KEYS, KEY_LABELS, SOUND_CHOICES, FONT_CHOICES, COLOR_FIELDS, defaultOptions, keyName } from './options.js'
-import { unlockAudio, playSound } from './horn.js'
+import { unlockAudio, playSound, ready } from './horn.js'
 import * as G from './game.js'
 import { LANGS, translator } from './i18n.js'
 
@@ -212,8 +212,8 @@ function SoundsTab({ o, set }) {
         <div className="colorrow" key={k}>
           <span>{label}</span>
           <span className="r">
-            <select value={o.sounds[k]} onChange={e => set(`sounds.${k}`, e.target.value)} style={{ width: 110 }}>{SOUND_CHOICES.map(c => <option key={c} value={c}>{c}</option>)}</select>
-            <button className="btn sm" onClick={() => { unlockAudio(); setTimeout(() => playSound(o.sounds[k]), 50) }}>▶</button>
+            <select value={o.sounds[k]} onChange={e => set(`sounds.${k}`, e.target.value)} style={{ width: 170 }}>{SOUND_CHOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+            <button className="btn sm" onClick={() => { unlockAudio(); ready(o.sounds[k]).then(() => playSound(o.sounds[k])) }}>▶</button>
           </span>
         </div>
       ))}

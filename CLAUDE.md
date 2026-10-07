@@ -33,7 +33,7 @@ Local mode (no Supabase keys) = display + control must be in the same browser (l
 - `src/i18n.js` — control-page UI strings (`en`, `th`), `translator(lang)`. Chosen by `opts.uiLang` (Options → Text). Display labels are separate free text in `opts.labels`. Options tab names + Save/Cancel are translated; the Options body is still English.
 - `src/useGame.js` — React hook `useGame(gameId, {key, canWrite})` → `[state, update(fn), access]`. `update` takes a function `(state) => newState` (use game.js mutations). `useGameId()` parses `/b|c|o/CODE` or `?g=`.
 - `src/useOptions.jsx` — `useAppearance(s)` applies theme/colors/font to `<html>`; `useGameSounds(s, enabled)` plays configured sounds on events (display side only).
-- `src/horn.js` — Web Audio synth sounds (horn, buzzer, beep). Needs a user gesture once (`unlockAudio`).
+- `src/horn.js` — Web Audio playback. Samples from `public/sounds/*.mp3` (horn, horn-short, horn-loop, buzzer; converted from PC Scoreboards WAVs, mono 48 kbps) are decoded once after `unlockAudio()` (needs a user gesture); synth horn/buzzer/beep are the fallback. `playSound(kind)` takes a `SOUND_CHOICES` value from options.js.
 - `src/Options.jsx` — tabbed options screen (Game, Teams, Keys, Colors, Sounds, Text, Banner, Other). Edits a draft copy, saves via `G.setOptions`.
 - `src/styles.css` — one file. Themes are `[data-theme=...]` CSS-variable sets; per-element color overrides are `--c-*` vars set by `useAppearance`.
 - `supabase.sql` — tables `games` (public select only) and `game_keys` (no access), RPCs `create_game`, `save_game`, `check_key`. Safe to re-run.

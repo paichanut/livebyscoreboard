@@ -23,7 +23,7 @@ Mirrors the PC Scoreboards options dialog:
 - **Teams** — names, colors, logos (upload or URL)
 - **Keys** — rebind every keyboard shortcut (click, press key)
 - **Colors** — theme presets + per-element colors (background, clock, scores, period, shots, penalty player/time, goal)
-- **Sounds** — horn / buzzer / beep / none for: horn, buzzer, end of period, timeout start, timeout warning, timeout end
+- **Sounds** — real arena samples (horn, long looping horn, short horn, buzzer) or synth / beep / none for: horn, buzzer, end of period, timeout start, timeout warning, timeout end. Samples are in `public/sounds/`; the synth plays if a file can't load.
 - **Text** — control page language (English / ไทย), rename every display label (Thai etc.), font, 7-segment digit style
 - **Banner** — OBS overlay at `/banner?g=CODE`: choose fields, mirror, chroma-key color, banner/clock colors
 - **Other** — scoreboard title or banner image, top-left/right pictures, logo, confirm toggles, new game, reset options
