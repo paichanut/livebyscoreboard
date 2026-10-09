@@ -94,6 +94,7 @@ export default function Control() {
         <span>{t('game')} · {gameId}</span>
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
       </div>
+      {!ONLINE && <div className="localwarn">⚠ {t('localWarn')}</div>}
       <SoundToggle sound={sound} setSound={setSound} className="btn sm csound" />
 
       <div className="card clockcard">

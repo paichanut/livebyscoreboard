@@ -312,3 +312,5 @@ input, select { font-family: inherit; }
 
 .control .csound { align-self: flex-end; padding: 6px 12px; font-size: 12px; color: var(--muted); margin-top: -6px; }
 .control .csound.on { color: var(--go); }
+
+.control .localwarn { background: #3a2b00; color: #ffd166; border: 1px solid #7a5a00; border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.4; }
