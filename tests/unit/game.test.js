@@ -238,3 +238,18 @@ test('default sounds are valid choices', async () => {
   const valid = new Set(SOUND_CHOICES.map(([v]) => v))
   for (const [event, kind] of Object.entries(defaultOptions().sounds)) assert.ok(valid.has(kind), `${event}: ${kind}`)
 })
+
+test('all clock math uses the server-synced clock', async () => {
+  const { setTimeOffset, now } = await import('../../src/clock.js')
+  const before = Date.now()
+  setTimeOffset(90_000) // this device is 90 s behind the server
+  assert.ok(now() - before >= 90_000)
+  let s = G.startClock(game())
+  assert.ok(Math.abs(s.clock.since - now()) < 50, 'start stamps server time, not device time')
+  assert.ok(Math.abs(G.clockRemaining(s) - 15 * MIN) < 50)
+  s = G.startTimeout(s, 'home', 30)
+  assert.ok(Math.abs(G.timeoutRemaining(s) - 30_000) < 50)
+  s = G.addScore(s, 'away', 1)
+  assert.equal(G.goalFlashActive(s), 'away')
+  setTimeOffset(0)
+})

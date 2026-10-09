@@ -3,6 +3,7 @@ import { useGame, useGameId, useTick } from './useGame.js'
 import { clockShown, fmtClock, strengthLabel, activePenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, periodLabel, clockRemaining } from './game.js'
 import { ONLINE } from './sync.js'
 import { useAppearance, useGameSounds, SoundToggle } from './useOptions.jsx'
+import TimeBadge from './TimeBadge.jsx'
 
 export default function Board() {
   const gameId = useGameId()
@@ -30,7 +31,7 @@ export default function Board() {
 
   return (
     <div className={`board ${minimal ? 'minimal' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}>
-      <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}</div>
+      <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>
       <SoundToggle sound={sound} setSound={setSound} className="sound" />
 
       {!minimal && (o.bannerImg || o.title || o.topLeftImg || o.topRightImg) && (

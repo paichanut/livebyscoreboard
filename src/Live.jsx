@@ -4,6 +4,7 @@ import { createGamesList, ONLINE, storedKey } from './sync.js'
 import { withDefaults } from './options.js'
 import { clockShown, fmtClock, periodLabel, clockRemaining } from './game.js'
 import { useTick } from './useGame.js'
+import { now as serverNow } from './clock.js'
 
 const ago = ms => {
   const s = Math.max(0, Math.round(ms / 1000))
@@ -24,7 +25,7 @@ export default function Live() {
   }, [])
   useTick(1000, Boolean(rows?.some(r => r.state.clock?.running)))
 
-  const now = Date.now()
+  const now = serverNow()
   const games = (rows || []).map(r => ({ ...r, state: withDefaults(r.state) }))
   // running clocks first, then most recently touched
   games.sort((a, b) => Number(Boolean(b.state.clock.running)) - Number(Boolean(a.state.clock.running)) || b.updatedAt - a.updatedAt)

@@ -4,6 +4,7 @@ import * as G from './game.js'
 import { ONLINE, randomKey, rememberKey, storedKey } from './sync.js'
 import { useAppearance } from './useOptions.jsx'
 import { translator } from './i18n.js'
+import TimeBadge from './TimeBadge.jsx'
 import Options from './Options.jsx'
 
 export default function Control() {
@@ -88,7 +89,7 @@ export default function Control() {
     <div className="control">
       <div className="top">
         <span>{t('game')} · {gameId}</span>
-        <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}</span>
+        <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
       </div>
 
       <div className="card clockcard">

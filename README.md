@@ -54,6 +54,8 @@ At this point it works in **local mode**: display and control must be in the sam
 
 The anon key only allows reading. Scores can only be changed through the `save_game` function with the game's operator key, which lives in a table nobody can read — so sharing the public link (or even the source) never lets anyone edit a game.
 
+Re-run `supabase.sql` whenever you update the app: it is safe to run again and adds new functions (e.g. `server_now()`, which keeps the clock on every device in step even when a phone's system time is wrong).
+
 Checklist after the redeploy: `/` shows **live sync on**; create a game on a laptop, open its `/b/CODE` link on a phone, tap + GOAL on the laptop → the phone updates within a second. If the phone shows "Board not found", the SQL did not run (table missing); if the home page still says "local mode", the env vars are not on the Production environment or the deploy ran before they were added.
 
 ## Run locally

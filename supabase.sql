@@ -51,6 +51,14 @@ returns boolean language sql security definer set search_path = public as $$
   select exists (select 1 from public.game_keys where id = p_id and key = p_key);
 $$;
 
+-- Server time in ms. Every device measures its offset to this so clocks agree even when a
+-- phone's or TV's system time is wrong. (Without it the app falls back to the HTTP Date header.)
+create or replace function public.server_now()
+returns bigint language sql stable as $$
+  select (extract(epoch from clock_timestamp()) * 1000)::bigint;
+$$;
+
+grant execute on function public.server_now() to anon, authenticated;
 grant execute on function public.create_game(text, text, jsonb) to anon, authenticated;
 grant execute on function public.save_game(text, text, jsonb) to anon, authenticated;
 grant execute on function public.check_key(text, text) to anon, authenticated;

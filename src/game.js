@@ -1,5 +1,6 @@
 // Pure game-state model + logic. No React, no network.
 import { defaultOptions } from './options.js'
+import { now as wallNow } from './clock.js'
 
 export const MIN = 60_000
 
@@ -36,19 +37,19 @@ export function newGame(overrides = {}) {
     events: [], // game log, see logEvent(): { id, t, type, team, period, clockMs, periodMs, player?, minutes?, seconds? }
     shootout: { home: [], away: [] }, // 'goal' | 'miss' per attempt
     opts: defaultOptions(),
-    updatedAt: Date.now(),
+    updatedAt: wallNow(),
     ...overrides,
   }
 }
 
-export function clockRemaining(state, now = Date.now()) {
+export function clockRemaining(state, now = wallNow()) {
   const c = state.clock
   if (!c.running || c.since == null) return c.remainingMs
   return Math.max(0, c.remainingMs - (now - c.since))
 }
 
 // What the display shows: remaining (count-down) or elapsed (count-up)
-export function clockShown(state, now = Date.now()) {
+export function clockShown(state, now = wallNow()) {
   const rem = clockRemaining(state, now)
   if (state.opts?.clockDir === 'up') return Math.max(0, periodLength(state) - rem)
   return rem
@@ -60,16 +61,16 @@ export function periodLength(state) {
   return state.periodLengthMs
 }
 
-export function penaltyRemaining(state, p, now = Date.now()) {
+export function penaltyRemaining(state, p, now = wallNow()) {
   const elapsed = p.clockAtStart - clockRemaining(state, now)
   return Math.max(0, p.durationMs - elapsed)
 }
 
-export function activePenalties(state, team, now = Date.now()) {
+export function activePenalties(state, team, now = wallNow()) {
   return state.penalties.filter(p => p.team === team && penaltyRemaining(state, p, now) > 0)
 }
 
-export function skaters(state, now = Date.now()) {
+export function skaters(state, now = wallNow()) {
   const nH = Math.min(activePenalties(state, 'home', now).length, 2)
   const nA = Math.min(activePenalties(state, 'away', now).length, 2)
   let h = state.skaters - nH
@@ -78,11 +79,11 @@ export function skaters(state, now = Date.now()) {
   return { home: h + lift, away: a + lift }
 }
 
-export function skatersOnIce(state, team, now = Date.now()) {
+export function skatersOnIce(state, team, now = wallNow()) {
   return skaters(state, now)[team]
 }
 
-export function strengthLabel(state, now = Date.now()) {
+export function strengthLabel(state, now = wallNow()) {
   const { home: h, away: a } = skaters(state, now)
   if (h === a && h === state.skaters) return ''
   return `${h}v${a}`
@@ -100,12 +101,12 @@ export function fmtClock(ms, { tenths = true } = {}) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-export function timeoutRemaining(s, now = Date.now()) {
+export function timeoutRemaining(s, now = wallNow()) {
   if (!s.timeout) return 0
   return Math.max(0, s.timeout.durationMs - (now - s.timeout.since))
 }
 
-export function goalFlashActive(s, now = Date.now()) {
+export function goalFlashActive(s, now = wallNow()) {
   if (!s.goalFlash || !s.opts?.goalIndicator) return null
   const offMs = (s.opts.goalOffSec ?? 15) * 1000
   return now - s.goalFlash.at < offMs ? s.goalFlash.team : null
@@ -117,7 +118,7 @@ const uid = () => Math.random().toString(36).slice(2, 9)
 
 // Append an entry to the game log, stamped with period and game clock.
 export function logEvent(s, type, data = {}) {
-  const e = { id: uid(), t: Date.now(), type, period: s.period, clockMs: clockRemaining(s), periodMs: periodLength(s), ...data }
+  const e = { id: uid(), t: wallNow(), type, period: s.period, clockMs: clockRemaining(s), periodMs: periodLength(s), ...data }
   const events = [...(s.events || []), e]
   return { ...s, events: events.length > MAX_EVENTS ? events.slice(-MAX_EVENTS) : events }
 }
@@ -131,17 +132,17 @@ function dropLastEvent(s, pred) {
 }
 
 // ---- mutations ----
-const touch = s => ({ ...s, updatedAt: Date.now() })
+const touch = s => ({ ...s, updatedAt: wallNow() })
 
 export function startClock(s) {
   if (s.clock.running) return s
   if (clockRemaining(s) <= 0) return s
-  return touch({ ...s, timeout: null, clock: { ...s.clock, running: true, since: Date.now() } })
+  return touch({ ...s, timeout: null, clock: { ...s.clock, running: true, since: wallNow() } })
 }
 
 export function stopClock(s) {
   if (!s.clock.running) return s
-  const now = Date.now()
+  const now = wallNow()
   return touch({ ...s, clock: { remainingMs: clockRemaining(s, now), running: false, since: null } })
 }
 
@@ -187,7 +188,7 @@ export function prevPeriod(s) {
 
 export function addScore(s, team, delta) {
   const score = Math.max(0, s[team].score + delta)
-  const goalFlash = delta > 0 ? { team, at: Date.now() } : s.goalFlash
+  const goalFlash = delta > 0 ? { team, at: wallNow() } : s.goalFlash
   let next = { ...s, [team]: { ...s[team], score }, goalFlash }
   if (delta > 0) next = logEvent(next, 'goal', { team })
   else if (score !== s[team].score) next = dropLastEvent(next, e => e.type === 'goal' && e.team === team) // undo a mistaken goal
@@ -241,7 +242,7 @@ export function fireBuzzer(s) {
 
 export function startTimeout(s, team, seconds) {
   const stopped = stopClock(s)
-  return touch(logEvent({ ...stopped, timeout: { team, durationMs: seconds * 1000, since: Date.now() } }, 'timeout', { team, seconds }))
+  return touch(logEvent({ ...stopped, timeout: { team, durationMs: seconds * 1000, since: wallNow() } }, 'timeout', { team, seconds }))
 }
 
 export function clearTimeout_(s) {

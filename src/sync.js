@@ -4,6 +4,7 @@
 // Access model: reads are public; writes need the game's operator key.
 import { createClient } from '@supabase/supabase-js'
 import { newGame } from './game.js'
+import { setTimeOffset } from './clock.js'
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -33,7 +34,46 @@ export function storedKey(gameId) { try { return localStorage.getItem(`rinkboard
  *   missing = game doesn't exist and we can't create it (viewer)
  */
 export function createStore(gameId, opts = {}) {
+  if (ONLINE) startTimeSync()
   return ONLINE ? supabaseStore(gameId, opts) : localStore(gameId, opts)
+}
+
+// ---------- Server time ----------
+// The game clock is derived from wall-clock time on every device, so a phone whose clock is
+// 20 s fast would show a clock 20 s ahead of the TV. We measure each device's offset to the
+// server (server_now() RPC; fallback: the HTTP Date header) and feed it to clock.js.
+let timeSyncTimer = null
+async function sampleServerTime() {
+  const t0 = Date.now()
+  const { data, error } = await supabase.rpc('server_now')
+  const t1 = Date.now()
+  if (!error && typeof data === 'number') return { serverMs: data, t0, t1 }
+  // server_now() missing (supabase.sql not re-run): fall back to the Date header, 1 s resolution
+  const r = await fetch(`${URL}/rest/v1/`, { headers: { apikey: KEY }, cache: 'no-store' })
+  const t2 = Date.now()
+  const d = Date.parse(r.headers.get('date') || '')
+  if (!d) throw new Error('no server time')
+  return { serverMs: d + 500, t0: t1, t1: t2 }
+}
+
+export async function syncServerTime(samples = 3) {
+  let best = null
+  for (let i = 0; i < samples; i++) {
+    try {
+      const s = await sampleServerTime()
+      const rtt = s.t1 - s.t0
+      if (!best || rtt < best.rtt) best = { rtt, offset: s.serverMs + rtt / 2 - s.t1 }
+    } catch (e) { console.warn('time sync failed', e) }
+  }
+  if (best) setTimeOffset(best.offset)
+  return best
+}
+
+function startTimeSync() {
+  if (timeSyncTimer) return
+  syncServerTime()
+  timeSyncTimer = setInterval(() => syncServerTime(2), 5 * 60_000)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncServerTime(2) })
 }
 
 // ---------- Supabase ----------
