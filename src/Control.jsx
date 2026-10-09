@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
 import { ONLINE, randomKey, rememberKey, storedKey } from './sync.js'
-import { useAppearance } from './useOptions.jsx'
+import { useAppearance, useGameSounds, SoundToggle } from './useOptions.jsx'
 import { translator } from './i18n.js'
 import TimeBadge from './TimeBadge.jsx'
 import Options from './Options.jsx'
@@ -23,6 +23,9 @@ export default function Control() {
   }, [key])
   useTick(100, Boolean(s?.clock.running || s?.timeout))
   const [sheet, setSheet] = useState(null)
+  // optional: play horn/buzzer on this device too (phone speaker / laptop plugged into the PA)
+  const [sound, setSound] = useState(false)
+  useGameSounds(s, sound)
   const t = translator(s?.opts?.uiLang)
 
   const ask = (key, msg) => !s.opts.confirm[key] || confirm(msg)
@@ -91,6 +94,7 @@ export default function Control() {
         <span>{t('game')} · {gameId}</span>
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
       </div>
+      <SoundToggle sound={sound} setSound={setSound} className="btn sm csound" />
 
       <div className="card clockcard">
         <div className="p">

@@ -309,3 +309,6 @@ input, select { font-family: inherit; }
 
 /* ---- server time offset badge ---- */
 .timebadge { color: var(--accent); }
+
+.control .csound { align-self: flex-end; padding: 6px 12px; font-size: 12px; color: var(--muted); margin-top: -6px; }
+.control .csound.on { color: var(--go); }
