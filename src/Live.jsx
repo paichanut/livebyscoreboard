@@ -23,10 +23,11 @@ export default function Live() {
     const unsub = list.subscribe(r => setRows(r))
     return () => { unsub(); list.destroy() }
   }, [])
-  useTick(1000, Boolean(rows?.some(r => r.state.clock?.running)))
+  useTick(1000, Boolean(rows?.some(r => r.state?.clock?.running)))
 
   const now = serverNow()
-  const games = (rows || []).map(r => ({ ...r, state: withDefaults(r.state) }))
+  // skip rows that aren't games (e.g. a test row written straight to the table) instead of crashing
+  const games = (rows || []).filter(r => r.state?.home && r.state?.clock).map(r => ({ ...r, state: withDefaults(r.state) }))
   // running clocks first, then most recently touched
   games.sort((a, b) => Number(Boolean(b.state.clock.running)) - Number(Boolean(a.state.clock.running)) || b.updatedAt - a.updatedAt)
 
