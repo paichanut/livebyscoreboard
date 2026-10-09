@@ -23,7 +23,7 @@ export default function Home() {
         {g && <a className="btn" href={`/b/${g}`}>View display for "{g}"</a>}
         <a className="btn ghost" href="/live">Live games</a>
       </div>
-      <div className="mode">{ONLINE ? 'live sync on' : 'local mode — set Supabase keys for cross-device sync'}</div>
+      <div className="mode">{ONLINE ? 'live sync on' : 'test build — local store, this browser only'}</div>
     </div>
   )
 }

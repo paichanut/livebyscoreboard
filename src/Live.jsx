@@ -34,7 +34,7 @@ export default function Live() {
     <div className="live">
       <div className="head">
         <h1>Live games</h1>
-        <div className="mode">{ONLINE ? 'live sync on' : 'local mode — games in this browser only'}</div>
+        <div className="mode">{ONLINE ? 'live sync on' : 'test build — games in this browser only'}</div>
       </div>
       {rows === null && <div className="loading">loading…</div>}
       {rows && !games.length && <div className="empty">No games yet. <a href="/">Create one</a>.</div>}

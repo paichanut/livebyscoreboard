@@ -40,7 +40,7 @@ Keyboard (control page): `Space` start/stop · `H`/`A` goal · `J`/`S` shot · `
 2. [vercel.com/new](https://vercel.com/new) → import the repo. Framework: **Vite** (auto-detected). Deploy.
 3. You get `https://<project>.vercel.app`. Rename the project in Settings → General if the name is taken.
 
-At this point it works in **local mode**: display and control must be in the same browser (e.g. a laptop plugged into the TV, with the control tab open). For phone → TV sync, add Supabase:
+Without Supabase keys the site shows a **setup screen** on every page (cloud mode only, no local fallback), so do the next section before using it:
 
 ## Live sync with Supabase (free)
 
@@ -62,7 +62,7 @@ Checklist after the redeploy: `/` shows **live sync on**; create a game on a lap
 
 ```bash
 npm install
-cp .env.example .env   # optional: add Supabase keys
+cp .env.example .env   # required: Supabase keys (or use `npm run build:test` + `npm run preview` for a same-browser test build)
 npm run dev
 ```
 

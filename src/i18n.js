@@ -24,7 +24,6 @@ export const UI = {
     soGoal: 'Goal', soMiss: 'Miss', undo: 'Undo', soHint: 'Shootout: record each attempt, then tap + GOAL for the winner.', soClear: 'Clear shootout',
     tabs: { Game: 'Game', Teams: 'Teams', Keys: 'Keys', Colors: 'Colors', Sounds: 'Sounds', Text: 'Text', Banner: 'Banner', Other: 'Other' },
     save: 'Save', language: 'Control page language',
-    localWarn: 'Local mode: this control only reaches displays open in this same browser. Phones, TVs and OBS on other devices will NOT follow. Add the Supabase keys on Vercel (see README) to go live.',
   },
   th: {
     game: 'เกม', live: '● ออนไลน์', local: '● เครื่องนี้เท่านั้น', connecting: 'กำลังเชื่อมต่อ…', up: '▲ นับขึ้น',
@@ -46,7 +45,6 @@ export const UI = {
     soGoal: 'เข้า', soMiss: 'ไม่เข้า', undo: 'ย้อนกลับ', soHint: 'ชู้ตเอาต์: บันทึกผลทีละคน แล้วกด + ประตู ให้ทีมที่ชนะ', soClear: 'ล้างชู้ตเอาต์',
     tabs: { Game: 'เกม', Teams: 'ทีม', Keys: 'คีย์ลัด', Colors: 'สี', Sounds: 'เสียง', Text: 'ข้อความ', Banner: 'แบนเนอร์', Other: 'อื่นๆ' },
     save: 'บันทึก', language: 'ภาษาหน้าควบคุม',
-    localWarn: 'Local mode: หน้าควบคุมนี้คุยได้เฉพาะจอที่เปิดในเบราว์เซอร์เดียวกันเท่านั้น มือถือ ทีวี หรือ OBS บนเครื่องอื่นจะไม่ตาม ต้องใส่ Supabase keys ใน Vercel (ดู README) ถึงจะ live',
   },
 }
 

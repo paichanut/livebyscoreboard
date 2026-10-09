@@ -314,3 +314,11 @@ input, select { font-family: inherit; }
 .control .csound.on { color: var(--go); }
 
 .control .localwarn { background: #3a2b00; color: #ffd166; border: 1px solid #7a5a00; border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.4; }
+
+/* ---- setup screen (no Supabase keys) ---- */
+.setup { gap: 16px; }
+.setup h2 { font-family: var(--font-display); font-size: 24px; letter-spacing: .04em; color: var(--accent); }
+.setup p { max-width: 560px; }
+.setup ol { text-align: left; max-width: 560px; line-height: 1.7; color: var(--text); padding-left: 22px; }
+.setup pre { background: var(--card); border: 1px solid var(--dim); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-top: 6px; white-space: pre-wrap; }
+.setup code { background: var(--card); padding: 1px 6px; border-radius: 6px; }

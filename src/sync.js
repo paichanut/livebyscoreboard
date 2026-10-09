@@ -9,6 +9,11 @@ import { setTimeOffset } from './clock.js'
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 export const ONLINE = Boolean(URL && KEY)
+// The local (same-browser) store exists only for the test build (`vite build --mode test`, see .env.test).
+// Production is cloud-only: without Supabase keys the app shows the setup screen instead of a board
+// that silently cannot reach other devices.
+export const ALLOW_LOCAL = import.meta.env.VITE_ALLOW_LOCAL === '1'
+export const CONFIGURED = ONLINE || ALLOW_LOCAL
 
 const supabase = ONLINE ? createClient(URL, KEY) : null
 
@@ -34,8 +39,9 @@ export function storedKey(gameId) { try { return localStorage.getItem(`rinkboard
  *   missing = game doesn't exist and we can't create it (viewer)
  */
 export function createStore(gameId, opts = {}) {
-  if (ONLINE) startTimeSync()
-  return ONLINE ? supabaseStore(gameId, opts) : localStore(gameId, opts)
+  if (ONLINE) { startTimeSync(); return supabaseStore(gameId, opts) }
+  if (ALLOW_LOCAL) return localStore(gameId, opts)
+  throw new Error('Rinkboard is not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
 }
 
 // ---------- Server time ----------

@@ -8,12 +8,12 @@ Reference product we are mirroring: PC Scoreboards "Hockey Scoreboard Pro v3" (W
 
 ```bash
 npm install
-cp .env.example .env     # add VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY for live sync; empty = local mode
+cp .env.example .env     # VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are REQUIRED; without them every route shows Setup.jsx
 npm run dev              # http://localhost:5173
 npm run build            # dist/ (Vercel builds this automatically)
 ```
 
-Local mode (no Supabase keys) = display + control must be in the same browser (localStorage + BroadcastChannel). Live mode = any device.
+**Cloud mode only.** Production never falls back to a local store: no keys → `Setup.jsx` with the setup steps. The same-browser local store (localStorage + BroadcastChannel) still exists in `sync.js` but only for the test build (`npm run build:test` = `vite build --mode test`, which loads `.env.test` → `VITE_ALLOW_LOCAL=1`). Decision made after a tournament-day mix-up where Chrome and OBS each had their own "copy" of the game.
 
 ## Pages / routes (src/App.jsx)
 
@@ -29,7 +29,7 @@ Local mode (no Supabase keys) = display + control must be in the same browser (l
 
 - `src/game.js` — **pure** state model + mutations. No React, no network. All hockey logic lives here (clock, periods, penalties, strength 5v4/4v3, timeouts, goal flash). Keep it pure.
 - `src/options.js` — options schema + `defaultOptions()` + `withDefaults()` (deep-merges defaults into older saved games). Add new options here first.
-- `src/sync.js` — store abstraction. Supabase realtime when env keys set, else local. Reads are public; **writes go through `save_game(id, key, state)` RPC** which checks the operator key. Rapid taps are coalesced (~80 ms). `createGamesList()` feeds the `/live` page (table-wide realtime, or a localStorage scan).
+- `src/sync.js` — store abstraction. Supabase realtime when env keys set; local store only when `VITE_ALLOW_LOCAL=1` (test build), otherwise `createStore` throws and App shows Setup. Reads are public; **writes go through `save_game(id, key, state)` RPC** which checks the operator key. Rapid taps are coalesced (~80 ms). `createGamesList()` feeds the `/live` page (table-wide realtime, or a localStorage scan).
 - `src/i18n.js` — control-page UI strings (`en`, `th`), `translator(lang)`. Chosen by `opts.uiLang` (Options → Text). Display labels are separate free text in `opts.labels`. Options tab names + Save/Cancel are translated; the Options body is still English.
 - `src/useGame.js` — React hook `useGame(gameId, {key, canWrite})` → `[state, update(fn), access]`. `update` takes a function `(state) => newState` (use game.js mutations). `useGameId()` parses `/b|c|o/CODE` or `?g=`.
 - `src/useOptions.jsx` — `useAppearance(s)` applies theme/colors/font to `<html>`; `useGameSounds(s, enabled)` plays configured sounds on events (display side only).
@@ -60,11 +60,11 @@ The clock is NOT ticked over the network. State stores `{remainingMs, running, s
 ```bash
 npm run test:unit          # node:test — tests/unit/game.test.js (clock, penalties, strength, periods, option merge)
 npm run test:e2e:install   # once: downloads Chromium for Playwright
-npm run test:e2e           # Playwright — tests/e2e/*.spec.js, builds + serves `vite preview` on :4173, local mode
+npm run test:e2e           # Playwright — tests/e2e/*.spec.js, `build:test` (local store enabled) + `vite preview` on :4173
 npm test                   # both
 ```
 
-E2E tests open the control page and the board in the same browser context (local mode = localStorage + BroadcastChannel), each with a unique game code. `PW_CHROMIUM_PATH=/path/to/chrome` uses a system Chromium instead of the downloaded one. Helpers live in `tests/e2e/helpers.js`. Keep game-rule tests in the unit file; keep e2e tests to flows a user would do.
+E2E tests open the control page and the board in the same browser context (test build's local store = localStorage + BroadcastChannel), each with a unique game code. `PW_CHROMIUM_PATH=/path/to/chrome` uses a system Chromium instead of the downloaded one. Helpers live in `tests/e2e/helpers.js`. Keep game-rule tests in the unit file; keep e2e tests to flows a user would do.
 
 ## Ideas / backlog (not started)
 - Thai for the Options body (tabs/Save/Cancel are done; field labels still English)
