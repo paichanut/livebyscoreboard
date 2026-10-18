@@ -25,7 +25,7 @@ export const boardHome = page => page.locator('.board .team').nth(0)
 export const boardAway = page => page.locator('.board .team').nth(1)
 
 export async function addPenalty(page, team, player, minutes) {
-  await (team === 'home' ? home(page) : away(page)).getByRole('button', { name: 'Penalty' }).click()
+  await (team === 'home' ? home(page) : away(page)).getByRole('button', { name: 'add penalty' }).click()
   const sheet = page.locator('.sheet')
   await sheet.getByPlaceholder('#').fill(String(player))
   await sheet.getByRole('button', { name: `${minutes} min`, exact: true }).click()

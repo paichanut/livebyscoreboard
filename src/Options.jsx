@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { DEFAULT_KEYS, KEY_LABELS, SOUND_CHOICES, FONT_CHOICES, COLOR_FIELDS, defaultOptions, keyName } from './options.js'
+import { DEFAULT_KEYS, KEY_LABELS, KEY_GROUPS, SOUND_CHOICES, FONT_CHOICES, COLOR_FIELDS, defaultOptions, keyName } from './options.js'
 import { unlockAudio, playSound, ready } from './horn.js'
 import * as G from './game.js'
 import { LANGS, translator } from './i18n.js'
@@ -150,7 +150,7 @@ function TeamsTab({ get, set, home, setHome, away, setAway }) {
             <label>Team name<input type="text" value={t.name} onChange={e => setT({ ...t, name: e.target.value })} /></label>
             <label>Color<input type="color" value={t.color} onChange={e => setT({ ...t, color: e.target.value })} /></label>
           </div>
-          <ImagePick label="Logo" path={logoPath} get={get} set={set} />
+          <ImagePick label="Logo (shown faded behind the score)" path={logoPath} get={get} set={set} />
         </React.Fragment>
       ))}
     </>
@@ -168,7 +168,7 @@ function KeysTab({ o, set }) {
   return (
     <>
       <div className="hint">Click a key to change it, then press the new key. Esc cancels.</div>
-      {Object.keys(KEY_LABELS).map(k => (
+      {KEY_GROUPS.map(([group, names]) => (<React.Fragment key={group}><h4>{group}</h4>{names.map(k => (
         <div className="keyrow" key={k}>
           <span>{KEY_LABELS[k]}</span>
           <span className="inline">
@@ -176,7 +176,7 @@ function KeysTab({ o, set }) {
             <button className="btn sm" onClick={() => set(`keys.${k}`, '')}>✕</button>
           </span>
         </div>
-      ))}
+      ))}</React.Fragment>))}
       <button className="btn ghost" onClick={() => set('keys', { ...DEFAULT_KEYS })}>Reset all keys</button>
     </>
   )
@@ -266,7 +266,7 @@ function OtherTab({ o, set, get, update, close, resetAll }) {
       <ImagePick label="Scoreboard banner image (replaces title)" path="bannerImg" get={get} set={set} />
       <ImagePick label="Top left picture" path="topLeftImg" get={get} set={set} />
       <ImagePick label="Top right picture" path="topRightImg" get={get} set={set} />
-      <ImagePick label="Scoreboard logo (bottom / banner)" path="logoImg" get={get} set={set} />
+      <ImagePick label="Tournament logo (display: under the clock · OBS banner)" path="logoImg" get={get} set={set} />
       <h4>Ask me to confirm</h4>
       <Check label="New game" path="confirm.newGame" get={get} set={set} />
       <Check label="Change period (resets clock)" path="confirm.period" get={get} set={set} />

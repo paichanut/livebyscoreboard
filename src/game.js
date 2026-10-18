@@ -29,7 +29,10 @@ export function newGame(overrides = {}) {
     skaters: 5,
     theme: 'dark',
     clock: { remainingMs: 15 * MIN, running: false, since: null },
-    penalties: [], // { id, team, player, durationMs, clockAtStart }
+    penalties: [], // { id, team, player, minutes, kind, durationMs, elapsedMs } — elapsedMs as of penFoldAt
+    showTimeOfDay: false, // M key: the display shows the time of day instead of the period clock
+    playLive: true, // the whistle: false pauses penalty clocks while the game clock may keep running
+    penFoldAt: null, // when penalties' elapsedMs was last brought up to date
     horn: 0,
     buzzer: 0,
     timeout: null, // { team, durationMs, since }
@@ -61,20 +64,95 @@ export function periodLength(state) {
   return state.periodLengthMs
 }
 
-export function penaltyRemaining(state, p, now = wallNow()) {
-  const elapsed = p.clockAtStart - clockRemaining(state, now)
-  return Math.max(0, p.durationMs - elapsed)
+// ---- penalties (IIHF; rules from the standalone-scoreboard brief) ----
+// A penalty counts REAL elapsed time while play is live: live = clock running && playLive (the whistle).
+// It does not follow the game clock, so correcting the clock never moves a penalty.
+// At most two penalties per side run at once (Rule 26.1); later ones wait and start when a slot frees.
+// Misconducts (10:00) run whenever play is live, take no slot and don't change strength.
+// Stored per penalty: elapsedMs, correct as of s.penFoldAt. Everything else is derived here, so every
+// screen computes the same thing from the same stored state.
+export function penaltyKind(minutes) {
+  if (minutes === 2) return 'minor'
+  if (minutes === 4) return 'double'
+  if (minutes === 10) return 'misconduct'
+  if (minutes === 5) return 'major'
+  return minutes < 5 ? 'minor' : 'major'
+}
+const kindOf = p => p.kind || penaltyKind(Math.round(p.durationMs / MIN))
+
+export function isLive(s) {
+  return Boolean(s.clock.running && s.playLive !== false)
 }
 
+// Live time since the last fold. Live time stops when the game clock reaches 0, even if nobody pressed stop yet.
+function liveBudget(s, now) {
+  if (!isLive(s) || s.clock.since == null) return 0
+  const end = Math.min(now, s.clock.since + s.clock.remainingMs)
+  return Math.max(0, end - (s.penFoldAt ?? s.clock.since))
+}
+
+// { [id]: { remainingMs, status: 'running' | 'waiting' | 'done' } }
+export function penaltyView(s, now = wallNow()) {
+  const budget = liveBudget(s, now)
+  const out = {}
+  for (const team of ['home', 'away']) {
+    const list = (s.penalties || []).filter(p => p.team === team)
+    for (const p of list) {
+      if (kindOf(p) !== 'misconduct') continue
+      const rem = Math.max(0, p.durationMs - (p.elapsedMs || 0) - budget)
+      out[p.id] = { remainingMs: rem, status: rem > 0 ? 'running' : 'done' }
+    }
+    let pending = list.filter(p => kindOf(p) !== 'misconduct').map(p => ({ id: p.id, rem: Math.max(0, p.durationMs - (p.elapsedMs || 0)) }))
+    for (const x of pending) if (x.rem <= 0) out[x.id] = { remainingMs: 0, status: 'done' }
+    pending = pending.filter(x => x.rem > 0)
+    let b = budget
+    // spend the live time on the (at most two) running penalties; when one ends, the next waiting one starts
+    while (b > 0 && pending.length) {
+      const running = pending.slice(0, 2)
+      const step = Math.min(...running.map(x => x.rem))
+      if (step > b) { running.forEach(x => { x.rem -= b }); b = 0; break }
+      running.forEach(x => { x.rem -= step })
+      b -= step
+      for (const x of running) if (x.rem <= 0) out[x.id] = { remainingMs: 0, status: 'done' }
+      pending = pending.filter(x => x.rem > 0)
+    }
+    pending.forEach((x, i) => { out[x.id] = { remainingMs: x.rem, status: i < 2 ? 'running' : 'waiting' } })
+  }
+  return out
+}
+
+export function penaltyRemaining(state, p, now = wallNow()) {
+  return penaltyView(state, now)[p.id]?.remainingMs ?? 0
+}
+
+export function penaltyStatus(state, p, now = wallNow()) {
+  return penaltyView(state, now)[p.id]?.status ?? 'done'
+}
+
+// Penalties on the clock right now (shown on the board), slot penalties first
 export function activePenalties(state, team, now = wallNow()) {
-  return state.penalties.filter(p => p.team === team && penaltyRemaining(state, p, now) > 0)
+  const v = penaltyView(state, now)
+  const run = state.penalties.filter(p => p.team === team && v[p.id]?.status === 'running')
+  return [...run.filter(p => kindOf(p) !== 'misconduct'), ...run.filter(p => kindOf(p) === 'misconduct')]
+}
+
+export function waitingPenalties(state, team, now = wallNow()) {
+  const v = penaltyView(state, now)
+  return state.penalties.filter(p => p.team === team && v[p.id]?.status === 'waiting')
+}
+
+// Every penalty still to serve, in order (control page list)
+export function teamPenalties(state, team, now = wallNow()) {
+  const v = penaltyView(state, now)
+  return state.penalties.filter(p => p.team === team && v[p.id] && v[p.id].status !== 'done')
+    .map(p => ({ ...p, kind: kindOf(p), remainingMs: v[p.id].remainingMs, status: v[p.id].status }))
 }
 
 export function skaters(state, now = wallNow()) {
-  const nH = Math.min(activePenalties(state, 'home', now).length, 2)
-  const nA = Math.min(activePenalties(state, 'away', now).length, 2)
-  let h = state.skaters - nH
-  let a = state.skaters - nA
+  const v = penaltyView(state, now)
+  const down = team => state.penalties.filter(p => p.team === team && kindOf(p) !== 'misconduct' && v[p.id]?.status === 'running').length
+  let h = state.skaters - down('home')
+  let a = state.skaters - down('away')
   const lift = Math.max(0, 3 - Math.min(h, a))
   return { home: h + lift, away: a + lift }
 }
@@ -134,31 +212,70 @@ function dropLastEvent(s, pred) {
 // ---- mutations ----
 const touch = s => ({ ...s, updatedAt: wallNow() })
 
-export function startClock(s) {
+// Bring every penalty's elapsedMs up to `now` and drop finished ones. Call before anything that
+// changes whether play is live, or changes the penalty list.
+export function foldPenalties(s, now = wallNow()) {
+  const v = penaltyView(s, now)
+  const penalties = (s.penalties || []).filter(p => v[p.id] && v[p.id].status !== 'done')
+    .map(p => ({ ...p, kind: kindOf(p), elapsedMs: p.durationMs - v[p.id].remainingMs }))
+  return { ...s, penalties, penFoldAt: now }
+}
+
+// startClock = faceoff: the clock starts and play is live. { penalties: false } starts only the
+// period clock and leaves the penalty clocks as they are (PC Scoreboards "Start period time").
+export function startClock(s, { penalties = true } = {}) {
   if (s.clock.running) return s
   if (clockRemaining(s) <= 0) return s
-  return touch({ ...s, timeout: null, clock: { ...s.clock, running: true, since: wallNow() } })
+  const now = wallNow()
+  const playLive = penalties ? true : s.playLive !== false
+  return touch({ ...foldPenalties(s, now), timeout: null, playLive, clock: { ...s.clock, running: true, since: now } })
 }
 
 export function stopClock(s) {
   if (!s.clock.running) return s
   const now = wallNow()
-  return touch({ ...s, clock: { remainingMs: clockRemaining(s, now), running: false, since: null } })
+  return touch({ ...foldPenalties(s, now), clock: { remainingMs: clockRemaining(s, now), running: false, since: null } })
+}
+
+// The whistle: pause or resume penalty clocks without touching the game clock
+export function toggleWhistle(s) {
+  return setPlayLive(s, s.playLive === false)
+}
+
+export function setPlayLive(s, live) {
+  if ((s.playLive !== false) === live) return s
+  return touch({ ...foldPenalties(s), playLive: live })
+}
+
+export function removeLastPenalty(s) {
+  const v = penaltyView(s)
+  const open = s.penalties.filter(p => v[p.id] && v[p.id].status !== 'done')
+  return open.length ? removePenalty(s, open[open.length - 1].id) : s
+}
+
+// Goal light by hand (PC Scoreboards Left / Right / F8): on for a team without changing the score, or off
+export function setGoalLight(s, team) {
+  return touch({ ...s, goalFlash: team ? { team, at: wallNow() } : null })
+}
+
+export function toggleTimeOfDay(s) {
+  return touch({ ...s, showTimeOfDay: !s.showTimeOfDay })
+}
+
+export function fmtTimeOfDay(ms = wallNow()) {
+  const d = new Date(ms)
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 export function toggleClock(s) {
   return s.clock.running ? stopClock(s) : startClock(s)
 }
 
+// Setting or nudging the game clock never moves a penalty (they count real time)
 export function setClock(s, ms) {
   ms = Math.max(0, ms)
   const stopped = stopClock(s)
-  const pens = stopped.penalties.map(p => ({
-    ...p,
-    durationMs: penaltyRemaining(stopped, p),
-    clockAtStart: ms,
-  })).filter(p => p.durationMs > 0)
-  return touch({ ...stopped, clock: { remainingMs: ms, running: false, since: null }, penalties: pens })
+  return touch({ ...stopped, clock: { remainingMs: ms, running: false, since: null } })
 }
 
 export function adjustClock(s, deltaMs) {
@@ -186,10 +303,30 @@ export function prevPeriod(s) {
   return setPeriod(s, list[Math.max(i - 1, 0)])
 }
 
-export function addScore(s, team, delta) {
+// Rule 16.2: a goal by the side with more skaters ends the scored-against side's running minor with
+// the least time left (a double minor loses only its current 2:00 portion). Never a major or misconduct,
+// never on a penalty-shot goal. Undoing a goal (−1) does not bring the penalty back.
+export function releaseOnGoal(s, team, now = wallNow()) {
+  const opp = team === 'home' ? 'away' : 'home'
+  const f = foldPenalties(s, now)
+  const sk = skaters(f, now)
+  if (sk[team] <= sk[opp]) return f
+  const v = penaltyView(f, now)
+  const cands = f.penalties.filter(p => p.team === opp && ['minor', 'double'].includes(kindOf(p)) && v[p.id]?.status === 'running')
+  if (!cands.length) return f
+  const target = cands.reduce((a, b) => (v[b.id].remainingMs < v[a.id].remainingMs ? b : a))
+  const rem = v[target.id].remainingMs
+  if (kindOf(target) === 'double' && rem > 2 * MIN) {
+    return { ...f, penalties: f.penalties.map(p => (p.id === target.id ? { ...p, elapsedMs: p.durationMs - 2 * MIN } : p)) }
+  }
+  return { ...f, penalties: f.penalties.filter(p => p.id !== target.id) }
+}
+
+export function addScore(s, team, delta, { penaltyShot = false } = {}) {
   const score = Math.max(0, s[team].score + delta)
   const goalFlash = delta > 0 ? { team, at: wallNow() } : s.goalFlash
-  let next = { ...s, [team]: { ...s[team], score }, goalFlash }
+  const base = delta > 0 && !penaltyShot ? releaseOnGoal(s, team) : s
+  let next = { ...base, [team]: { ...s[team], score }, goalFlash }
   if (delta > 0) next = logEvent(next, 'goal', { team })
   else if (score !== s[team].score) next = dropLastEvent(next, e => e.type === 'goal' && e.team === team) // undo a mistaken goal
   return touch(next)
@@ -208,28 +345,63 @@ export function setTeam(s, team, patch) {
   return touch({ ...s, [team]: { ...s[team], ...patch } })
 }
 
-export function addPenalty(s, team, player, minutes) {
+export function addPenalty(s, team, player, minutes, infraction = '') {
+  const f = foldPenalties(s)
   const p = {
     id: Math.random().toString(36).slice(2, 9),
     team,
     player: String(player || '').trim(),
+    infraction: String(infraction || '').trim(),
+    minutes,
+    kind: penaltyKind(minutes),
     durationMs: minutes * MIN,
-    clockAtStart: clockRemaining(s),
+    elapsedMs: 0,
   }
-  return touch(logEvent({ ...s, penalties: [...s.penalties, p] }, 'penalty', { team, player: p.player, minutes, penaltyId: p.id }))
+  return touch(logEvent({ ...f, penalties: [...f.penalties, p] }, 'penalty', { team, player: p.player, minutes, infraction: p.infraction, penaltyId: p.id }))
 }
 
 export function removePenalty(s, id) {
-  const p = s.penalties.find(x => x.id === id)
-  let next = { ...s, penalties: s.penalties.filter(p => p.id !== id) }
+  const f = foldPenalties(s)
+  const p = f.penalties.find(x => x.id === id)
+  let next = { ...f, penalties: f.penalties.filter(x => x.id !== id) }
   // a penalty removed before it ran at all was a mistake: drop it from the log too
-  if (p && penaltyRemaining(s, p) >= p.durationMs) next = dropLastEvent(next, e => e.type === 'penalty' && e.penaltyId === id)
+  if (p && !p.elapsedMs) next = dropLastEvent(next, e => e.type === 'penalty' && e.penaltyId === id)
   return touch(next)
 }
 
+// Fix a penalty after the fact: player, infraction, or length (time already served is kept)
+export function editPenalty(s, id, { player, minutes, infraction }) {
+  const f = foldPenalties(s)
+  return touch({
+    ...f,
+    penalties: f.penalties.map(p => {
+      if (p.id !== id) return p
+      const durationMs = minutes != null ? minutes * MIN : p.durationMs
+      return {
+        ...p,
+        player: player != null ? String(player).trim() : p.player,
+        infraction: infraction != null ? String(infraction).trim() : p.infraction,
+        minutes: minutes ?? p.minutes,
+        kind: minutes != null ? penaltyKind(minutes) : p.kind,
+        durationMs,
+        elapsedMs: Math.min(p.elapsedMs, durationMs),
+      }
+    }),
+  })
+}
+
+// ±1 s / ±5 s on one penalty, to match the rink's official board. +deltaMs = more time to serve.
+export function nudgePenalty(s, id, deltaMs) {
+  const f = foldPenalties(s)
+  return touch({
+    ...f,
+    penalties: f.penalties.map(p => (p.id === id ? { ...p, elapsedMs: Math.min(p.durationMs, Math.max(0, p.elapsedMs - deltaMs)) } : p)),
+  })
+}
+
 export function pruneExpiredPenalties(s) {
-  const alive = s.penalties.filter(p => penaltyRemaining(s, p) > 0)
-  return alive.length === s.penalties.length ? s : touch({ ...s, penalties: alive })
+  const v = penaltyView(s)
+  return s.penalties.some(p => !v[p.id] || v[p.id].status === 'done') ? touch(foldPenalties(s)) : s
 }
 
 export function fireHorn(s) {
@@ -317,7 +489,7 @@ export function summaryRows(s) {
     if (e.type === 'goal') e.team === 'home' ? h++ : a++
     const name = s[e.team]?.name || e.team?.toUpperCase() || ''
     let detail = ''
-    if (e.type === 'penalty') detail = `${e.player ? `#${e.player} ` : ''}${e.minutes} min`
+    if (e.type === 'penalty') detail = `${e.player ? `#${e.player} ` : ''}${e.minutes} min${e.infraction ? ` ${e.infraction}` : ''}`
     else if (e.type === 'timeout') detail = `${e.seconds} s`
     else if (e.type === 'so') detail = `attempt ${e.attempt} ${e.scored ? 'goal' : 'miss'}`
     rows.push({ period: e.period, time: fmtEventClock(e, s.opts?.clockDir), type: e.type, team: e.team, teamName: name, detail, home: h, away: a, player: e.player || '', minutes: e.minutes ?? '' })

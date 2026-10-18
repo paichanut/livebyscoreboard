@@ -36,28 +36,107 @@ test('startClock refuses at 0; setClock clamps negatives', () => {
   assert.equal(s.clock.remainingMs, 1000)
 })
 
-test('penalty remaining is derived from the game clock', () => {
-  let s = { ...game(), clock: { remainingMs: 10 * MIN, running: false, since: null } }
-  s = G.addPenalty(s, 'away', '12', 2)
+// live from t0: clock running, play live, penalties folded at t0
+const T0 = 1_000_000
+const liveAt = (s, clockMs = 10 * MIN) => ({ ...s, clock: { remainingMs: clockMs, running: true, since: T0 }, penFoldAt: T0, playLive: true })
+
+test('penalty counts real live time; correcting the game clock never moves it', () => {
+  let s = liveAt(G.addPenalty(game(), 'away', '12', 2))
   const p = s.penalties[0]
-  assert.equal(p.clockAtStart, 10 * MIN)
-  assert.equal(G.penaltyRemaining(s, p), 2 * MIN)
-  // clock runs 30 s
-  const t0 = 5_000
-  s = { ...s, clock: { remainingMs: 10 * MIN, running: true, since: t0 } }
-  assert.equal(G.penaltyRemaining(s, p, t0 + 30_000), 2 * MIN - 30_000)
-  // clock expires: penalty freezes with the clock
-  assert.equal(G.penaltyRemaining(s, p, t0 + 20 * MIN), 0)
+  assert.equal(p.kind, 'minor')
+  assert.equal(G.penaltyRemaining(s, p, T0 + 30_000), 90_000)
+  s = G.foldPenalties(s, T0 + 30_000)
+  s = { ...s, clock: { remainingMs: 5 * MIN, running: false, since: null } } // operator fixes the game clock
+  assert.equal(G.penaltyRemaining(s, s.penalties[0], T0 + 99_000), 90_000, 'stopped clock: frozen, and not moved by the correction')
+  // live time ends when the game clock reaches 0, even before anyone presses stop
+  let z = liveAt(G.addPenalty(game(), 'home', '4', 2), 20_000)
+  assert.equal(G.penaltyRemaining(z, z.penalties[0], T0 + 60_000), 100_000)
 })
 
-test('setClock keeps penalty remaining time', () => {
-  let s = { ...game(), clock: { remainingMs: 10 * MIN, running: false, since: null } }
-  s = G.addPenalty(s, 'home', '4', 2)
-  s = { ...s, clock: { remainingMs: 10 * MIN - 45_000, running: false, since: null } } // 45 s elapsed
-  assert.equal(G.penaltyRemaining(s, s.penalties[0]), 2 * MIN - 45_000)
-  s = G.setClock(s, 3 * MIN)
-  assert.equal(G.penaltyRemaining(s, s.penalties[0]), 2 * MIN - 45_000)
-  assert.equal(s.penalties[0].clockAtStart, 3 * MIN)
+test('whistle pauses penalty clocks while the game clock keeps running', () => {
+  let s = liveAt(G.addPenalty(game(), 'away', '12', 2))
+  s = { ...G.foldPenalties(s, T0 + 10_000), playLive: false } // whistle at 10 s
+  assert.equal(G.penaltyRemaining(s, s.penalties[0], T0 + 40_000), 110_000)
+  assert.equal(G.clockRemaining(s, T0 + 40_000), 10 * MIN - 40_000, 'game clock still runs')
+  s = { ...G.foldPenalties(s, T0 + 40_000), playLive: true } // faceoff at 40 s
+  assert.equal(G.penaltyRemaining(s, s.penalties[0], T0 + 50_000), 100_000)
+  // the mutation flips the flag; starting the clock means play is live
+  assert.equal(G.toggleWhistle(game()).playLive, false)
+  assert.equal(G.startClock({ ...game(), playLive: false }).playLive, true)
+})
+
+test('at most two penalties run per side; the next one waits and starts when a slot frees', () => {
+  let s = game()
+  s = G.addPenalty(s, 'away', 'A', 2)
+  s = G.addPenalty(s, 'away', 'B', 5)
+  s = G.addPenalty(s, 'away', 'C', 2)
+  s = liveAt(s)
+  const [A, B, C] = s.penalties
+  assert.equal(G.penaltyStatus(s, C, T0 + 60_000), 'waiting')
+  assert.equal(G.penaltyRemaining(s, C, T0 + 60_000), 2 * MIN, 'waiting penalties do not count down')
+  assert.equal(G.strengthLabel(s, T0 + 60_000), '5v3')
+  assert.equal(G.waitingPenalties(s, 'away', T0 + 60_000).length, 1)
+  // A ends at 2:00, C starts then
+  assert.equal(G.penaltyStatus(s, A, T0 + 150_000), 'done')
+  assert.equal(G.penaltyStatus(s, C, T0 + 150_000), 'running')
+  assert.equal(G.penaltyRemaining(s, C, T0 + 150_000), 90_000)
+  assert.equal(G.penaltyRemaining(s, B, T0 + 150_000), 5 * MIN - 150_000)
+  assert.equal(G.strengthLabel(s, T0 + 150_000), '5v3')
+  // after C ends (at 4:00) only B remains → 5v4
+  assert.equal(G.strengthLabel(s, T0 + 250_000), '5v4')
+  // folding drops finished penalties and keeps the rest consistent
+  const f = G.foldPenalties(s, T0 + 150_000)
+  assert.deepEqual(f.penalties.map(p => p.player), ['B', 'C'])
+  assert.equal(G.penaltyRemaining(f, f.penalties[1], T0 + 150_000), 90_000)
+})
+
+test('misconduct runs but takes no slot and does not change strength', () => {
+  let s = game()
+  s = G.addPenalty(s, 'away', '1', 2)
+  s = G.addPenalty(s, 'away', '2', 2)
+  s = G.addPenalty(s, 'away', '3', 10)
+  assert.equal(s.penalties[2].kind, 'misconduct')
+  assert.equal(G.strengthLabel(s), '5v3')
+  assert.equal(G.activePenalties(s, 'away').length, 3)
+  assert.equal(G.waitingPenalties(s, 'away').length, 0)
+})
+
+test('goal by the side with more skaters ends the least-time minor (Rule 16.2)', () => {
+  const pen = (team, player, minutes, elapsedMs = 0) => ({ id: player, team, player, minutes, kind: G.penaltyKind(minutes), durationMs: minutes * MIN, elapsedMs })
+  const withPens = (...ps) => ({ ...game(), penalties: ps })
+  // two away minors: the one with less time left goes
+  let s = G.addScore(withPens(pen('away', 'A', 2, 60_000), pen('away', 'B', 2, 0)), 'home', 1)
+  assert.deepEqual(s.penalties.map(p => p.player), ['B'])
+  assert.equal(s.home.score, 1)
+  // even strength (one each): nothing ends
+  s = G.addScore(withPens(pen('away', 'A', 2), pen('home', 'H', 2)), 'home', 1)
+  assert.equal(s.penalties.length, 2)
+  // a major is never ended by a goal
+  s = G.addScore(withPens(pen('away', 'M', 5)), 'home', 1)
+  assert.equal(s.penalties.length, 1)
+  // double minor: the goal ends only the current 2:00 portion
+  s = G.addScore(withPens(pen('away', 'D', 4, 30_000)), 'home', 1)
+  assert.equal(G.penaltyRemaining(s, s.penalties[0]), 2 * MIN)
+  s = G.addScore(s, 'home', 1)
+  assert.equal(s.penalties.length, 0, 'second goal ends the second portion')
+  // penalty-shot goal: nothing ends
+  s = G.addScore(withPens(pen('away', 'A', 2)), 'home', 1, { penaltyShot: true })
+  assert.equal(s.penalties.length, 1)
+  // the short-handed side scoring does not free its own player
+  s = G.addScore(withPens(pen('away', 'A', 2)), 'away', 1)
+  assert.equal(s.penalties.length, 1)
+})
+
+test('penalty nudges add or remove time and stay within 0..duration', () => {
+  let s = { ...game(), penalties: [{ id: 'x', team: 'home', player: '9', minutes: 2, kind: 'minor', durationMs: 2 * MIN, elapsedMs: 30_000 }] }
+  s = G.nudgePenalty(s, 'x', 5_000)
+  assert.equal(G.penaltyRemaining(s, s.penalties[0]), 95_000)
+  s = G.nudgePenalty(s, 'x', -1_000)
+  assert.equal(G.penaltyRemaining(s, s.penalties[0]), 94_000)
+  s = G.nudgePenalty(s, 'x', 60 * MIN)
+  assert.equal(G.penaltyRemaining(s, s.penalties[0]), 2 * MIN, 'never more than the full penalty')
+  s = G.nudgePenalty(s, 'x', -60 * MIN)
+  assert.equal(G.pruneExpiredPenalties(s).penalties.length, 0)
 })
 
 test('strength: 5v5 → 5v4 → 5v3, capped at two penalties', () => {
@@ -81,14 +160,13 @@ test('strength in 3v3: one penalty lifts both sides → 4v3', () => {
   assert.equal(G.strengthLabel(s), '', 'coincidental minors: 3v3 again')
 })
 
-test('expired penalties are not active and get pruned', () => {
-  let s = { ...game(), clock: { remainingMs: 1 * MIN, running: false, since: null } }
-  s = G.addPenalty(s, 'away', '1', 2)
-  s = { ...s, clock: { remainingMs: 1 * MIN, running: true, since: 0 } }
-  assert.equal(G.activePenalties(s, 'away', 10_000).length, 1)
-  assert.equal(G.activePenalties(s, 'away', 3 * MIN).length, 1, 'clock stops at 0 so penalty freezes at 1:00 left')
-  s = G.setClock({ ...s, clock: { remainingMs: 0, running: false, since: null } }, 0)
-  assert.equal(s.penalties.length, 1)
+test('withDefaults converts penalties saved by the old game-clock model', () => {
+  const old = { ...game(), clock: { remainingMs: 8 * MIN, running: false, since: null }, penalties: [{ id: 'o', team: 'away', player: '7', durationMs: 2 * MIN, clockAtStart: 9 * MIN }] }
+  delete old.playLive
+  const s = withDefaults(old)
+  assert.equal(s.penalties[0].elapsedMs, 60_000)
+  assert.equal(G.penaltyRemaining(s, s.penalties[0]), 60_000)
+  assert.equal(s.playLive, true)
 })
 
 test('period navigation resets clock; OT is 5:00, SO is 0:00', () => {
@@ -145,7 +223,7 @@ test('withDefaults deep-merges new options into an old saved game', () => {
   assert.equal(s.opts.labels.period, 'ช่วง')
   assert.equal(s.opts.labels.shots, 'SHOTS')
   assert.equal(s.opts.periods, 3)
-  assert.deepEqual(s.opts.penaltyLengths, [2, 5, 10])
+  assert.deepEqual(s.opts.penaltyLengths, [2, 4, 5, 10])
 })
 
 // ---- game log, shootout, summary ----
@@ -173,7 +251,7 @@ test('removing a penalty that never ran drops it from the log; one that ran stay
   assert.equal(s.events.length, 0)
   s = G.addPenalty(s, 'home', '5', 2)
   const id = s.penalties[0].id
-  s = { ...s, clock: { remainingMs: 15 * MIN, running: true, since: Date.now() - 30_000 } } // 30 s served
+  s = { ...s, clock: { remainingMs: 15 * MIN, running: true, since: Date.now() - 30_000 }, penFoldAt: Date.now() - 30_000, playLive: true } // 30 s served
   s = G.removePenalty(s, id)
   assert.equal(s.events.length, 1, 'early release stays in the log')
 })
@@ -252,4 +330,24 @@ test('all clock math uses the server-synced clock', async () => {
   s = G.addScore(s, 'away', 1)
   assert.equal(G.goalFlashActive(s), 'away')
   setTimeOffset(0)
+})
+
+test('editPenalty changes player, infraction and length but keeps time served', () => {
+  let s = { ...game(), penalties: [{ id: 'e', team: 'away', player: '9', minutes: 2, kind: 'minor', durationMs: 2 * MIN, elapsedMs: 30_000 }] }
+  s = G.editPenalty(s, 'e', { player: '19', infraction: 'Boarding', minutes: 5 })
+  const p = s.penalties[0]
+  assert.equal(p.player, '19')
+  assert.equal(p.infraction, 'Boarding')
+  assert.equal(p.kind, 'major')
+  assert.equal(G.penaltyRemaining(s, p), 5 * MIN - 30_000)
+})
+
+test('default keys follow the PC Scoreboards layout and do not collide', async () => {
+  const { DEFAULT_KEYS, KEY_GROUPS, KEY_LABELS } = await import('../../src/options.js')
+  const codes = Object.values(DEFAULT_KEYS)
+  assert.equal(new Set(codes).size, codes.length, 'every action has its own key')
+  for (const [k, v] of Object.entries({ homeGoal: 'KeyQ', awayGoal: 'KeyA', startAll: 'KeyY', stopAll: 'KeyH', startClockOnly: 'KeyO', stopClockOnly: 'KeyP', resetClock: 'KeyL', penaltiesOn: 'KeyU', penaltiesOff: 'KeyJ', removePenalty: 'F7', timeOfDay: 'KeyM', goalLightHome: 'ArrowLeft', goalLightAway: 'ArrowRight', goalLightOff: 'F8', horn: 'F9', buzzer: 'F12', newGame: 'F5' })) assert.equal(DEFAULT_KEYS[k], v, k)
+  const grouped = KEY_GROUPS.flatMap(([, names]) => names)
+  assert.deepEqual([...grouped].sort(), Object.keys(DEFAULT_KEYS).sort(), 'every key is listed in a group')
+  for (const k of grouped) assert.ok(KEY_LABELS[k], `label for ${k}`)
 })

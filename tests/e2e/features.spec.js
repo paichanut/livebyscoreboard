@@ -51,7 +51,7 @@ test('game summary sheet lists goals and penalties with the running score', asyn
   await addPenalty(page, 'away', 12, 2)
   await page.getByRole('button', { name: 'Period ▶' }).click()
   await away(page).getByRole('button', { name: '+ GOAL' }).click()
-  await away(page).getByRole('button', { name: 'Shot +' }).click()
+  await away(page).getByRole('button', { name: 'Shot +', exact: true }).click()
 
   await page.getByRole('button', { name: '📋 Summary' }).click()
   const text = await page.locator('.sheet pre.summary').textContent()
@@ -87,7 +87,7 @@ test('Thai control UI: switch language in Options → Text', async ({ page }) =>
   await page.keyboard.press('KeyQ')
   await expect(home(page).locator('.s')).toHaveText('1')
   // sheets are translated too
-  await home(page).getByRole('button', { name: 'ลงโทษ' }).click()
+  await home(page).getByRole('button', { name: 'add penalty' }).click()
   await expect(page.locator('.sheet').getByRole('button', { name: 'เพิ่มโทษ' })).toBeVisible()
   await page.locator('.sheet').getByRole('button', { name: 'ยกเลิก' }).click()
   // persists after reload
@@ -100,7 +100,7 @@ test('/live lists games in this browser with score, period and clock', async ({ 
   await openControl(page, a)
   await home(page).getByRole('button', { name: '+ GOAL' }).click()
   await page.getByRole('button', { name: 'Period ▶' }).click()
-  await page.getByRole('button', { name: 'START' }).click()
+  await page.getByRole('button', { name: 'START', exact: true }).click()
   const p2 = await context.newPage()
   await openControl(p2, b)
   await openOptions(p2, 'Other')

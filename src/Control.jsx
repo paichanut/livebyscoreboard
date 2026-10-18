@@ -6,6 +6,7 @@ import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOption
 import { translator } from './i18n.js'
 import TimeBadge from './TimeBadge.jsx'
 import Options from './Options.jsx'
+import { KEY_GROUPS, KEY_LABELS, keyName } from './options.js'
 
 export default function Control() {
   const gameId = useGameId()
@@ -33,6 +34,7 @@ export default function Control() {
   useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
   useTick(100, Boolean(s?.clock.running || s?.timeout))
   const [sheet, setSheet] = useState(null)
+  const [openPen, setOpenPen] = useState(null) // penalty row showing its ±1/±5 s buttons
   // optional: play horn/buzzer on this device too (phone speaker / laptop plugged into the PA)
   const sound = useSound('rinkboard:sound:control', false)
   useGameSounds(s, sound.playing)
@@ -66,6 +68,13 @@ export default function Control() {
       e.preventDefault()
       const map = {
         startStop: G.toggleClock,
+        startAll: x => G.startClock(x), stopAll: G.stopClock,
+        startClockOnly: x => G.startClock(x, { penalties: false }), stopClockOnly: G.stopClock,
+        resetClock: x => (ask('period', t('confirmResetClock')) ? G.resetClock(x) : x),
+        penaltiesOn: x => G.setPlayLive(x, true), penaltiesOff: x => G.setPlayLive(x, false),
+        penaltyOn: x => G.setPlayLive(x, true), penaltyOff: x => G.setPlayLive(x, false),
+        removePenalty: x => (ask('removePenalty', t('confirmRemovePenalty')) ? G.removeLastPenalty(x) : x),
+        timeOfDay: G.toggleTimeOfDay,
         homeGoal: x => G.addScore(x, 'home', 1), homeGoalMinus: x => G.addScore(x, 'home', -1),
         homeShot: x => G.addShot(x, 'home', 1), homeShotMinus: x => G.addShot(x, 'home', -1),
         awayGoal: x => G.addScore(x, 'away', 1), awayGoalMinus: x => G.addScore(x, 'away', -1),
@@ -73,8 +82,11 @@ export default function Control() {
         periodPlus: x => (ask('period', t('confirmNext')) ? G.nextPeriod(x) : x),
         periodMinus: x => (ask('period', t('confirmPrev')) ? G.prevPeriod(x) : x),
         clockPlus: x => G.adjustClock(x, 1000), clockMinus: x => G.adjustClock(x, -1000),
+        goalLightHome: x => G.setGoalLight(x, 'home'), goalLightAway: x => G.setGoalLight(x, 'away'), goalLightOff: x => G.setGoalLight(x, null),
         horn: G.fireHorn, buzzer: G.fireBuzzer,
         timeout1: () => { setSheet('timeout-1'); return null }, timeout2: () => { setSheet('timeout-2'); return null },
+        showDisplay: () => { window.open(`/b/${encodeURIComponent(gameId)}`, '_blank'); return null },
+        correction: () => { setSheet('setclock'); return null },
         newGame: x => (ask('newGame', t('confirmNewGame')) ? G.resetGame(x) : x),
       }
       const fn = map[act]
@@ -108,9 +120,11 @@ export default function Control() {
 
       <div className="card clockcard">
         <div className="p">
+          <span className={`run ${running ? 'on' : ''}`}>{running ? t('running') : t('paused')}</span>
           <span>{isNum ? <>{o.labels.period} <b>{G.periodLabel(s)}</b></> : <b>{G.periodLabel(s)}</b>}</span>
           {strength && <span className="st">{strength}</span>}
           {o.clockDir === 'up' && <span style={{ fontSize: 12 }}>{t('up')}</span>}
+          {s.showTimeOfDay && <span className="tod">{t('todOnDisplay')}</span>}
         </div>
         <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s))}</div>
         <div className="row">
@@ -118,6 +132,28 @@ export default function Control() {
             {running ? t('stop') : t('start')}
           </button>
         </div>
+
+        {/* PC Scoreboards control groups */}
+        <div className="groups">
+          <div className="grp">
+            <span className="gl">{t('allTimes')}</span>
+            <button className={`btn sm go ${running && s.playLive !== false ? 'lit' : ''}`} aria-label="start all times" onClick={() => update(x => G.startClock(x))} disabled={remaining <= 0}>{t('startBtn')}</button>
+            <button className="btn sm" aria-label="stop all times" onClick={() => update(G.stopClock)}>{t('stopBtn')}</button>
+          </div>
+          <div className="grp">
+            <span className="gl">{t('periodTime')}</span>
+            <button className={`btn sm go ${running ? 'lit' : ''}`} aria-label="start period time" onClick={() => update(x => G.startClock(x, { penalties: false }))} disabled={remaining <= 0}>{t('startBtn')}</button>
+            <button className="btn sm" aria-label="stop period time" onClick={() => update(G.stopClock)}>{t('stopBtn')}</button>
+            <button className="btn sm" aria-label="reset period time" onClick={() => { if (ask('period', t('confirmResetClock'))) update(G.resetClock) }}>{t('reset')}</button>
+          </div>
+          <div className="grp">
+            <span className="gl">{t('allPenalties')}</span>
+            <button className={`btn sm go ${s.playLive !== false ? 'lit' : ''}`} aria-label="start all penalties" onClick={() => update(x => G.setPlayLive(x, true))}>{t('startBtn')}</button>
+            <button className={`btn sm ${s.playLive === false ? 'held' : ''}`} aria-label="stop all penalties" onClick={() => update(x => G.setPlayLive(x, false))}>{t('stopBtn')}</button>
+          </div>
+        </div>
+        {s.playLive === false && <div className="hint whistlehint">{t('whistleHintPaused')}</div>}
+
         <div className="row">
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, -60000))}>−1:00</button>
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, -1000))}>−0:01</button>
@@ -125,24 +161,35 @@ export default function Control() {
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, 1000))}>+0:01</button>
           <button className="btn sm" onClick={() => update(x => G.adjustClock(x, 60000))}>+1:00</button>
         </div>
-        <div className="row">
-          <button className="btn sm" onClick={() => { if (ask('period', t('confirmPrev'))) update(G.prevPeriod) }}>{t('periodPrev')}</button>
-          <button className="btn sm" onClick={() => { if (ask('period', t('confirmResetClock'))) update(G.resetClock) }}>{t('reset')}</button>
-          <button className="btn sm" onClick={() => { if (ask('period', t('confirmNext'))) update(G.nextPeriod) }}>{t('periodNext')}</button>
+        <div className="row period">
+          <button className="btn sm minus" onClick={() => { if (ask('period', t('confirmPrev'))) update(G.prevPeriod) }}>{t('periodPrev')}</button>
+          <span className="pv tnum">{G.periodLabel(s)}</span>
+          <button className="btn sm plus" onClick={() => { if (ask('period', t('confirmNext'))) update(G.nextPeriod) }}>{t('periodNext')}</button>
         </div>
         <div className="row">
           <button className="btn sm" onClick={() => update(G.fireHorn)}>{t('horn')}</button>
           <button className="btn sm" onClick={() => update(G.fireBuzzer)}>{t('buzzer')}</button>
+          <button className={`btn sm ${s.showTimeOfDay ? 'accent' : ''}`} onClick={() => update(G.toggleTimeOfDay)}>{s.showTimeOfDay ? t('showPeriodTime') : t('showTimeOfDay')}</button>
+        </div>
+        <div className="row">
           {s.timeout && G.timeoutRemaining(s) > 0 ? (
             <button className="btn sm accent" onClick={() => update(G.clearTimeout_)} style={{ flex: 2 }}>
               {o.labels.timeout} {s[s.timeout.team].name} · {G.fmtClock(G.timeoutRemaining(s))} — {t('end')}
             </button>
           ) : (
             <>
-              <button className="btn sm" onClick={() => setSheet('timeout-1')}>{t('to')} {G.fmtClock(o.timeout1Sec * 1000, { tenths: false })}</button>
-              <button className="btn sm" onClick={() => setSheet('timeout-2')}>{t('to')} {G.fmtClock(o.timeout2Sec * 1000, { tenths: false })}</button>
+              <button className="btn sm" onClick={() => setSheet('timeout-1')}>{t('timeoutBtn')} ({G.fmtClock(o.timeout1Sec * 1000, { tenths: false })})</button>
+              <button className="btn sm" onClick={() => setSheet('timeout-2')}>{t('timeoutBtn')} ({G.fmtClock(o.timeout2Sec * 1000, { tenths: false })})</button>
             </>
           )}
+        </div>
+        <div className="goallight">
+          <span className="gl">{t('goalLight')}</span>
+          <div className="row">
+            <button className={`btn sm ${G.goalFlashActive(s) === 'home' ? 'lit' : ''}`} aria-label="goal light home" onClick={() => update(x => G.setGoalLight(x, 'home'))}>◁ {s.home.name}</button>
+            <button className="btn sm" aria-label="goal light off" onClick={() => update(x => G.setGoalLight(x, null))}>{t('none')}</button>
+            <button className={`btn sm ${G.goalFlashActive(s) === 'away' ? 'lit' : ''}`} aria-label="goal light away" onClick={() => update(x => G.setGoalLight(x, 'away'))}>{s.away.name} ▷</button>
+          </div>
         </div>
         {isSO && <div className="hint sohint">{t('soHint')}</div>}
       </div>
@@ -167,16 +214,35 @@ export default function Control() {
                 </div>
               )}
               <div className="mini">
-                <button className="btn" onClick={() => update(x => G.addScore(x, team, -1))}>{t('minus1')}</button>
-                <button className="btn" onClick={() => update(x => G.addShot(x, team, 1))}>{t('shotPlus')}</button>
-                <button className="btn" onClick={() => setSheet(`pen-${team}`)}>{t('penalty')}</button>
+                <span className="ml">{t('scoreLbl')}</span>
+                <button className="btn minus" onClick={() => update(x => G.addScore(x, team, -1))}>{t('minus1')}</button>
+                <button className="btn plus" aria-label="score +1" onClick={() => update(x => G.addScore(x, team, 1))}>+1</button>
               </div>
-              <div className="sh">{o.labels.shots} <b className="tnum">{tm.shots}</b> <button onClick={() => update(x => G.addShot(x, team, -1))}>−</button></div>
-              {G.activePenalties(s, team).map(p => (
-                <div className="pen" key={p.id}>
-                  <div>{p.player ? `#${p.player}` : t('pen')}</div>
-                  <span className="tnum">{G.fmtClock(G.penaltyRemaining(s, p), { tenths: false })}</span>
-                  <button onClick={() => { if (ask('removePenalty', t('confirmRemovePenalty'))) update(x => G.removePenalty(x, p.id)) }}>✕</button>
+              <div className="mini">
+                <span className="ml">{o.labels.shots} <b className="tnum">{tm.shots}</b></span>
+                <button className="btn minus" aria-label="shot −1" onClick={() => update(x => G.addShot(x, team, -1))}>−1</button>
+                <button className="btn plus" aria-label="Shot +" onClick={() => update(x => G.addShot(x, team, 1))}>+1</button>
+              </div>
+              <div className="penhead">
+                <span>{o.labels.player} · {o.labels.penalty}</span>
+                <button className="btn addpen" aria-label="add penalty" onClick={() => setSheet(`pen-${team}`)}>+</button>
+              </div>
+              {G.teamPenalties(s, team).map(p => (
+                <div className={`pen ${p.status}`} key={p.id} data-status={p.status}>
+                  <div className="who">{p.player ? `#${p.player}` : t('pen')} <small>{p.infraction || t('kind_' + p.kind)}</small></div>
+                  <span className="pt tnum">{p.status === 'waiting' ? t('waiting') + ' · ' : ''}{G.fmtClock(p.remainingMs, { tenths: false })}</span>
+                  <div className="acts">
+                    <button aria-label="edit penalty" onClick={() => setSheet(`edit-${team}-${p.id}`)}>✎</button>
+                    <button aria-label="remove penalty" onClick={() => { if (ask('removePenalty', t('confirmRemovePenalty'))) update(x => G.removePenalty(x, p.id)) }}>✕</button>
+                    <button aria-label="more" className={openPen === p.id ? 'on' : ''} onClick={() => setOpenPen(openPen === p.id ? null : p.id)}>•••</button>
+                  </div>
+                  {openPen === p.id && (
+                    <div className="nudge">
+                      {[-5, -1, 1, 5].map(d => (
+                        <button key={d} onClick={() => update(x => G.nudgePenalty(x, p.id, d * 1000))}>{d > 0 ? `+${d}` : `−${-d}`}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -189,9 +255,17 @@ export default function Control() {
         <a className="btn" href={boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>
         <button className="btn" onClick={() => setSheet('summary')}>{t('summary')}</button>
         <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>
+        <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>
+        <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>
+        <button className="btn keysbtn" onClick={() => setSheet('keys')} aria-label="keyboard shortcuts">⌨ {t('help')}</button>
       </div>
 
       {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={s} update={update} close={() => setSheet(null)} t={t} />}
+      {sheet?.startsWith('edit-') && (() => {
+        const [, team, id] = sheet.split('-')
+        const pen = s.penalties.find(p => p.id === id)
+        return pen ? <PenaltySheet team={team} s={s} update={update} close={() => setSheet(null)} t={t} edit={pen} /> : null
+      })()}
       {sheet === 'setclock' && <SetClockSheet s={s} update={update} close={() => setSheet(null)} t={t} />}
       {sheet?.startsWith('timeout-') && (
         <Sheet close={() => setSheet(null)}>
@@ -203,6 +277,21 @@ export default function Control() {
             ))}
           </div>
           <button className="btn ghost" onClick={() => setSheet(null)}>{t('cancel')}</button>
+        </Sheet>
+      )}
+      {sheet === 'keys' && (
+        <Sheet close={() => setSheet(null)}>
+          <h3>⌨ {t('keysTitle')}</h3>
+          <div className="keysheet">
+            {KEY_GROUPS.map(([group, names]) => (
+              <div key={group}>
+                <h4>{group}</h4>
+                {names.map(n => <div className="kr" key={n}><span>{KEY_LABELS[n]}</span><kbd>{keyName(o.keys[n])}</kbd></div>)}
+              </div>
+            ))}
+          </div>
+          <div className="hint">{t('keysHint')}</div>
+          <button className="btn ghost" onClick={() => setSheet(null)}>{t('close')}</button>
         </Sheet>
       )}
       {sheet === 'options' && <Options s={s} update={update} close={() => setSheet(null)} />}
@@ -220,24 +309,41 @@ function Sheet({ children, close }) {
   )
 }
 
-function PenaltySheet({ team, s, update, close, t }) {
-  const lens = s.opts.penaltyLengths?.length ? s.opts.penaltyLengths : [2, 5, 10]
-  const [player, setPlayer] = useState('')
-  const [mins, setMins] = useState(lens[0])
-  const add = () => { update(x => G.addPenalty(x, team, player, mins)); close() }
+function PenaltySheet({ team, s, update, close, t, edit }) {
+  const lens = s.opts.penaltyLengths?.length ? s.opts.penaltyLengths : [2, 4, 5, 10]
+  const templates = s.opts.penaltyTemplates || []
+  const [player, setPlayer] = useState(edit?.player || '')
+  const [mins, setMins] = useState(edit ? Math.round(edit.durationMs / 60000) : lens[0])
+  const [infraction, setInfraction] = useState(edit?.infraction || '')
+  const add = () => {
+    update(x => (edit ? G.editPenalty(x, edit.id, { player, minutes: mins, infraction }) : G.addPenalty(x, team, player, mins, infraction)))
+    close()
+  }
+  const pick = tp => { setInfraction(tp.name); setMins(tp.minutes) }
   return (
     <Sheet close={close}>
       <h3 style={{ color: s[team].color }}>{s.opts.labels.penalty} · {s[team].name}</h3>
       <label>{s.opts.labels.player}
         <input inputMode="numeric" autoFocus value={player} onChange={e => setPlayer(e.target.value)} placeholder="#" onKeyDown={e => e.key === 'Enter' && add()} />
       </label>
+      {templates.length > 0 && (
+        <div className="field">{t('infraction')}
+          <div className="templates">
+            {templates.map(tp => (
+              <button key={tp.name} className={`btn ${infraction === tp.name ? 'on' : ''}`} onClick={() => pick(tp)}>
+                {tp.name} <small>{tp.minutes}′</small>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {/* a <div>, not a <label>: label text would "click" the first button */}
       <div className="field">{t('length')}
         <div className="choices" style={{ flexWrap: 'wrap' }}>
           {lens.map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{m} {t('min')}</button>)}
         </div>
       </div>
-      <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={add}>{t('addPenalty')}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
+      <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={add}>{edit ? t('savePenalty') : t('addPenalty')}{infraction ? ` · ${infraction}` : ''}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
     </Sheet>
   )
 }

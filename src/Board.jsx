@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
-import { clockShown, fmtClock, strengthLabel, activePenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, periodLabel, clockRemaining } from './game.js'
+import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, periodLabel, clockRemaining } from './game.js'
 import { ONLINE } from './sync.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import TimeBadge from './TimeBadge.jsx'
@@ -11,7 +11,7 @@ export default function Board() {
   useAppearance(s)
   const sound = useSound('rinkboard:sound:board', true)
   useGameSounds(s, sound.playing)
-  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
+  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.showTimeOfDay || s?.penalties?.length))
 
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
@@ -51,16 +51,25 @@ export default function Board() {
           </div>
         )}
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
-        <div className={`clock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
+        <div className={`clock tnum ${final && !s.showTimeOfDay ? 'final' : ''}`}>{s.showTimeOfDay ? fmtTimeOfDay() : fmtClock(clockShown(s))}</div>
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         <div className="pens">
-          <div className="col">{activePenalties(s, 'home').slice(0, 2).map(p => <Pen key={p.id} p={p} s={s} color={s.home.color} />)}</div>
-          <div className="col">{activePenalties(s, 'away').slice(0, 2).map(p => <Pen key={p.id} p={p} s={s} color={s.away.color} />)}</div>
+          {['home', 'away'].map(team => {
+            const run = activePenalties(s, team)
+            const more = run.length - Math.min(run.length, 2) + waitingPenalties(s, team).length
+            return (
+              <div className="col" key={team}>
+                {run.slice(0, 2).map(p => <Pen key={p.id} p={p} s={s} color={s[team].color} />)}
+                {more > 0 && <div className="pen more" style={{ '--c': s[team].color }}>+{more}</div>}
+              </div>
+            )
+          })}
         </div>
+        {o.logoImg && <img className="centerlogo" src={o.logoImg} alt="" />}
       </div>
 
       <Team t={s.away} logo={!minimal && o.awayLogo} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
-      {!minimal && o.logoImg ? <img className="brandlogo" src={o.logoImg} alt="" /> : <div className="brand">rinkboard</div>}
+      {!o.logoImg && <div className="brand">rinkboard</div>}
     </div>
   )
 }
@@ -69,7 +78,7 @@ function Team({ t, logo, flash, L, showShots, so }) {
   return (
     <div className={`team ${flash ? 'flash' : ''}`} style={{ '--c': t.color }}>
       {flash && <div className="goalflash">{L.goal}</div>}
-      {logo && <img className="logo" src={logo} alt="" />}
+      {logo && <img className="bglogo" src={logo} alt="" aria-hidden="true" />}
       <div className="name">{t.name}</div>
       <div className="score tnum">{t.score}</div>
       {so ? <Shootout attempts={so} /> : showShots && <div className="shots">{L.shots} <b className="tnum">{t.shots}</b></div>}

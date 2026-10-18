@@ -8,12 +8,12 @@ test('clock stops automatically at 0 and the display shows final', async ({ page
 
   await setClock(page, 0, 2)
   await expect(page.locator('.clockcard .c')).toHaveText('2.0')
-  await page.getByRole('button', { name: 'START' }).click()
-  await expect(page.getByRole('button', { name: 'STOP' })).toBeVisible()
+  await page.getByRole('button', { name: 'START', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'STOP', exact: true })).toBeVisible()
 
   await expect(page.locator('.clockcard .c')).toHaveText('0.0', { timeout: 6000 })
   // button flips back to START and is disabled at 0
-  const start = page.getByRole('button', { name: 'START' })
+  const start = page.getByRole('button', { name: 'START', exact: true })
   await expect(start).toBeVisible()
   await expect(start).toBeDisabled()
   await expect(page.locator('.clockcard .c')).toHaveClass(/final/)

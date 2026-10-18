@@ -26,7 +26,7 @@ test('public /b/ display is read-only: no controls, keys do nothing, key not in 
   await expect(board.locator('.board .period b')).toHaveText('1')
   // the control page saw nothing either
   await expect(home(page).locator('.s')).toHaveText('2')
-  await expect(page.getByRole('button', { name: 'START' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'START', exact: true })).toBeVisible()
 
   // public links never carry the operator key
   expect(board.url()).not.toContain('k=')

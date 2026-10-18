@@ -1,26 +1,46 @@
 // Options model — mirrors the PC Scoreboards "Options" dialog, minus the desktop-only bits.
 
+// Same layout as PC Scoreboards "Hockey Scoreboard Pro v3" (Options → Keys), plus Space and the arrows.
 export const DEFAULT_KEYS = {
-  startStop: 'Space',
+  // Team 1 (home) / Team 2 (away)
   homeGoal: 'KeyQ', homeGoalMinus: 'KeyE', homeShot: 'KeyR', homeShotMinus: 'KeyT',
   awayGoal: 'KeyA', awayGoalMinus: 'KeyD', awayShot: 'KeyF', awayShotMinus: 'KeyG',
+  // Main clock
+  startAll: 'KeyY', stopAll: 'KeyH',
+  startClockOnly: 'KeyO', stopClockOnly: 'KeyP', resetClock: 'KeyL',
+  penaltiesOn: 'KeyU', penaltiesOff: 'KeyJ', penaltyOn: 'KeyI', penaltyOff: 'KeyK',
+  removePenalty: 'F7', timeout1: 'KeyB', timeout2: 'KeyN', timeOfDay: 'KeyM',
+  startStop: 'Space', clockPlus: 'ArrowUp', clockMinus: 'ArrowDown',
+  // Period
   periodPlus: 'BracketRight', periodMinus: 'BracketLeft',
-  clockPlus: 'ArrowUp', clockMinus: 'ArrowDown',
-  horn: 'F9', buzzer: 'F12', timeout1: 'KeyB', timeout2: 'KeyN',
-  newGame: 'F5',
+  // Goal light
+  goalLightHome: 'ArrowLeft', goalLightAway: 'ArrowRight', goalLightOff: 'F8',
+  // Other
+  newGame: 'F5', horn: 'F9', buzzer: 'F12', showDisplay: 'F3', correction: 'Backquote',
 }
+
+export const KEY_GROUPS = [
+  ['Team 1 (home)', ['homeGoal', 'homeGoalMinus', 'homeShot', 'homeShotMinus']],
+  ['Team 2 (away)', ['awayGoal', 'awayGoalMinus', 'awayShot', 'awayShotMinus']],
+  ['Main clock', ['startAll', 'stopAll', 'startClockOnly', 'stopClockOnly', 'resetClock', 'penaltiesOn', 'penaltiesOff', 'penaltyOn', 'penaltyOff', 'removePenalty', 'timeout1', 'timeout2', 'timeOfDay', 'startStop', 'clockPlus', 'clockMinus']],
+  ['Period', ['periodPlus', 'periodMinus']],
+  ['Goal light', ['goalLightHome', 'goalLightAway', 'goalLightOff']],
+  ['Other', ['newGame', 'horn', 'buzzer', 'showDisplay', 'correction']],
+]
 
 export const KEY_LABELS = {
-  startStop: 'Start / stop clock',
-  homeGoal: 'Home score +1', homeGoalMinus: 'Home score −1', homeShot: 'Home shots +1', homeShotMinus: 'Home shots −1',
-  awayGoal: 'Away score +1', awayGoalMinus: 'Away score −1', awayShot: 'Away shots +1', awayShotMinus: 'Away shots −1',
+  homeGoal: 'Score +1', homeGoalMinus: 'Score −1', homeShot: 'Shots on goal +1', homeShotMinus: 'Shots on goal −1',
+  awayGoal: 'Score +1', awayGoalMinus: 'Score −1', awayShot: 'Shots on goal +1', awayShotMinus: 'Shots on goal −1',
+  startAll: 'Start all times', stopAll: 'Stop all times',
+  startClockOnly: 'Start period time', stopClockOnly: 'Stop period time', resetClock: 'Reset period time',
+  penaltiesOn: 'Start all penalties', penaltiesOff: 'Stop all penalties', penaltyOn: 'Start penalty time', penaltyOff: 'Stop penalty time',
+  removePenalty: 'Remove penalty (last added)', timeout1: 'Timeout 1', timeout2: 'Timeout 2', timeOfDay: 'Show period time / time of day',
+  startStop: 'Start / stop clock (toggle)', clockPlus: 'Clock +1 s', clockMinus: 'Clock −1 s',
   periodPlus: 'Period +1', periodMinus: 'Period −1',
-  clockPlus: 'Clock +1 s', clockMinus: 'Clock −1 s',
-  horn: 'Horn', buzzer: 'Buzzer', timeout1: 'Timeout 1', timeout2: 'Timeout 2',
-  newGame: 'New game',
+  goalLightHome: 'Goal light: Team 1', goalLightAway: 'Goal light: Team 2', goalLightOff: 'Goal light: none',
+  newGame: 'New game', horn: 'Horn sound', buzzer: 'Buzzer sound', showDisplay: 'Show scoreboard (open display)', correction: 'Show correction screen (set clock)',
 }
 
-// value → label. Samples are in public/sounds (see horn.js); synth-* are the built-in fallbacks.
 export const SOUND_CHOICES = [
   ['horn', 'Horn'],
   ['horn-loop', 'Horn, long (3 s loop)'],
@@ -64,7 +84,18 @@ export function defaultOptions() {
     timeoutWarnSec: 15,
     goalIndicator: true,
     goalOffSec: 15,
-    penaltyLengths: [2, 5, 10],
+    penaltyLengths: [2, 4, 5, 10],
+    // Infraction templates on the penalty sheet: tap one to fill the name and the length
+    penaltyTemplates: [
+      { name: 'Tripping', minutes: 2 }, { name: 'Hooking', minutes: 2 }, { name: 'Holding', minutes: 2 },
+      { name: 'Interference', minutes: 2 }, { name: 'Slashing', minutes: 2 }, { name: 'Roughing', minutes: 2 },
+      { name: 'High-sticking', minutes: 2 }, { name: 'Cross-checking', minutes: 2 }, { name: 'Elbowing', minutes: 2 },
+      { name: 'Body checking', minutes: 2 }, { name: 'Delay of game', minutes: 2 }, { name: 'Too many players', minutes: 2 },
+      { name: 'Unsportsmanlike', minutes: 2 }, { name: 'Goaltender interference', minutes: 2 },
+      { name: 'High-sticking (injury)', minutes: 4 },
+      { name: 'Boarding', minutes: 5 }, { name: 'Checking from behind', minutes: 5 }, { name: 'Fighting', minutes: 5 },
+      { name: 'Misconduct', minutes: 10 },
+    ],
     layout: 'full', // 'full' | 'minimal' (no shots/logos/title, bigger numbers)
     uiLang: 'en', // control page language: 'en' | 'th' (display labels are the free-text `labels` below)
     // Teams
@@ -112,10 +143,23 @@ export function withDefaults(state) {
   // fields added after v2 games were first saved
   const events = Array.isArray(state.events) ? state.events : []
   const shootout = state.shootout && Array.isArray(state.shootout.home) ? state.shootout : { home: [], away: [] }
-  return { ...state, opts, events, shootout }
+  // penalties saved before they counted real time (they derived from the game clock via clockAtStart)
+  let { penalties = [], penFoldAt = null, playLive = true } = state
+  if (penalties.some(p => p.elapsedMs == null)) {
+    const c = state.clock || {}
+    const now = Date.now()
+    const rem = c.running && c.since != null ? Math.max(0, c.remainingMs - (now - c.since)) : c.remainingMs
+    penalties = penalties.map(p => (p.elapsedMs != null ? p : {
+      ...p,
+      elapsedMs: Math.min(p.durationMs, Math.max(0, (p.clockAtStart ?? rem) - rem)),
+    }))
+    if (c.running) penFoldAt = now
+  }
+  return { ...state, opts, events, shootout, penalties, penFoldAt, playLive: playLive !== false }
 }
 
+const KEY_NAMES = { BracketRight: ']', BracketLeft: '[', Backquote: '~', ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', Backspace: 'Backspace' }
 export function keyName(code) {
   if (!code) return '—'
-  return code.replace(/^Key/, '').replace(/^Digit/, '').replace('Space', 'Space').replace('Bracket', '').replace('Arrow', '')
+  return KEY_NAMES[code] || code.replace(/^Key/, '').replace(/^Digit/, '')
 }
