@@ -161,3 +161,14 @@ test('delete a game from the live games page', async ({ page }) => {
   await page.getByRole('button', { name: `delete game ${code}` }).click()
   await expect(page.locator(`[data-game="${code}"]`)).toHaveCount(0)
 })
+
+test('Home button on the control page asks first', async ({ page }) => {
+  await openControl(page, uniqueCode('home'))
+  page.removeAllListeners('dialog')
+  page.once('dialog', d => d.dismiss())
+  await page.getByRole('button', { name: 'home', exact: true }).click()
+  await expect(page).toHaveURL(/\/c\//)
+  page.once('dialog', d => d.accept())
+  await page.getByRole('button', { name: 'home', exact: true }).click()
+  await expect(page).toHaveURL(/\/$/)
+})

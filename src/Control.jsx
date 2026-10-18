@@ -257,6 +257,7 @@ export default function Control() {
       </div>
 
       <div className="bottom">
+        <button className="btn" aria-label="home" onClick={() => { if (confirm(t('confirmHome'))) window.location.href = '/' }}>🏠 {t('home')}</button>
         <button className="btn" onClick={() => setSheet('options')}>{t('options')}</button>
         <a className="btn" href={boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>
         <button className="btn" onClick={() => setSheet('summary')}>{t('summary')}</button>
