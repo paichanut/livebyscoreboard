@@ -117,6 +117,8 @@ input, select { font-family: inherit; }
 .control .top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; padding: 4px 2px; }
 .control .top .live { color: var(--go); }
 .control .top .local { color: var(--accent); }
+.control .top .who { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); }
+.control .top a.who { color: var(--accent); }
 .control .card { background: var(--card); border-radius: 20px; padding: 16px; }
 .control .clockcard { text-align: center; }
 .control .clockcard .p { font-family: var(--font-display); font-size: 18px; letter-spacing: .2em; color: var(--muted); display: flex; justify-content: center; gap: 14px; align-items: center; }
@@ -386,3 +388,31 @@ input, select { font-family: inherit; }
 .control .pen .acts button.on { background: var(--btn); color: var(--text); }
 .control .bottom { flex-wrap: wrap; }
 .control .bottom .btn { flex: 1 1 30%; }
+
+/* ---------- Arena layout ---------- */
+.board.arena { grid-template-rows: 1fr auto; row-gap: 2.4vh; }
+.board.arena.hasbg { background: linear-gradient(rgba(5, 8, 14, .72), rgba(5, 8, 14, .82)), var(--bgimg) center / cover no-repeat, var(--bg); }
+.board.arena.hasbg .team, .board.arena.hasbg .penbox { background: color-mix(in srgb, var(--card) 88%, transparent); backdrop-filter: blur(6px); }
+.board.arena .team { justify-content: flex-start; padding-top: 3vh; }
+.board.arena .team .toplogo { height: 12vh; max-width: 80%; object-fit: contain; margin-bottom: 1.5vh; }
+.board.arena .team .score { font-size: min(17vw, 30vh); margin: auto 0; }
+.board.arena .team .shots { margin-bottom: 1vh; }
+.board.arena .centerlogo.top { max-height: 20vh; }
+.board.arena .penbox { grid-row: 2; background: var(--card); border-radius: 1.2vw; border-left: .7vw solid var(--c); padding: 1.2vh 1.6vw; min-height: 20vh; display: flex; flex-direction: column; gap: .6vh; }
+.board.arena .penbox.pb-home { grid-column: 1; }
+.board.arena .penbox.pb-away { grid-column: 3; }
+.board.arena .penbox .ph { font-size: 1.9vw; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board.arena .penbox .prow { display: flex; justify-content: space-between; align-items: baseline; font-size: 3.4vw; font-weight: 800; line-height: 1.1; }
+.board.arena .penbox .prow .pp { color: var(--c-penplayer, var(--text)); }
+.board.arena .penbox .prow .pt { color: var(--c-pentime, var(--accent)); }
+.board.arena .penbox .prow.wait { opacity: .45; }
+.board.arena .penbox .pnone { font-size: 2.6vw; color: var(--dim); }
+.board.arena .penbox .pmore { font-size: 1.8vw; color: var(--muted); font-weight: 700; }
+@media (orientation: portrait) {
+  .board.arena { grid-template-rows: auto 1fr auto; }
+  .board.arena .penbox { grid-row: 3; min-height: 0; }
+  .board.arena .penbox.pb-away { grid-column: 2; }
+  .board.arena .penbox .ph { font-size: 3.4vw; }
+  .board.arena .penbox .prow { font-size: 6vw; }
+  .board.arena .team .toplogo { height: 9vh; }
+}

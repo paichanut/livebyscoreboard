@@ -37,9 +37,11 @@ test('third penalty waits; display shows +1; nudges adjust time', async ({ page,
   await expect(away(page).locator('.pen')).toHaveCount(3)
   await expect(away(page).locator('.pen[data-status="waiting"]')).toHaveCount(1)
   await expect(page.locator('.clockcard .st')).toHaveText('5v3')
-  const col = board.locator('.board .pens .col').nth(1)
-  await expect(col.locator('.pen:not(.more)')).toHaveCount(2)
-  await expect(col.locator('.pen.more')).toHaveText('+1')
+  // arena layout: 3 positions per team, the waiting one dimmed
+  const col = board.locator('.board .penbox.pb-away')
+  await expect(col.locator('.prow')).toHaveCount(3)
+  await expect(col.locator('.prow.wait')).toHaveCount(1)
+  await expect(col.locator('.ph')).toContainText('PENALTIES')
   // nudge the first penalty: +5 is capped at the full 2:00, −5 takes 5 s off
   const first = away(page).locator('.pen').first()
   await first.getByRole('button', { name: 'more' }).click()
@@ -47,7 +49,7 @@ test('third penalty waits; display shows +1; nudges adjust time', async ({ page,
   await expect(first.locator('.pt')).toHaveText('1:55')
   await first.getByRole('button', { name: '+1' }).click()
   await expect(first.locator('.pt')).toHaveText('1:56')
-  await expect(col.locator('.pen').first().locator('.pt')).toHaveText('1:56')
+  await expect(col.locator('.prow').first().locator('.pt')).toHaveText('1:56')
 })
 
 test('power-play goal ends the least-time minor; a major stays', async ({ page, context }) => {
@@ -135,9 +137,8 @@ test('misconduct, coincidental and game misconduct stay off the display; penalty
   await expect(away(page).locator('.pen')).toHaveCount(2)
   await expect(away(page).locator('.pen[data-status="waiting"]')).toHaveCount(1)
   await expect(page.locator('.clockcard .st')).toHaveText('5v4')
-  const cols = board.locator('.board .pens .col')
-  await expect(cols.nth(1).locator('.pen')).toHaveCount(1)
-  await expect(cols.nth(0).locator('.pen')).toHaveCount(0)
+  await expect(board.locator('.board .penbox.pb-away .prow')).toHaveCount(1)
+  await expect(board.locator('.board .penbox.pb-home .prow')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'penalty shot goal home' }).click()
   await expect(home(page).locator('.s')).toHaveText('1')

@@ -74,6 +74,7 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters }) 
     <>
       <h4>Scoreboard layout</h4>
       <div className="chips">
+        <button className={`btn ${o.layout === 'arena' ? 'on' : ''}`} onClick={() => set('layout', 'arena')}>Arena — logos on top, penalty boxes, photo</button>
         <button className={`btn ${o.layout === 'full' ? 'on' : ''}`} onClick={() => set('layout', 'full')}>Full — shots, logos, title</button>
         <button className={`btn ${o.layout === 'minimal' ? 'on' : ''}`} onClick={() => set('layout', 'minimal')}>Minimal — bigger numbers</button>
       </div>
@@ -106,12 +107,12 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters }) 
   )
 }
 
-function ImagePick({ label, path, get, set }) {
+function ImagePick({ label, path, get, set, max = 512 }) {
   const v = get(path)
   const onFile = async e => {
     const f = e.target.files?.[0]
     if (!f) return
-    const url = await resizeImage(f, 512)
+    const url = await resizeImage(f, max)
     set(path, url)
   }
   return (
@@ -135,7 +136,7 @@ function resizeImage(file, max) {
       const c = document.createElement('canvas')
       c.width = Math.round(img.width * r); c.height = Math.round(img.height * r)
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
-      res(c.toDataURL('image/png'))
+      res(max > 512 ? c.toDataURL('image/jpeg', 0.7) : c.toDataURL('image/png'))
     }
     img.src = URL.createObjectURL(file)
   })
@@ -151,7 +152,7 @@ function TeamsTab({ get, set, home, setHome, away, setAway }) {
             <label>Team name<input type="text" value={t.name} onChange={e => setT({ ...t, name: e.target.value })} /></label>
             <label>Color<input type="color" value={t.color} onChange={e => setT({ ...t, color: e.target.value })} /></label>
           </div>
-          <ImagePick label="Logo (shown faded behind the score)" path={logoPath} get={get} set={set} />
+          <ImagePick label="Logo (Arena: above the name · Full: faded behind the score)" path={logoPath} get={get} set={set} />
         </React.Fragment>
       ))}
     </>
@@ -223,7 +224,7 @@ function SoundsTab({ o, set }) {
 }
 
 function TextTab({ o, set }) {
-  const FIELDS = [['period', 'Period'], ['shots', 'Shots on goal'], ['player', 'Penalty player'], ['penalty', 'Penalty'], ['goal', 'Goal indicator'], ['timeout', 'Timeout'], ['pp', 'Power play']]
+  const FIELDS = [['period', 'Period'], ['shots', 'Shots on goal'], ['player', 'Penalty player'], ['penalty', 'Penalty'], ['penalties', 'Penalty box title'], ['goal', 'Goal indicator'], ['timeout', 'Timeout'], ['pp', 'Power play']]
   const t = translator(o.uiLang)
   return (
     <>
@@ -267,7 +268,8 @@ function OtherTab({ o, set, get, update, close, resetAll }) {
       <ImagePick label="Scoreboard banner image (replaces title)" path="bannerImg" get={get} set={set} />
       <ImagePick label="Top left picture" path="topLeftImg" get={get} set={set} />
       <ImagePick label="Top right picture" path="topRightImg" get={get} set={set} />
-      <ImagePick label="Tournament logo (display: under the clock · OBS banner)" path="logoImg" get={get} set={set} />
+      <ImagePick label="Tournament logo (display: with the clock · OBS banner)" path="logoImg" get={get} set={set} />
+      <ImagePick label="Background photo (Arena layout; kept dark so numbers stay readable)" path="bgImg" get={get} set={set} max={1280} />
       <h4>Ask me to confirm</h4>
       <Check label="New game" path="confirm.newGame" get={get} set={set} />
       <Check label="Change period (resets clock)" path="confirm.period" get={get} set={set} />

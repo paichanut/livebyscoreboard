@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
-import { ONLINE, NEEDS_LOGIN, randomKey, rememberKey, storedKey, getSession, helperKey } from './sync.js'
+import { ONLINE, NEEDS_LOGIN, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
 import TimeBadge from './TimeBadge.jsx'
@@ -114,6 +114,9 @@ export default function Control() {
     <div className="control">
       <div className="top">
         <span>{t('game')} · {gameId}</span>
+        {NEEDS_LOGIN && (usingSession
+          ? <span className="who">👤 {sessionUser()} · <button className="linkbtn" onClick={async () => { await logout(); window.location.reload() }}>{t('logout')}</button></span>
+          : <a className="who" href={`/login?next=/c/${encodeURIComponent(gameId)}`}>🔑 {t('keyOnly')} · {t('login')}</a>)}
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
       </div>
       <SoundToggle sound={sound} className="btn sm csound" />

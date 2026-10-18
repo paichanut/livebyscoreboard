@@ -63,7 +63,8 @@ Penalty kinds (`kindOf`): `minor`/`double`/`major` take one of the two slots and
 - Shootout attempts are recorded (●/○ on display, banner, control) but the deciding goal is **not** added automatically: the operator taps + GOAL for the winner.
 - Control page mirrors the PC Scoreboards control screen: All times / Period time / All penalties Start-Stop, Reset, Show time of day, Timeouts, Goal light ◁ None ▷, Correction (set clock), Help (keys sheet), New game, Show scoreboard; penalty list with + (add, infraction templates from `opts.penaltyTemplates`), ✎ edit, ✕ remove, ••• ±1/±5 s.
 - Keyboard defaults copy PC Scoreboards Options → Keys (`DEFAULT_KEYS` / `KEY_GROUPS` in options.js), plus Space toggle and ↑/↓ ±1 s.
-- Display logos: team logo = faded background behind the score; `opts.logoImg` (tournament logo) sits under the clock/penalties.
+- Display layouts (`opts.layout`): **`arena` (default)**: team logo above the name, tournament logo above the clock, one penalty box per team under its card with 3 positions (IIHF off-ice handbook; running first, waiting dimmed, then +N), optional background photo `opts.bgImg` (JPEG ≤1280 px, darkened so the numbers stay readable). `full`: team logo faded behind the score, 2 penalties + "+N" under the clock. `minimal`: big numbers only.
+- Control page top bar shows who is logged in (log out) or "game key only · Log in": an old stored game key lets a browser operate without logging in.
 - Button groups inside Options/sheets use `<div>` rows, not `<label>` (label text would click the first button).
 
 ## Testing

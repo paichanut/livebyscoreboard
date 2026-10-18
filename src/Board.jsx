@@ -19,6 +19,7 @@ export default function Board() {
   const o = s.opts
   const L = o.labels
   const minimal = o.layout === 'minimal'
+  const arena = o.layout === 'arena'
   const strength = strengthLabel(s)
   const hOn = skatersOnIce(s, 'home'), aOn = skatersOnIce(s, 'away')
   const ppTeam = hOn !== aOn ? (hOn > aOn ? 'home' : 'away') : null
@@ -30,7 +31,8 @@ export default function Board() {
   const isSO = s.period === 'SO'
 
   return (
-    <div className={`board ${minimal ? 'minimal' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}>
+    <div className={`board ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}
+      style={arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : undefined}>
       <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>
       <SoundToggle sound={sound} className="sound" />
 
@@ -42,7 +44,7 @@ export default function Board() {
         </div>
       )}
 
-      <Team t={s.home} logo={!minimal && o.homeLogo} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null} />
+      <Team t={s.home} logo={!minimal && o.homeLogo} logoTop={arena} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null} />
 
       <div className="mid">
         {toRem > 0 && (
@@ -50,10 +52,11 @@ export default function Board() {
             {L.timeout} · {s[s.timeout.team].name} <b className="tnum">{fmtClock(toRem)}</b>
           </div>
         )}
+        {arena && o.logoImg && <img className="centerlogo top" src={o.logoImg} alt="" />}
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
         <div className={`clock tnum ${final && !s.showTimeOfDay ? 'final' : ''}`}>{s.showTimeOfDay ? fmtTimeOfDay() : fmtClock(clockShown(s))}</div>
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
-        <div className="pens">
+        {!arena && <div className="pens">
           {['home', 'away'].map(team => {
             const run = activePenalties(s, team)
             const more = run.length - Math.min(run.length, 2) + waitingPenalties(s, team).length
@@ -64,21 +67,23 @@ export default function Board() {
               </div>
             )
           })}
-        </div>
-        {o.logoImg && <img className="centerlogo" src={o.logoImg} alt="" />}
+        </div>}
+        {!arena && o.logoImg && <img className="centerlogo" src={o.logoImg} alt="" />}
       </div>
 
-      <Team t={s.away} logo={!minimal && o.awayLogo} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
+      <Team t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
+      {arena && ['home', 'away'].map(team => <PenBox key={team} team={team} s={s} />)}
       {!o.logoImg && <div className="brand">live by scoreboard</div>}
     </div>
   )
 }
 
-function Team({ t, logo, flash, L, showShots, so }) {
+function Team({ t, logo, logoTop, flash, L, showShots, so }) {
   return (
     <div className={`team ${flash ? 'flash' : ''}`} style={{ '--c': t.color }}>
       {flash && <div className="goalflash">{L.goal}</div>}
-      {logo && <img className="bglogo" src={logo} alt="" aria-hidden="true" />}
+      {logo && !logoTop && <img className="bglogo" src={logo} alt="" aria-hidden="true" />}
+      {logo && logoTop && <img className="toplogo" src={logo} alt="" />}
       <div className="name">{t.name}</div>
       <div className="score tnum">{t.score}</div>
       {so ? <Shootout attempts={so} /> : showShots && <div className="shots">{L.shots} <b className="tnum">{t.shots}</b></div>}
@@ -96,6 +101,27 @@ export function Shootout({ attempts, className = 'so' }) {
         // class names are so-* on purpose: a plain "goal" class would pick up the control page's goal-button style
         return <span key={i} className={a ? `so-${a}` : 'so-empty'}>{a === 'goal' ? '●' : a === 'miss' ? '○' : '·'}</span>
       })}
+    </div>
+  )
+}
+
+// Arena layout: one box per team under its card, 3 positions (IIHF off-ice handbook). Running penalties
+// first, then the next waiting ones (dimmed, full time); anything beyond 3 is "+N".
+function PenBox({ team, s }) {
+  const L = s.opts.labels
+  const list = [...activePenalties(s, team), ...waitingPenalties(s, team)]
+  const shown = list.slice(0, 3)
+  return (
+    <div className={`penbox pb-${team}`} style={{ '--c': s[team].color }}>
+      <div className="ph">{s[team].name} {L.penalties}</div>
+      {shown.length === 0 && <div className="pnone">—</div>}
+      {shown.map((p, i) => (
+        <div className={`prow ${i >= 2 || !activePenalties(s, team).some(a => a.id === p.id) ? 'wait' : ''}`} key={p.id}>
+          <span className="pp">{p.player ? `#${p.player}` : L.penalty}</span>
+          <span className="pt tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</span>
+        </div>
+      ))}
+      {list.length > 3 && <div className="pmore">+{list.length - 3}</div>}
     </div>
   )
 }
