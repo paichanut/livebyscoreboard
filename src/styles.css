@@ -539,7 +539,8 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .compactb .cstrength { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .12em; color: var(--pp, #ffd166); border: calc(.18 * var(--u)) solid var(--pp, #ffd166); border-radius: 999px; padding: 0 calc(1.4 * var(--u)); margin-top: calc(.6 * var(--u)); }
 .compactb .cstrength.empty { visibility: hidden; }
 .compactb .ctimeout { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .1em; background: var(--c); border-radius: 999px; padding: 0 calc(1.4 * var(--u)); margin-top: calc(.6 * var(--u)); }
-.compactb .cllogo { margin-top: auto; max-height: calc(11 * var(--u)); max-width: 80%; object-fit: contain; }
+.compactb .cllogo { flex: 1 1 0; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; padding: calc(1 * var(--u)) 0; }
+.compactb .cllogo img { height: 100%; max-height: calc(30 * var(--u)); max-width: 92%; object-fit: contain; }
 .compactb .evslot { min-height: calc(3.6 * var(--u)); margin-top: calc(.4 * var(--u)); }
 .compactb .goalflash { font-size: calc(3.2 * var(--u)); }
 .compactb .cdate { grid-column: 1 / -1; text-align: center; font-family: var(--font-ui); font-size: calc(1.9 * var(--u)); color: #a9c0e8; letter-spacing: .06em; margin-top: calc(.6 * var(--u)); }
@@ -574,3 +575,13 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .board .mid { gap: calc(1.2 * var(--u)); }
 .board .centerlogo { flex: 0 1 auto; min-height: 0; max-height: 20vh; }
 .board .pens { min-height: 0; }
+
+/* full-screen button: top-right next to the sound button; on a see-through display only on hover */
+.board .fsbtn { position: absolute; z-index: 5; bottom: 1.5vh; right: 1.5vw; font-size: max(14px, calc(1.6 * var(--u))); background: var(--card2); color: var(--muted); border-radius: 10px; padding: .4vh .8vw; opacity: .5; transition: opacity .2s; }
+.board .fsbtn:hover { opacity: 1; }
+.board.clear .fsbtn, :fullscreen .board .fsbtn { opacity: 0; }
+.board.clear .fsbtn:hover, :fullscreen .board .fsbtn:hover { opacity: 1; }
+
+/* full layout: the tournament logo fills what is left under the clock */
+.board .logofill { flex: 1 1 0; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+.board .logofill .centerlogo { height: 100%; max-height: calc(26 * var(--u)); max-width: 90%; object-fit: contain; }

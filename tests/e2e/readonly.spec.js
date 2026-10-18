@@ -10,10 +10,11 @@ test('public /b/ display is read-only: no controls, keys do nothing, key not in 
   const board = await openBoard(context, code)
   await expect(boardHome(board).locator('.score')).toHaveText('2')
 
-  // the only button on the display is the sound toggle
+  // the only buttons on the display are the sound toggle and full screen
   const buttons = board.locator('.board button')
-  await expect(buttons).toHaveCount(1)
+  await expect(buttons).toHaveCount(2)
   await expect(buttons.first()).toContainText('sound')
+  await expect(board.getByRole('button', { name: 'full screen' })).toBeVisible()
   await expect(board.locator('.board .sound')).not.toContainText('sound off')
 
   // operator shortcuts have no effect on the display page
@@ -39,7 +40,7 @@ test('public /b/ display is read-only: no controls, keys do nothing, key not in 
 test('a display opened before the operator has no controls either', async ({ page }) => {
   await page.goto('/b/fresh-' + Date.now())
   await expect(page.locator('.board')).toBeVisible()
-  // local mode renders a blank game; the only button is still the sound toggle
-  await expect(page.locator('.board button')).toHaveCount(1)
+  // local mode renders a blank game; still only sound + full screen
+  await expect(page.locator('.board button')).toHaveCount(2)
   await expect(page.locator('.board .clock')).toHaveText('15:00')
 })

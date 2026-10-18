@@ -6,6 +6,17 @@ import { now as serverNow } from './clock.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import TimeBadge from './TimeBadge.jsx'
 
+// Full screen (TV / projector): double-click anywhere, or the ⛶ button
+function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen?.()
+    else document.documentElement.requestFullscreen?.()
+  } catch {}
+}
+function FullscreenButton() {
+  return <button className="fsbtn" aria-label="full screen" title="Full screen (or double-click)" onClick={toggleFullscreen}>⛶</button>
+}
+
 export default function Board() {
   const gameId = useGameId()
   const [s, , access] = useGame(gameId)
@@ -19,6 +30,11 @@ export default function Board() {
     document.documentElement.classList.toggle('clearbg', clear)
     return () => document.documentElement.classList.remove('clearbg')
   }, [clear])
+  useEffect(() => {
+    const on = e => { if (!e.target.closest?.('button')) toggleFullscreen() }
+    document.addEventListener('dblclick', on)
+    return () => document.removeEventListener('dblclick', on)
+  }, [])
   useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.showTimeOfDay || s?.penalties?.length))
 
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
@@ -42,6 +58,7 @@ export default function Board() {
     return (
       <div className={`board compactb ${clear ? 'clear' : ''}`} style={clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
         <SoundToggle sound={sound} className="sound" />
+        <FullscreenButton />
         <Compact s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
       </div>
     )
@@ -52,6 +69,7 @@ export default function Board() {
       style={arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
       {!clear && <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>}
       <SoundToggle sound={sound} className="sound" />
+      <FullscreenButton />
 
       {!minimal && (o.bannerImg || o.title || o.topLeftImg || o.topRightImg) && (
         <div className="topbar">
@@ -88,7 +106,7 @@ export default function Board() {
             )
           })}
         </div>}
-        {!arena && o.logoImg && <img className="centerlogo" src={o.logoImg} alt="" />}
+        {!arena && o.logoImg && <div className="logofill"><img className="centerlogo" src={o.logoImg} alt="" /></div>}
       </div>
 
       <Team t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
@@ -139,7 +157,8 @@ function Compact({ s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isS
         <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         <div className="evslot">{flash && <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal}</div>}</div>
         {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
-        {o.logoImg && <img className="cllogo" src={o.logoImg} alt="" />}
+        {/* the tournament logo takes all the space left in the middle column */}
+        {o.logoImg && <div className="cllogo"><img src={o.logoImg} alt="" /></div>}
       </div>
       {side('away')}
       {s.showTimeOfDay && (
