@@ -315,6 +315,7 @@ export default function Control() {
       {sheet === 'keys' && (
         <Sheet close={() => setSheet(null)}>
           <h3>⌨ {t('keysTitle')}</h3>
+          <a className="btn sm" href="/referee-signals.pdf" target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>📄 {t('refSignals')}</a>
           <div className="keysheet">
             {KEY_GROUPS.map(([group, names]) => (
               <div key={group}>

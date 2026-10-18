@@ -79,6 +79,7 @@ Penalty kinds (`kindOf`): `minor`/`double`/`major` take one of the two slots and
 - Team logos page `/teams` (Teams.jsx): upload several logos at once; each becomes a saved team named from the file name (`nameFromFile`: "bangkok_bears.png" → "Bangkok Bears"); rename, recolor, replace logo (320 px), delete. Linked from Home, Options → Teams and the control team sheet.
 - Saved teams (`src/teamLibrary.js`): name, color, logo kept in this browser's localStorage (`rinkboard:teams`), added when Options or the control team sheet is saved; picked with one tap in both places. Not shared between devices (a shared Supabase table was proposed but not applied).
 - Developer contact (`src/Contact.jsx`, `DEV`): Pai Chanut, phone/WhatsApp +66 81 635 1945, LINE ~paichanut, paichanut@gmail.com. Shown at the bottom of Home and in Control → status line → 💬 Contact Pai.
+- Referee signals cheat sheet: `public/referee-signals.pdf` (one A4 page, English, 25 cards, lookalike signals merged with ⚠ tell-apart notes), linked from Control → ⌨ Help. Pictograms are drawn from scratch from the IIHF 2026/27 Appendix I descriptions (no IIHF images). Regenerate: `python3 scripts/make-referee-signals.py && node scripts/print-referee-signals.mjs`.
 - Deleting games: `/live` → "Manage games" (logged-in operators) → 🗑 Delete on a card. RPC `delete_game(id, token)`; the key row goes with it (cascade).
 - Button groups inside Options/sheets use `<div>` rows, not `<label>` (label text would click the first button).
 

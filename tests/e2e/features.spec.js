@@ -256,3 +256,12 @@ test('offside: shows on the scoreboard and goes into the game log', async ({ pag
   await page.getByRole('button', { name: '📋 Summary' }).click()
   await expect(page.locator('.sheet pre.summary')).toContainText(/OFFSIDE +AWAY +Offside/)
 })
+
+test('referee signals PDF is served and linked from Help', async ({ page, request }) => {
+  const r = await request.get('/referee-signals.pdf')
+  expect(r.status()).toBe(200)
+  expect(r.headers()['content-type']).toContain('application/pdf')
+  await openControl(page, uniqueCode('refsig'))
+  await page.getByRole('button', { name: 'keyboard shortcuts' }).click()
+  await expect(page.locator('.sheet a[href="/referee-signals.pdf"]')).toBeVisible()
+})
