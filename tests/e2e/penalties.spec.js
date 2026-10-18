@@ -90,8 +90,10 @@ test('PC Scoreboards controls: period time only, goal light, time of day, edit p
   await expect(board.locator('.board .team').nth(1)).not.toHaveClass(/flash/)
   // Show time of day on the display
   await page.getByRole('button', { name: /time of day/i }).click()
-  await expect(board.locator('.board .clock')).toHaveText(/^\d{1,2}:\d{2}$/)
-  await page.getByRole('button', { name: 'Show period time', exact: true }).click()
+  await expect(board.locator('.board .tod')).toHaveText(/^\d{1,2}:\d{2}$/)
+  await expect(board.locator('.board .clock')).toHaveText(/^\d{1,2}:\d{2}$/) // game clock stays
+  await page.getByRole('button', { name: 'Hide time of day', exact: true }).click()
+  await expect(board.locator('.board .tod')).toHaveCount(0)
   // Edit a penalty: pick a template
   await away(page).getByRole('button', { name: 'edit penalty' }).click()
   await page.locator('.sheet .templates').getByRole('button', { name: /^Boarding/ }).click()

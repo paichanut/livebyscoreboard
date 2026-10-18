@@ -43,7 +43,8 @@ export default function Banner() {
         {(sh.period || sh.clock) && (
           <div className="bclock">
             {sh.period && <div className="bperiod">{['OT', 'SO'].includes(s.period) ? periodLabel(s) : `${L.period} ${periodLabel(s)}`}{strength ? ` · ${strength}` : ''}</div>}
-            {sh.clock && <div className="btime tnum">{s.showTimeOfDay ? fmtTimeOfDay() : fmtClock(clockShown(s))}</div>}
+            {sh.clock && <div className="btime tnum">{fmtClock(clockShown(s))}</div>}
+            {s.showTimeOfDay && <div className="btod tnum">{fmtTimeOfDay()}</div>}
           </div>
         )}
       </div>

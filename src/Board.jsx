@@ -61,7 +61,8 @@ export default function Board() {
         )}
         {arena && o.logoImg && <img className="centerlogo top" src={o.logoImg} alt="" />}
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
-        <div className={`clock tnum ${final && !s.showTimeOfDay ? 'final' : ''}`}>{s.showTimeOfDay ? fmtTimeOfDay() : fmtClock(clockShown(s))}</div>
+        <div className={`clock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
+        {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         {!arena && <div className="pens">
           {['home', 'away'].map(team => {

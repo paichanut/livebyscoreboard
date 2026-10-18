@@ -34,7 +34,7 @@ export const KEY_LABELS = {
   startAll: 'Start all times', stopAll: 'Stop all times',
   startClockOnly: 'Start period time', stopClockOnly: 'Stop period time', resetClock: 'Reset period time',
   penaltiesOn: 'Start all penalties', penaltiesOff: 'Stop all penalties', penaltyOn: 'Start penalty time', penaltyOff: 'Stop penalty time',
-  removePenalty: 'Remove penalty (last added)', timeout1: 'Timeout 1', timeout2: 'Timeout 2', timeOfDay: 'Show period time / time of day',
+  removePenalty: 'Remove penalty (last added)', timeout1: 'Timeout 1', timeout2: 'Timeout 2', timeOfDay: 'Show / hide time of day',
   startStop: 'Start / stop clock (toggle)', clockPlus: 'Clock +1 s', clockMinus: 'Clock −1 s',
   periodPlus: 'Period +1', periodMinus: 'Period −1',
   goalLightHome: 'Goal light: Team 1', goalLightAway: 'Goal light: Team 2', goalLightOff: 'Goal light: none',

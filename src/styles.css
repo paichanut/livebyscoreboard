@@ -498,3 +498,8 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .teamsPage .tcard .trow { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .teamsPage .tcard input[type=color] { width: 48px; height: 34px; border: none; background: none; }
 .savedteams .hint a { color: var(--accent); }
+
+/* time of day: shown with the game clock, never instead of it */
+.board .tod { font-size: 3vw; font-weight: 700; letter-spacing: .08em; color: var(--muted); line-height: 1; }
+.board.arena .tod { font-size: calc(3.4 * var(--u)); }
+.banner .btod { font-size: 16px; opacity: .75; letter-spacing: .06em; }
