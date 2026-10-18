@@ -99,7 +99,7 @@ test('PC Scoreboards controls: period time only, goal light, time of day, edit p
   await page.locator('.sheet .templates').getByRole('button', { name: /^Boarding/ }).click()
   await page.locator('.sheet').getByRole('button', { name: /Save penalty/ }).click()
   await expect(away(page).locator('.pen .who')).toContainText('Boarding')
-  await expect(away(page).locator('.pen .pt')).toHaveText('5:00')
+  await expect(away(page).locator('.pen .pt')).toHaveText('2:00') // IIHF: boarding is a minor by default
   // Keyboard, PC Scoreboards layout: Y start all, H stop all, Q home goal
   await page.locator('body').click({ position: { x: 2, y: 2 } })
   await page.keyboard.press('KeyQ')
@@ -145,4 +145,24 @@ test('misconduct, coincidental and game misconduct stay off the display; penalty
   await page.getByRole('button', { name: 'penalty shot goal home' }).click()
   await expect(home(page).locator('.s')).toHaveText('1')
   await expect(away(page).locator('.pen')).toHaveCount(2)
+})
+
+test('IIHF quick picks: Fighting is 5 + GM; a major for checking from behind adds the GM', async ({ page }) => {
+  await openControl(page, uniqueCode('iihfpen'))
+  await home(page).getByRole('button', { name: 'add penalty' }).click()
+  let sheet = page.locator('.sheet')
+  await sheet.getByPlaceholder('#').fill('7')
+  await sheet.locator('.templates').getByRole('button', { name: /^Fighting/ }).click()
+  await expect(sheet.getByRole('button', { name: '+ game misconduct', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await sheet.getByRole('button', { name: /Add penalty/ }).click()
+  await expect(home(page).locator('.pen')).toHaveCount(2) // 5:00 major + GM
+  await expect(home(page).locator('.pen[data-status="game"]')).toHaveCount(1)
+
+  await away(page).getByRole('button', { name: 'add penalty' }).click()
+  sheet = page.locator('.sheet')
+  await sheet.getByPlaceholder('#').fill('9')
+  await sheet.locator('.templates').getByRole('button', { name: /^Checking from behind/ }).click()
+  await expect(sheet.getByRole('button', { name: '+ game misconduct', exact: true })).toHaveAttribute('aria-pressed', 'false') // 2 min
+  await sheet.getByRole('button', { name: '5 min', exact: true }).click()
+  await expect(sheet.getByRole('button', { name: '+ game misconduct', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })

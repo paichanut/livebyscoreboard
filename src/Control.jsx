@@ -374,7 +374,13 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
   const pick = tp => {
     setInfraction(tp.name)
     setMins(tp.kind === 'game' ? 'game' : tp.minutes)
-    setAlsoGame(!!tp.alsoGame)
+    setAlsoGame(!!tp.alsoGame || (tp.majorGM && tp.minutes === 5))
+  }
+  // IIHF: a major for these infractions always comes with a game misconduct
+  const chooseMins = m => {
+    setMins(m)
+    const tp = templates.find(x => x.name === infraction)
+    if (!edit && m === 5 && tp?.majorGM) setAlsoGame(true)
   }
   return (
     <Sheet close={close}>
@@ -387,7 +393,7 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
           <div className="templates">
             {templates.map(tp => (
               <button key={tp.name} className={`btn ${infraction === tp.name ? 'on' : ''}`} onClick={() => pick(tp)}>
-                {tp.name} <small>{tp.kind === 'game' ? t('gmShort') : `${tp.minutes}′${tp.alsoGame ? ` + ${t('gmShort')}` : ''}`}</small>
+                {tp.name} <small>{tp.kind === 'game' ? t('gmShort') : `${tp.minutes}′${tp.alsoGame ? `+${t('gmShort')}` : ''}`}</small>
               </button>
             ))}
           </div>
@@ -396,7 +402,7 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
       {/* a <div>, not a <label>: label text would "click" the first button */}
       <div className="field">{t('length')}
         <div className="choices" style={{ flexWrap: 'wrap' }}>
-          {lens.map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{m} {t('min')}</button>)}
+          {lens.map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => chooseMins(m)}>{m} {t('min')}</button>)}
           <button className={`btn ${game ? 'on' : ''}`} aria-label="game misconduct" onClick={() => { setMins('game'); setAlsoGame(false) }}>{t('gmShort')}</button>
         </div>
       </div>

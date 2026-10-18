@@ -89,18 +89,23 @@ export function defaultOptions() {
     goalOffSec: 15,
     penaltyLengths: [2, 4, 5, 10],
     // Infraction templates on the penalty sheet: tap one to fill the name and the length
+    // Penalty quick picks, IIHF 2026/27: the usual minutes for each infraction. `majorGM`: IIHF has no plain
+    // major for it, so choosing 5 min adds the game misconduct (Rule 41–62). Other lengths are one tap away.
     penaltyTemplates: [
-      { name: 'Tripping', minutes: 2 }, { name: 'Hooking', minutes: 2 }, { name: 'Holding', minutes: 2 },
-      { name: 'Interference', minutes: 2 }, { name: 'Slashing', minutes: 2 }, { name: 'Roughing', minutes: 2 },
-      { name: 'High-sticking', minutes: 2 }, { name: 'Cross-checking', minutes: 2 }, { name: 'Elbowing', minutes: 2 },
-      { name: 'Body checking', minutes: 2 }, { name: 'Delay of game', minutes: 2 }, { name: 'Too many players', minutes: 2 },
-      { name: 'Unsportsmanlike', minutes: 2 }, { name: 'Goaltender interference', minutes: 2 },
-      { name: 'High-sticking (injury)', minutes: 4 },
-      { name: 'Boarding', minutes: 5 }, { name: 'Checking from behind', minutes: 5 }, { name: 'Fighting', minutes: 5 },
+      { name: 'Tripping', minutes: 2 }, { name: 'Hooking', minutes: 2, majorGM: true }, { name: 'Holding', minutes: 2 },
+      { name: 'Interference', minutes: 2 }, { name: 'Slashing', minutes: 2, majorGM: true }, { name: 'Roughing', minutes: 2, majorGM: true },
+      { name: 'High-sticking', minutes: 2, majorGM: true }, { name: 'Cross-checking', minutes: 2, majorGM: true }, { name: 'Elbowing', minutes: 2 },
+      { name: 'Boarding', minutes: 2 }, { name: 'Charging', minutes: 2 }, { name: 'Checking from behind', minutes: 2, majorGM: true },
+      { name: 'Check to head or neck', minutes: 2, majorGM: true }, { name: 'Kneeing', minutes: 2, majorGM: true }, { name: 'Clipping', minutes: 2, majorGM: true },
+      { name: 'Body checking', minutes: 2, majorGM: true }, { name: 'Goaltender interference', minutes: 2 },
+      { name: 'Delay of game', minutes: 2 }, { name: 'Too many players', minutes: 2 }, { name: 'Unsportsmanlike', minutes: 2 }, { name: 'Diving', minutes: 2 },
+      { name: 'High-sticking (injury)', minutes: 4 }, { name: 'Spearing', minutes: 4, majorGM: true }, { name: 'Butt-ending', minutes: 4, majorGM: true },
+      { name: 'Fighting', minutes: 5, alsoGame: true },
       { name: 'Misconduct', minutes: 10 },
       { name: 'Major + game misconduct', minutes: 5, alsoGame: true },
       { name: 'Game misconduct', kind: 'game' },
     ],
+    templatesV: 2, // 2 = IIHF 2026/27 quick picks; older games get them once in withDefaults
     layout: 'arena', // 'arena' (logos on top, penalty boxes, background photo) | 'full' | 'minimal' (no shots/logos/title, bigger numbers)
     bgImg: '', // arena layout background photo
     bgOpacity: 50, // display page background, % (100 = solid for a TV; lower lets video show through in OBS / camera overlays)
@@ -148,6 +153,8 @@ function deepMerge(base, over) {
 export function withDefaults(state) {
   if (!state) return state
   const opts = deepMerge(defaultOptions(), state.opts || {})
+  // games saved before the IIHF quick picks: the list is not editable, so just take the new one
+  if (!state.opts?.templatesV) opts.penaltyTemplates = defaultOptions().penaltyTemplates
   // games saved before the NHL horn: swap the old default horns for it once (a deliberate choice made later stays)
   if (!state.opts?.soundsV) {
     const old = { horn: 'horn-loop', timeoutStart: 'horn', timeoutEnd: 'horn' }

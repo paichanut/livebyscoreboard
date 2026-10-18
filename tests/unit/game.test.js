@@ -498,3 +498,16 @@ test('offside: counted per team, logged with time and side (no player), shown fo
   assert.equal(s.events.filter(e => e.type === 'offside').length, 1)
   assert.equal(G.offsideActive(s), null)
 })
+
+test('penalty quick picks follow IIHF and older games get them once', async () => {
+  const { defaultOptions } = await import('../../src/options.js')
+  const t = Object.fromEntries(defaultOptions().penaltyTemplates.map(x => [x.name, x]))
+  assert.deepEqual([t.Fighting.minutes, t.Fighting.alsoGame], [5, true])
+  assert.equal(t['Checking from behind'].minutes, 2)
+  assert.equal(t['Checking from behind'].majorGM, true)
+  assert.equal(t.Boarding.minutes, 2)
+  assert.equal(t.Spearing.minutes, 4)
+  const old = withDefaults({ opts: { penaltyTemplates: [{ name: 'Fighting', minutes: 5 }] } })
+  assert.equal(old.opts.penaltyTemplates.find(x => x.name === 'Fighting').alsoGame, true)
+  assert.equal(old.opts.templatesV, 2)
+})
