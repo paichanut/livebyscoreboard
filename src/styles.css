@@ -114,11 +114,11 @@ input, select { font-family: inherit; }
 
 /* ---------- Control (phone) ---------- */
 .control { max-width: 520px; margin: 0 auto; padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 12px; min-height: 100%; }
-.control .top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; padding: 4px 2px; }
-.control .top .live { color: var(--go); }
-.control .top .local { color: var(--accent); }
-.control .top .who { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); }
-.control .top a.who { color: var(--accent); }
+.control .status { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; padding: 4px 2px; }
+.control .status .live { color: var(--go); }
+.control .status .local { color: var(--accent); }
+.control .status .who { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); }
+.control .status a.who { color: var(--accent); }
 .control .card { background: var(--card); border-radius: 20px; padding: 16px; }
 .control .clockcard { text-align: center; }
 .control .clockcard .p { font-family: var(--font-display); font-size: 18px; letter-spacing: .2em; color: var(--muted); display: flex; justify-content: center; gap: 14px; align-items: center; }
@@ -126,15 +126,22 @@ input, select { font-family: inherit; }
 .control .clockcard .p .st { color: var(--accent); font-weight: 800; }
 .control .clockcard .c { font-family: var(--font-display); font-size: 92px; font-weight: 800; line-height: 1; margin: 4px 0 10px; }
 .control .clockcard .c.final { color: var(--stop); }
+.control .clockline { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.control .clockline .c { flex: 0 1 auto; min-width: 0; }
+.control .clockline .adj { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+.control .clockline .adj .btn { min-width: 52px; padding: 8px 10px; font-size: 16px; font-weight: 800; }
 .control .row { display: flex; gap: 8px; margin-top: 10px; }
 .control .row .btn { flex: 1; }
 .control .row .btn.big { padding: 22px; font-size: 24px; letter-spacing: .1em; font-family: var(--font-display); font-weight: 800; }
 .control .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .control .tc { background: var(--card); border-radius: 20px; padding: 14px; border-top: 6px solid var(--c); display: flex; flex-direction: column; gap: 8px; }
+.control .tc button.n { background: none; color: var(--text); width: 100%; cursor: pointer; border-radius: 10px; }
+.control .tc button.n::after { content: '✎'; font-size: .5em; color: var(--dim); margin-left: 6px; }
+.control .tc button.n:hover { background: var(--card2); }
 .control .tc .n { font-family: var(--font-display); font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; text-align: center; line-height: 1.05; min-height: 2.1em; display: flex; align-items: center; justify-content: center; }
 .control .tc .s { font-family: var(--font-display); font-size: 88px; font-weight: 800; text-align: center; line-height: 1; }
 .control .tc .goal { width: 100%; border-radius: 14px; padding: 18px 8px; font: 800 22px var(--font-display); background: var(--c); color: #fff; letter-spacing: .1em; }
-.control .tc .psgoal { width: 100%; margin-top: 6px; padding: 8px; font-size: 13px; border: 1px dashed var(--c); background: transparent; }
+.control .tc .psgoal { width: 100%; margin-top: auto; padding: 6px; font-size: 12px; border: 1px dashed var(--c); background: transparent; color: var(--muted); }
 .control .tc .mini { display: flex; gap: 6px; }
 .control .tc .mini .btn { flex: 1; padding: 10px 4px; font-size: 13px; border-radius: 10px; }
 .control .tc .sh { font-size: 12px; color: var(--muted); text-align: center; letter-spacing: .08em; text-transform: uppercase; display: flex; justify-content: center; gap: 8px; align-items: center; }
@@ -158,18 +165,29 @@ input, select { font-family: inherit; }
 
 /* desktop / laptop layout: home | clock | away */
 @media (min-width: 900px) {
-  .control { max-width: 1400px; display: grid; grid-template-columns: 1fr 1.2fr 1fr; grid-template-rows: auto 1fr auto; gap: 16px; padding: 20px; align-content: start; }
-  .control .top { grid-column: 1 / -1; }
-  .control .clockcard { grid-column: 2; grid-row: 2; }
+  /* main screen (clock + both teams) fills the window; less used controls and the menu sit below it */
+  .control { max-width: 1600px; display: grid; grid-template-columns: 1fr 1.2fr 1fr; grid-template-rows: 1fr auto auto; min-height: 100vh; gap: 10px 16px; padding: 12px 20px 8px; }
+  .control .status { grid-column: 1 / -1; grid-row: 3; padding: 0 2px; justify-content: center; gap: 24px; }
+  .control .clockcard { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; justify-content: center; }
   .control .teams { display: contents; }
-  .control .tc:nth-child(1) { grid-column: 1; grid-row: 2; }
-  .control .tc:nth-child(2) { grid-column: 3; grid-row: 2; }
-  .control .bottom { grid-column: 2; grid-row: 3; }
-  .control .clockcard .c { font-size: 140px; }
-  .control .tc .s { font-size: 140px; }
-  .control .tc .n { font-size: 32px; }
-  .control .tc .goal { padding: 26px; font-size: 30px; }
-  .control .tc .mini .btn { font-size: 16px; padding: 14px 6px; }
+  .control .tc:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .control .tc:nth-child(2) { grid-column: 3; grid-row: 1; }
+  .control .bottom { grid-column: 1 / -1; grid-row: 2; flex-wrap: nowrap; }
+  .control .bottom .btn { flex: 1 1 0; }
+  .control .clockcard { padding: min(16px, 1.6vh) 16px; }
+  .control .clockcard .c { font-size: min(130px, 13vh, 7.5vw); margin: 0 0 min(10px, 1vh); }
+  .control .clockline .adj .btn { padding: min(10px, 1.2vh) 12px; }
+  .control .clockcard .row .btn.big { padding: min(22px, 2vh); font-size: min(24px, 3vh); }
+  .control .clockcard .row, .control .clockcard .groups, .control .clockcard .goallight { margin-top: min(10px, 1vh); }
+  .control .clockcard .groups { gap: min(6px, .7vh); }
+  .control .clockcard .btn.sm { padding: min(10px, 1vh) 8px; }
+  .control .clockcard .row .btn.sm, .control .clockcard .grp .btn { font-size: min(14px, 1.9vh); }
+  .control .clockcard .row.period .pv { font-size: min(26px, 3.2vh); }
+  .control .tc { gap: min(8px, 1vh); padding: 12px 14px; }
+  .control .tc .s { font-size: min(140px, 14vh); }
+  .control .tc .n { font-size: min(32px, 4vh); min-height: 0; }
+  .control .tc .goal { padding: min(26px, 2.6vh); font-size: 30px; }
+  .control .tc .mini .btn { font-size: 16px; padding: min(14px, 1.5vh) 6px; }
   .control .pen { font-size: 18px; }
 }
 
@@ -323,11 +341,12 @@ input, select { font-family: inherit; }
 .live .game .clock { display: flex; justify-content: space-between; font-family: var(--font-display); font-size: 16px; letter-spacing: .15em; color: var(--muted); }
 .live .game .clock b { color: var(--accent); font-size: 20px; }
 .live .game .op { align-self: flex-end; font-size: 12px; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; }
+.live .game .del { align-self: stretch; background: color-mix(in srgb, var(--stop) 40%, var(--btn)); color: #fff; }
 
 /* ---- server time offset badge ---- */
 .timebadge { color: var(--accent); }
 
-.control .csound { align-self: flex-end; padding: 6px 12px; font-size: 12px; color: var(--muted); margin-top: -6px; }
+.control .csound { color: var(--muted); }
 .control .csound.on { color: var(--go); }
 
 .control .localwarn { background: #3a2b00; color: #ffd166; border: 1px solid #7a5a00; border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.4; }
@@ -415,4 +434,9 @@ input, select { font-family: inherit; }
   .board.arena .penbox .ph { font-size: 3.4vw; }
   .board.arena .penbox .prow { font-size: 6vw; }
   .board.arena .team .toplogo { height: 9vh; }
+}
+@media (min-width: 900px) {
+  .control .bottom { flex-wrap: nowrap; }
+  .control .bottom .btn { flex: 1 1 0; }
+  .control .bottom .keysbtn { flex: 1 1 0; }
 }

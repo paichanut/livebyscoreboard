@@ -67,6 +67,19 @@ export async function helperKey(gameId) {
   return data || ''
 }
 
+// Delete a game for good (logged-in operators; the test build just drops it from this browser)
+export async function deleteGame(gameId) {
+  if (!ONLINE) {
+    try { localStorage.removeItem(`rinkboard:${gameId}`); localStorage.removeItem(`rinkboard:key:${gameId}`) } catch {}
+    window.dispatchEvent(new Event('storage'))
+    return true
+  }
+  const { data, error } = await supabase.rpc('delete_game', { p_id: gameId, p_token: getSession() })
+  if (error) throw new Error(error.message)
+  if (data) try { localStorage.removeItem(`rinkboard:key:${gameId}`) } catch {}
+  return Boolean(data)
+}
+
 // Operator keys are remembered per game in this browser
 export function rememberKey(gameId, key) { try { localStorage.setItem(`rinkboard:key:${gameId}`, key) } catch {} }
 export function storedKey(gameId) { try { return localStorage.getItem(`rinkboard:key:${gameId}`) || '' } catch { return '' } }

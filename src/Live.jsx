@@ -1,6 +1,6 @@
 // Tournament page: every game on this Supabase project (or in this browser, local mode), newest first.
 import React, { useEffect, useState } from 'react'
-import { createGamesList, ONLINE, storedKey, getSession } from './sync.js'
+import { createGamesList, ONLINE, NEEDS_LOGIN, storedKey, getSession, deleteGame } from './sync.js'
 import { withDefaults } from './options.js'
 import { clockShown, fmtClock, periodLabel, clockRemaining } from './game.js'
 import { useTick } from './useGame.js'
@@ -18,6 +18,15 @@ const ago = ms => {
 
 export default function Live() {
   const [rows, setRows] = useState(null)
+  const [manage, setManage] = useState(false)
+  const canManage = !NEEDS_LOGIN || Boolean(getSession())
+  const remove = async (id, name) => {
+    if (!window.confirm(`Delete game "${name}" for good? Its display and banner links stop working.`)) return
+    try {
+      if (await deleteGame(id)) setRows(r => (r || []).filter(x => x.id !== id))
+      else window.alert('Not deleted: log in again as an operator.')
+    } catch (e) { window.alert(`Delete failed: ${e.message}`) }
+  }
   useEffect(() => {
     const list = createGamesList()
     const unsub = list.subscribe(r => setRows(r))
@@ -36,6 +45,7 @@ export default function Live() {
       <div className="head">
         <h1>Live games</h1>
         <div className="mode">{ONLINE ? 'live sync on' : 'test build — games in this browser only'}</div>
+        {canManage && <button className={`btn sm ${manage ? 'accent' : ''}`} onClick={() => setManage(!manage)}>{manage ? 'Done' : 'Manage games'}</button>}
       </div>
       {rows === null && <div className="loading">loading…</div>}
       {rows && !games.length && <div className="empty">No games yet. <a href="/">Create one</a>.</div>}
@@ -57,6 +67,7 @@ export default function Live() {
                 <span>{isNum ? `${s.opts.labels.period} ${periodLabel(s)}` : periodLabel(s)}</span>
                 <b className="tnum">{fmtClock(clockShown(s, now), { tenths: false })}</b>
               </div>
+              {manage && <button className="btn sm del" aria-label={`delete game ${id}`} onClick={e => { e.preventDefault(); remove(id, s.opts.title || id) }}>🗑 Delete</button>}
               {(storedKey(id) || getSession()) && <span className="op" onClick={e => { e.preventDefault(); window.location.href = `/c/${encodeURIComponent(id)}` }}>operate ▸</span>}
             </a>
           )

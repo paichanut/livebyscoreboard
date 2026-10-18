@@ -186,3 +186,12 @@ grant execute on function public.operator_login(text, text) to anon, authenticat
 grant execute on function public.operator_logout(text) to anon, authenticated;
 grant execute on function public.operator_whoami(text) to anon, authenticated;
 grant execute on function public.get_game_key(text, text) to anon, authenticated;
+
+-- Delete a game (operators only). Its key goes with it (on delete cascade).
+create or replace function public.delete_game(p_id text, p_token text)
+returns boolean language sql volatile security definer set search_path = public as $$
+  with d as (delete from public.games where id = p_id and public.operator_check(p_token) returning id)
+  select exists (select 1 from d)
+$$;
+revoke all on function public.delete_game(text, text) from public;
+grant execute on function public.delete_game(text, text) to anon, authenticated;

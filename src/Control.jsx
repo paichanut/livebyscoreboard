@@ -112,14 +112,6 @@ export default function Control() {
 
   return (
     <div className="control">
-      <div className="top">
-        <span>{t('game')} · {gameId}</span>
-        {NEEDS_LOGIN && (usingSession
-          ? <span className="who">👤 {sessionUser()} · <button className="linkbtn" onClick={async () => { await logout(); window.location.reload() }}>{t('logout')}</button></span>
-          : <a className="who" href={`/login?next=/c/${encodeURIComponent(gameId)}`}>🔑 {t('keyOnly')} · {t('login')}</a>)}
-        <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
-      </div>
-      <SoundToggle sound={sound} className="btn sm csound" />
 
       <div className="card clockcard">
         <div className="p">
@@ -129,7 +121,15 @@ export default function Control() {
           {o.clockDir === 'up' && <span style={{ fontSize: 12 }}>{t('up')}</span>}
           {s.showTimeOfDay && <span className="tod">{t('todOnDisplay')}</span>}
         </div>
-        <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s))}</div>
+        <div className="clockline">
+          <div className="adj">
+            {[-5, -1].map(d => <button key={d} className="btn sm minus" aria-label={`clock ${d} s`} onClick={() => update(x => G.adjustClock(x, d * 1000))}>−{-d}</button>)}
+          </div>
+          <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s))}</div>
+          <div className="adj">
+            {[1, 5].map(d => <button key={d} className="btn sm plus" aria-label={`clock +${d} s`} onClick={() => update(x => G.adjustClock(x, d * 1000))}>+{d}</button>)}
+          </div>
+        </div>
         <div className="row">
           <button className={`btn big ${running ? 'danger' : 'primary'}`} onClick={() => update(G.toggleClock)} disabled={!running && remaining <= 0}>
             {running ? t('stop') : t('start')}
@@ -139,20 +139,20 @@ export default function Control() {
         {/* PC Scoreboards control groups */}
         <div className="groups">
           <div className="grp">
-            <span className="gl">{t('allTimes')}</span>
-            <button className={`btn sm go ${running && s.playLive !== false ? 'lit' : ''}`} aria-label="start all times" onClick={() => update(x => G.startClock(x))} disabled={remaining <= 0}>{t('startBtn')}</button>
-            <button className="btn sm" aria-label="stop all times" onClick={() => update(G.stopClock)}>{t('stopBtn')}</button>
+      <span className="gl">{t('allTimes')}</span>
+      <button className={`btn sm go ${running && s.playLive !== false ? 'lit' : ''}`} aria-label="start all times" onClick={() => update(x => G.startClock(x))} disabled={remaining <= 0}>{t('startBtn')}</button>
+      <button className="btn sm" aria-label="stop all times" onClick={() => update(G.stopClock)}>{t('stopBtn')}</button>
           </div>
           <div className="grp">
-            <span className="gl">{t('periodTime')}</span>
-            <button className={`btn sm go ${running ? 'lit' : ''}`} aria-label="start period time" onClick={() => update(x => G.startClock(x, { penalties: false }))} disabled={remaining <= 0}>{t('startBtn')}</button>
-            <button className="btn sm" aria-label="stop period time" onClick={() => update(G.stopClock)}>{t('stopBtn')}</button>
-            <button className="btn sm" aria-label="reset period time" onClick={() => { if (ask('period', t('confirmResetClock'))) update(G.resetClock) }}>{t('reset')}</button>
+      <span className="gl">{t('periodTime')}</span>
+      <button className={`btn sm go ${running ? 'lit' : ''}`} aria-label="start period time" onClick={() => update(x => G.startClock(x, { penalties: false }))} disabled={remaining <= 0}>{t('startBtn')}</button>
+      <button className="btn sm" aria-label="stop period time" onClick={() => update(G.stopClock)}>{t('stopBtn')}</button>
+      <button className="btn sm" aria-label="reset period time" onClick={() => { if (ask('period', t('confirmResetClock'))) update(G.resetClock) }}>{t('reset')}</button>
           </div>
           <div className="grp">
-            <span className="gl">{t('allPenalties')}</span>
-            <button className={`btn sm go ${s.playLive !== false ? 'lit' : ''}`} aria-label="start all penalties" onClick={() => update(x => G.setPlayLive(x, true))}>{t('startBtn')}</button>
-            <button className={`btn sm ${s.playLive === false ? 'held' : ''}`} aria-label="stop all penalties" onClick={() => update(x => G.setPlayLive(x, false))}>{t('stopBtn')}</button>
+      <span className="gl">{t('allPenalties')}</span>
+      <button className={`btn sm go ${s.playLive !== false ? 'lit' : ''}`} aria-label="start all penalties" onClick={() => update(x => G.setPlayLive(x, true))}>{t('startBtn')}</button>
+      <button className={`btn sm ${s.playLive === false ? 'held' : ''}`} aria-label="stop all penalties" onClick={() => update(x => G.setPlayLive(x, false))}>{t('stopBtn')}</button>
           </div>
         </div>
         {s.playLive === false && <div className="hint whistlehint">{t('whistleHintPaused')}</div>}
@@ -203,10 +203,9 @@ export default function Control() {
           const so = s.shootout?.[team] || []
           return (
             <div className="tc" key={team} style={{ '--c': tm.color }}>
-              <div className="n">{tm.name}</div>
+              <button className="n" aria-label={`rename ${team}`} title={t('editTeam')} onClick={() => setSheet(`team-${team}`)}>{tm.name}</button>
               <div className="s tnum">{tm.score}</div>
               <button className="goal" onClick={() => update(x => G.addScore(x, team, 1))}>{t('goal')}</button>
-              <button className="btn psgoal" aria-label={`penalty shot goal ${team}`} onClick={() => update(x => G.addScore(x, team, 1, { penaltyShot: true }))}>{t('psGoal')}</button>
               {isSO && (
                 <div className="so">
                   <div className="marks" aria-label={`shootout ${team}`}>{so.length ? so.map((a, i) => <span key={i} className={`so-${a}`}>{a === 'goal' ? '●' : '○'}</span>) : <span className="none">—</span>}</div>
@@ -251,6 +250,7 @@ export default function Control() {
                   )}
                 </div>
               ))}
+              <button className="btn psgoal" aria-label={`penalty shot goal ${team}`} onClick={() => update(x => G.addScore(x, team, 1, { penaltyShot: true }))}>{t('psGoal')}</button>
             </div>
           )
         })}
@@ -263,7 +263,15 @@ export default function Control() {
         <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>
         <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>
         <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>
+        <SoundToggle sound={sound} className="btn csound" />
         <button className="btn keysbtn" onClick={() => setSheet('keys')} aria-label="keyboard shortcuts">⌨ {t('help')}</button>
+      </div>
+      <div className="status">
+        <span>{t('game')} · {gameId}</span>
+        {NEEDS_LOGIN && (usingSession
+          ? <span className="who">👤 {sessionUser()} · <button className="linkbtn" onClick={async () => { await logout(); window.location.reload() }}>{t('logout')}</button></span>
+          : <a className="who" href={`/login?next=/c/${encodeURIComponent(gameId)}`}>🔑 {t('keyOnly')} · {t('login')}</a>)}
+        <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
       </div>
 
       {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={s} update={update} close={() => setSheet(null)} t={t} />}
@@ -272,6 +280,7 @@ export default function Control() {
         const pen = s.penalties.find(p => p.id === id)
         return pen ? <PenaltySheet team={team} s={s} update={update} close={() => setSheet(null)} t={t} edit={pen} /> : null
       })()}
+      {sheet?.startsWith('team-') && <TeamSheet team={sheet.slice(5)} s={s} update={update} close={() => setSheet(null)} t={t} />}
       {sheet === 'setclock' && <SetClockSheet s={s} update={update} close={() => setSheet(null)} t={t} />}
       {sheet?.startsWith('timeout-') && (
         <Sheet close={() => setSheet(null)}>
@@ -371,6 +380,24 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
         </div>
       </div>
       <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={add}>{edit ? t('savePenalty') : t('addPenalty')}{infraction ? ` · ${infraction}` : ''}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
+    </Sheet>
+  )
+}
+
+function TeamSheet({ team, s, update, close, t }) {
+  const [name, setName] = useState(s[team].name)
+  const [color, setColor] = useState(s[team].color)
+  const save = () => { update(x => G.setTeam(x, team, { name: name.trim() || s[team].name, color })); close() }
+  return (
+    <Sheet close={close}>
+      <h3>{team === 'home' ? t('homeTeam') : t('awayTeam')}</h3>
+      <label>{t('teamName')}
+        <input autoFocus value={name} maxLength={24} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
+      </label>
+      <label>{t('teamColor')}
+        <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ height: 44 }} />
+      </label>
+      <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={save}>{t('save')}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
     </Sheet>
   )
 }
