@@ -440,3 +440,41 @@ input, select { font-family: inherit; }
   .control .bottom .btn { flex: 1 1 0; }
   .control .bottom .keysbtn { flex: 1 1 0; }
 }
+
+/* ---------- See-through display (default 50%): page background at opts.bgOpacity, cards solid ---------- */
+html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !important; }
+.board.clear { background: color-mix(in srgb, var(--bg) var(--bgop, 50%), transparent) !important; padding-bottom: 4vh; }
+.board.clear .mid, .board.arena .mid { background: var(--card); border-radius: 1.6vw; padding: 2vh 1.5vw; }
+.board.clear .pens:empty { display: none; }
+/* on a stream the sound button is invisible until the mouse is over it */
+.board.clear .sound { opacity: 0; transition: opacity .2s; }
+.board.clear .sound:hover, .board.clear .sound:focus-visible { opacity: 1; }
+/* arena cards scale with the shorter side so a small or wide overlay never clips */
+.board.arena { --u: min(1vw, 1.75vh); }
+.board.arena .team .name { font-size: calc(4.6 * var(--u)); }
+.board.arena .team .toplogo { height: calc(6.5 * var(--u)); margin-bottom: calc(.8 * var(--u)); }
+.board.arena .team .score { font-size: calc(17 * var(--u)); }
+.board.arena .team .shots { font-size: calc(2.8 * var(--u)); }
+.board.arena .team .shots b { font-size: calc(4.6 * var(--u)); }
+.board.arena .team { padding-top: calc(1.6 * var(--u)); padding-bottom: calc(1 * var(--u)); }
+.board.arena .clock { font-size: calc(13 * var(--u)); }
+.board.arena .period { font-size: calc(3 * var(--u)); }
+.board.arena .strength { font-size: calc(2.4 * var(--u)); min-height: calc(4 * var(--u)); }
+.board.arena .centerlogo.top { max-height: calc(11 * var(--u)); }
+.board.arena .mid { gap: calc(1 * var(--u)); }
+.board.arena .penbox { min-height: 0; padding: calc(.8 * var(--u)) calc(1.4 * var(--u)); }
+.board.arena .penbox .ph { font-size: calc(1.8 * var(--u)); }
+.board.arena .penbox .prow { font-size: calc(3.2 * var(--u)); }
+.board.arena .penbox .pnone { font-size: calc(2.2 * var(--u)); }
+.board.arena .penbox .pmore { font-size: calc(1.7 * var(--u)); }
+@media (orientation: portrait) {
+  .board.arena { --u: min(2.1vw, 1.1vh); }
+}
+
+/* saved teams (team library) */
+.savedteams { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
+.savedteams .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.savedteam { display: inline-flex; align-items: center; border-left: 4px solid var(--c); border-radius: 10px; background: var(--card2); }
+.savedteam .btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; padding: 6px 8px; }
+.savedteam .btn img, .savedteam .btn i { width: 24px; height: 24px; object-fit: contain; display: inline-block; }
+.savedteam .x { background: none; color: var(--dim); padding: 4px 8px; font-size: 12px; }

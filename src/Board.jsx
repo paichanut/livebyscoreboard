@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
 import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, periodLabel, clockRemaining } from './game.js'
 import { ONLINE } from './sync.js'
@@ -11,6 +11,13 @@ export default function Board() {
   useAppearance(s)
   const sound = useSound('rinkboard:sound:board', true)
   useGameSounds(s, sound.playing)
+  // see-through page: the board sits on top of video (OBS, camera apps); cards stay solid
+  const bgOpacity = Math.min(100, Math.max(0, Number(s?.opts.bgOpacity ?? 50)))
+  const clear = Boolean(s) && bgOpacity < 100 && !(s.opts.layout === 'arena' && s.opts.bgImg)
+  useEffect(() => {
+    document.documentElement.classList.toggle('clearbg', clear)
+    return () => document.documentElement.classList.remove('clearbg')
+  }, [clear])
   useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.showTimeOfDay || s?.penalties?.length))
 
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
@@ -31,9 +38,9 @@ export default function Board() {
   const isSO = s.period === 'SO'
 
   return (
-    <div className={`board ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}
-      style={arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : undefined}>
-      <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>
+    <div className={`board ${clear ? 'clear' : ''} ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}
+      style={arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
+      {!clear && <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>}
       <SoundToggle sound={sound} className="sound" />
 
       {!minimal && (o.bannerImg || o.title || o.topLeftImg || o.topRightImg) && (
@@ -73,7 +80,7 @@ export default function Board() {
 
       <Team t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
       {arena && ['home', 'away'].map(team => <PenBox key={team} team={team} s={s} />)}
-      {!o.logoImg && <div className="brand">live by scoreboard</div>}
+      {!o.logoImg && !clear && <div className="brand">live by scoreboard</div>}
     </div>
   )
 }

@@ -101,6 +101,7 @@ export function defaultOptions() {
     ],
     layout: 'arena', // 'arena' (logos on top, penalty boxes, background photo) | 'full' | 'minimal' (no shots/logos/title, bigger numbers)
     bgImg: '', // arena layout background photo
+    bgOpacity: 50, // display page background, % (100 = solid for a TV; lower lets video show through in OBS / camera overlays)
     uiLang: 'en', // control page language: 'en' | 'th' (display labels are the free-text `labels` below)
     // Teams
     homeLogo: '', awayLogo: '',

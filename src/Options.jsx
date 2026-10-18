@@ -3,6 +3,7 @@ import { DEFAULT_KEYS, KEY_LABELS, KEY_GROUPS, SOUND_CHOICES, FONT_CHOICES, COLO
 import { unlockAudio, playSound, ready } from './horn.js'
 import * as G from './game.js'
 import { LANGS, translator } from './i18n.js'
+import { listTeams, saveTeam, removeTeam } from './teamLibrary.js'
 
 const TABS = ['Game', 'Teams', 'Keys', 'Colors', 'Sounds', 'Text', 'Banner', 'Other']
 
@@ -34,6 +35,8 @@ export default function Options({ s, update, close }) {
       if (!G.periodList(n).includes(n.period)) n = G.setPeriod(n, '1')
       return n
     })
+    saveTeam({ ...home, logo: o.homeLogo })
+    saveTeam({ ...away, logo: o.awayLogo })
     close()
   }
 
@@ -128,7 +131,7 @@ function ImagePick({ label, path, get, set, max = 512 }) {
   )
 }
 
-function resizeImage(file, max) {
+export function resizeImage(file, max) {
   return new Promise(res => {
     const img = new Image()
     img.onload = () => {
@@ -145,9 +148,13 @@ function resizeImage(file, max) {
 function TeamsTab({ get, set, home, setHome, away, setAway }) {
   return (
     <>
+      <h4>Tournament</h4>
+      <ImagePick label="Tournament logo (display: above the clock · OBS banner)" path="logoImg" get={get} set={set} />
+      <ImagePick label="Background photo (Arena layout; kept dark so numbers stay readable)" path="bgImg" get={get} set={set} max={1280} />
       {[['Team 1 (home)', home, setHome, 'homeLogo'], ['Team 2 (away)', away, setAway, 'awayLogo']].map(([title, t, setT, logoPath]) => (
         <React.Fragment key={logoPath}>
           <h4>{title}</h4>
+          <SavedTeams onPick={tm => { setT({ ...t, name: tm.name, color: tm.color }); set(logoPath, tm.logo || '') }} />
           <div className="grid2">
             <label>Team name<input type="text" value={t.name} onChange={e => setT({ ...t, name: e.target.value })} /></label>
             <label>Color<input type="color" value={t.color} onChange={e => setT({ ...t, color: e.target.value })} /></label>
@@ -156,6 +163,27 @@ function TeamsTab({ get, set, home, setHome, away, setAway }) {
         </React.Fragment>
       ))}
     </>
+  )
+}
+
+// One-tap list of teams saved in this browser (see teamLibrary.js)
+export function SavedTeams({ onPick, label = 'Saved teams' }) {
+  const [list, setList] = useState(listTeams)
+  if (!list.length) return null
+  return (
+    <div className="savedteams">
+      <span className="hint">{label}</span>
+      <div className="chips">
+        {list.map(tm => (
+          <span className="savedteam" key={tm.id} style={{ '--c': tm.color }}>
+            <button className="btn sm" aria-label={`use team ${tm.name}`} onClick={() => onPick(tm)}>
+              {tm.logo ? <img src={tm.logo} alt="" /> : <i />}{tm.name}
+            </button>
+            <button className="x" aria-label={`forget team ${tm.name}`} onClick={() => { removeTeam(tm.id); setList(listTeams()) }}>✕</button>
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -188,6 +216,11 @@ function ColorsTab({ o, set, theme, setTheme }) {
   const THEMES = [['dark', 'Dark arena'], ['light', 'Light'], ['led', 'LED classic'], ['ice', 'Ice']]
   return (
     <>
+      <h4>Display background</h4>
+      <div className="colorrow">
+        <span>Background opacity: <b>{o.bgOpacity ?? 50}%</b> (100 = solid for a TV · lower = video shows through in OBS)</span>
+        <span className="r"><input type="range" min={0} max={100} step={5} value={o.bgOpacity ?? 50} onChange={e => set('bgOpacity', Number(e.target.value))} aria-label="background opacity" /></span>
+      </div>
       <h4>Theme preset</h4>
       <div className="chips">{THEMES.map(([id, l]) => <button key={id} className={`btn ${theme === id ? 'on' : ''}`} onClick={() => setTheme(id)}>{l}</button>)}</div>
       <h4>Element colors (override theme)</h4>
@@ -268,8 +301,6 @@ function OtherTab({ o, set, get, update, close, resetAll }) {
       <ImagePick label="Scoreboard banner image (replaces title)" path="bannerImg" get={get} set={set} />
       <ImagePick label="Top left picture" path="topLeftImg" get={get} set={set} />
       <ImagePick label="Top right picture" path="topRightImg" get={get} set={set} />
-      <ImagePick label="Tournament logo (display: with the clock · OBS banner)" path="logoImg" get={get} set={set} />
-      <ImagePick label="Background photo (Arena layout; kept dark so numbers stay readable)" path="bgImg" get={get} set={set} max={1280} />
       <h4>Ask me to confirm</h4>
       <Check label="New game" path="confirm.newGame" get={get} set={set} />
       <Check label="Change period (resets clock)" path="confirm.period" get={get} set={set} />

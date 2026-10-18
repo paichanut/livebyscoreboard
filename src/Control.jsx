@@ -4,8 +4,9 @@ import * as G from './game.js'
 import { ONLINE, NEEDS_LOGIN, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
+import { saveTeam } from './teamLibrary.js'
 import TimeBadge from './TimeBadge.jsx'
-import Options from './Options.jsx'
+import Options, { SavedTeams, resizeImage } from './Options.jsx'
 import { KEY_GROUPS, KEY_LABELS, keyName } from './options.js'
 
 export default function Control() {
@@ -386,18 +387,33 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
 }
 
 function TeamSheet({ team, s, update, close, t }) {
+  const logoKey = `${team}Logo`
   const [name, setName] = useState(s[team].name)
   const [color, setColor] = useState(s[team].color)
-  const save = () => { update(x => G.setTeam(x, team, { name: name.trim() || s[team].name, color })); close() }
+  const [logo, setLogo] = useState(s.opts[logoKey] || '')
+  const save = () => {
+    const n = name.trim() || s[team].name
+    update(x => G.setOptions(G.setTeam(x, team, { name: n, color }), { ...x.opts, [logoKey]: logo }))
+    saveTeam({ name: n, color, logo })
+    close()
+  }
   return (
     <Sheet close={close}>
       <h3>{team === 'home' ? t('homeTeam') : t('awayTeam')}</h3>
+      <SavedTeams label={t('savedTeams')} onPick={tm => { setName(tm.name); setColor(tm.color); setLogo(tm.logo || '') }} />
       <label>{t('teamName')}
         <input autoFocus value={name} maxLength={24} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
       </label>
       <label>{t('teamColor')}
         <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ height: 44 }} />
       </label>
+      <div className="field">{t('teamLogo')}
+        <div className="row" style={{ alignItems: 'center' }}>
+          {logo ? <img src={logo} alt="" style={{ height: 44, width: 44, objectFit: 'contain' }} /> : <span className="hint">—</span>}
+          <input type="file" accept="image/*" onChange={async e => { const f = e.target.files?.[0]; if (f) setLogo(await resizeImage(f, 512)) }} />
+          {logo && <button className="btn sm" onClick={() => setLogo('')}>✕</button>}
+        </div>
+      </div>
       <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={save}>{t('save')}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
     </Sheet>
   )

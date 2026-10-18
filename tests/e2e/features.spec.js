@@ -172,3 +172,17 @@ test('Home button on the control page asks first', async ({ page }) => {
   await page.getByRole('button', { name: 'home', exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
 })
+
+test('teams are remembered in this browser and picked with one tap', async ({ page, context }) => {
+  const code = uniqueCode('lib')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await page.getByRole('button', { name: 'rename home' }).click()
+  await page.locator('.sheet input').first().fill('Zeus')
+  await page.locator('.sheet').getByRole('button', { name: 'Save' }).click()
+  // next game: Zeus is one tap away
+  await page.getByRole('button', { name: 'rename away' }).click()
+  await page.getByRole('button', { name: 'use team Zeus' }).click()
+  await page.locator('.sheet').getByRole('button', { name: 'Save' }).click()
+  await expect(board.locator('.board .team').nth(1).locator('.name')).toHaveText('Zeus')
+})
