@@ -78,6 +78,7 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters }) 
       <h4>Scoreboard layout</h4>
       <div className="chips">
         <button className={`btn ${o.layout === 'arena' ? 'on' : ''}`} onClick={() => set('layout', 'arena')}>Arena — logos on top, penalty boxes, photo</button>
+        <button className={`btn ${o.layout === 'compact' ? 'on' : ''}`} onClick={() => set('layout', 'compact')}>Compact — one panel (stream overlay)</button>
         <button className={`btn ${o.layout === 'full' ? 'on' : ''}`} onClick={() => set('layout', 'full')}>Full — shots, logos, title</button>
         <button className={`btn ${o.layout === 'minimal' ? 'on' : ''}`} onClick={() => set('layout', 'minimal')}>Minimal — bigger numbers</button>
       </div>

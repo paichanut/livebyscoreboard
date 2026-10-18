@@ -9,17 +9,18 @@
   --accent: #ffd166;
   --go: #2ec4b6;
   --stop: #e63946;
+  --frame: #3d74d6; /* rounded frame around every display card, all themes */
   --font-display: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif;
   --font-ui: 'Barlow', system-ui, sans-serif;
 }
 /* ---------- Themes (data-theme on <html>) ---------- */
 [data-theme="light"] {
   --bg: #f4f6f8; --card: #ffffff; --card2: #e9edf2; --btn: #e1e6ec; --text: #0e141b; --muted: #5b6876; --dim: #b8c2cc;
-  --accent: #d98c00; --go: #0f9d8a; --stop: #d62839;
+  --accent: #d98c00; --go: #0f9d8a; --stop: #d62839; --frame: #8fa6c4;
 }
 [data-theme="led"] {
   --bg: #000000; --card: #000000; --card2: #0a0a0a; --btn: #1a1a1a; --text: #ff2a2a; --muted: #ffb000; --dim: #3a1a1a;
-  --accent: #ffb000; --go: #27d17f; --stop: #ff2a2a;
+  --accent: #ffb000; --go: #27d17f; --stop: #ff2a2a; --frame: #6a1414;
   --font-display: 'Share Tech Mono', 'Courier New', monospace;
 }
 [data-theme="led"] .board .team { border-top-color: transparent; border: .25vw solid #2a0a0a; }
@@ -27,7 +28,7 @@
 [data-theme="led"] .board .team .shots b { color: #ff2a2a; }
 [data-theme="ice"] {
   --bg: #e8f1f8; --card: #ffffff; --card2: #d7e6f2; --btn: #cfe0ee; --text: #0b2340; --muted: #4a6a8a; --dim: #9fb8cf;
-  --accent: #0b5fb0; --go: #0f9d8a; --stop: #d62839;
+  --accent: #0b5fb0; --go: #0f9d8a; --stop: #d62839; --frame: #6f9cc9;
 }
 [data-theme="ice"] .board { background: linear-gradient(180deg, #eef5fb 0%, #d8e8f4 100%); }
 
@@ -92,11 +93,12 @@ input, select { font-family: inherit; }
 .board .timeout b { margin-left: 1vw; }
 .board .team { position: relative; overflow: hidden; }
 .board .team.flash { animation: flashbg .5s ease-in-out 6 alternate; }
-.board .mid { position: relative; }
 /* goal: the scoring team's card flashes its background (numbers never move); the text sits in the middle card's empty bottom */
-.board .goalflash { position: absolute; bottom: 4%; left: 0; right: 0; text-align: center; font-size: 4.2vw; font-weight: 800; letter-spacing: .14em; color: var(--c); line-height: 1.1; animation: blink .5s steps(2, jump-none) 6 alternate; }
-.board .goalflash span { display: block; font-size: .55em; letter-spacing: .1em; color: var(--text); }
-.board.arena .goalflash { font-size: calc(5.5 * var(--u)); }
+.board .evslot { display: flex; align-items: center; justify-content: center; min-height: 4.6vw; max-width: 100%; }
+.board.arena .evslot { min-height: calc(5 * var(--u)); }
+.board .goalflash { white-space: nowrap; text-align: center; font-size: 3.4vw; font-weight: 800; letter-spacing: .12em; color: var(--c); line-height: 1; animation: blink .5s steps(2, jump-none) 6 alternate; }
+.board .goalflash span { font-size: .7em; letter-spacing: .06em; color: var(--text); margin-left: .3em; }
+.board.arena .goalflash { font-size: calc(4.2 * var(--u)); }
 @keyframes blink { from { opacity: 1; } to { opacity: .35; } }
 @keyframes flashbg { from { background: var(--card); } to { background: color-mix(in srgb, var(--c) 35%, var(--card)); } }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -507,3 +509,52 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .board .tod { font-size: 3vw; font-weight: 700; letter-spacing: .08em; color: var(--muted); line-height: 1; }
 .board.arena .tod { font-size: calc(3.4 * var(--u)); }
 .banner .btod { font-size: 16px; opacity: .75; letter-spacing: .06em; }
+
+/* ---------- Compact layout: one broadcast panel ---------- */
+.board.compactb { display: flex; align-items: stretch; justify-content: stretch; padding: 1.2vh 1vw; --u: min(1vw, 1.8vh); }
+.board.compactb.clear { padding: 0; }
+.compactb .cpanel { position: relative; flex: 1; display: grid; grid-template-columns: 1fr 1.15fr 1fr; grid-template-rows: 1fr auto; column-gap: calc(1.5 * var(--u));
+  background: linear-gradient(180deg, #14408a 0%, #0c2a5e 55%, #0a2250 100%); border: calc(.35 * var(--u)) solid var(--frame); border-radius: calc(1.6 * var(--u));
+  padding: calc(1.6 * var(--u)) calc(2 * var(--u)) calc(1 * var(--u)); color: #fff; font-family: var(--font-display); overflow: hidden; }
+.compactb .cteam { display: flex; flex-direction: column; align-items: center; min-width: 0; border-radius: calc(1.2 * var(--u)); padding: calc(.4 * var(--u)); }
+.compactb .cteam.flash { animation: cflash .5s ease-in-out 6 alternate; }
+@keyframes cflash { from { background: transparent; } to { background: color-mix(in srgb, var(--c) 45%, transparent); } }
+.compactb .clogo { height: calc(9 * var(--u)); display: flex; align-items: center; justify-content: center; }
+.compactb .clogo img { max-height: 100%; max-width: calc(14 * var(--u)); object-fit: contain; }
+.compactb .cname { font-size: calc(4 * var(--u)); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; text-align: center; line-height: 1.05; margin-top: calc(.6 * var(--u)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.compactb .cscore { font-size: calc(17 * var(--u)); font-weight: 800; line-height: 1; color: var(--c); margin: calc(.4 * var(--u)) 0; text-shadow: 0 0 calc(1.2 * var(--u)) rgba(0,0,0,.35); }
+.compactb .clabel { font-family: var(--font-ui); font-size: calc(1.8 * var(--u)); letter-spacing: .14em; text-transform: uppercase; color: #a9c0e8; font-weight: 700; min-height: 1.2em; }
+.compactb .cshots { font-size: calc(5 * var(--u)); font-weight: 800; line-height: 1; }
+.compactb .cpens { margin-top: auto; width: 100%; min-height: calc(7.6 * var(--u)); display: flex; flex-direction: column; justify-content: flex-end; gap: calc(.4 * var(--u)); }
+.compactb .cpen { display: flex; justify-content: space-between; align-items: baseline; background: rgba(0,0,0,.28); border-left: calc(.5 * var(--u)) solid var(--c); border-radius: calc(.6 * var(--u)); padding: 0 calc(1 * var(--u)); font-size: calc(2.8 * var(--u)); font-weight: 800; line-height: 1.3; }
+.compactb .cpen b { color: #ffd166; }
+.compactb .cpen.wait { opacity: .45; }
+.compactb .cpen.more { justify-content: center; font-size: calc(2 * var(--u)); color: #a9c0e8; }
+.compactb .cmid { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.compactb .cclock { font-size: calc(10.5 * var(--u)); font-weight: 800; line-height: 1.05; color: #4ade80; border: calc(.3 * var(--u)) solid var(--frame); background: rgba(4, 14, 36, .65); border-radius: calc(1 * var(--u)); padding: 0 calc(2 * var(--u)); white-space: nowrap; }
+.compactb .cclock.final { color: #ff5d5d; }
+.compactb .cmid .clabel { margin-top: calc(1 * var(--u)); }
+.compactb .cperiod { font-size: calc(7.5 * var(--u)); font-weight: 800; line-height: 1; }
+.compactb .cstrength { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .12em; color: var(--pp, #ffd166); border: calc(.18 * var(--u)) solid var(--pp, #ffd166); border-radius: 999px; padding: 0 calc(1.4 * var(--u)); margin-top: calc(.6 * var(--u)); }
+.compactb .cstrength.empty { visibility: hidden; }
+.compactb .ctimeout { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .1em; background: var(--c); border-radius: 999px; padding: 0 calc(1.4 * var(--u)); margin-top: calc(.6 * var(--u)); }
+.compactb .cllogo { margin-top: auto; max-height: calc(11 * var(--u)); max-width: 80%; object-fit: contain; }
+.compactb .evslot { min-height: calc(3.6 * var(--u)); margin-top: calc(.4 * var(--u)); }
+.compactb .goalflash { font-size: calc(3.2 * var(--u)); }
+.compactb .cdate { grid-column: 1 / -1; text-align: center; font-family: var(--font-ui); font-size: calc(1.9 * var(--u)); color: #a9c0e8; letter-spacing: .06em; margin-top: calc(.6 * var(--u)); }
+.compactb .cdate b { color: #fff; margin-left: .4em; }
+.compactb .so { font-size: calc(3.4 * var(--u)); }
+
+/* ---------- Rounded frame on every display card, same in every theme (color from --frame) ---------- */
+.board .team { border: .25vw solid var(--frame); border-top: .8vw solid var(--c); }
+.board.clear .mid, .board.arena .mid { border: .25vw solid var(--frame); }
+.board .pen { border: .15vw solid var(--frame); border-left: .5vw solid var(--c); }
+.board.arena .team { border-width: calc(.3 * var(--u)); border-top-width: calc(.9 * var(--u)); }
+.board.arena .mid { border-width: calc(.3 * var(--u)); }
+.board.arena .penbox { border: calc(.3 * var(--u)) solid var(--frame); border-left: calc(.7 * var(--u)) solid var(--c); }
+/* arena: the penalty row always fits; the middle card shrinks its logo first */
+.board.arena { grid-template-rows: minmax(0, 1fr) auto; --u: min(1vw, 1.65vh); }
+.board.arena .team, .board.arena .mid { min-height: 0; overflow: hidden; }
+.board.arena .centerlogo.top { flex: 0 1 auto; min-height: 0; max-height: calc(9 * var(--u)); }
+.board.arena .mid { gap: calc(.7 * var(--u)); }
+@media (orientation: portrait) { .board.arena { grid-template-rows: auto minmax(0, 1fr) auto; } }

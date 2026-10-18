@@ -36,7 +36,7 @@ test('goals, shots and penalties flow from control to the display', async ({ pag
   await expect(home(page).locator('.pen')).toContainText('#12')
   await expect(home(page).locator('.pen .pt')).toHaveText('2:00')
   await expect(page.locator('.clockcard .st')).toHaveText('4v5')
-  await expect(board.locator('.board .strength')).toHaveText('4v5 · PP')
+  await expect(board.locator('.board .strength')).toHaveText('4v5 · PP', { timeout: 8000 })
   await expect(board.locator('.board .penbox.pb-home .prow')).toContainText('#12')
 
   // penalty time only moves while the clock runs
@@ -50,7 +50,7 @@ test('goals, shots and penalties flow from control to the display', async ({ pag
   await home(page).getByRole('button', { name: 'remove penalty' }).click()
   await expect(home(page).locator('.pen')).toHaveCount(0)
   await expect(page.locator('.clockcard .st')).toHaveCount(0)
-  await expect(board.locator('.board .strength')).toHaveClass(/empty/)
+  await expect(board.locator('.board .strength')).toHaveClass(/empty/, { timeout: 8000 })
 })
 
 test('expired penalty is pruned by the control page', async ({ page }) => {

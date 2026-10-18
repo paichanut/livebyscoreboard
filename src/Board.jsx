@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
 import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, periodLabel, clockRemaining } from './game.js'
 import { ONLINE } from './sync.js'
+import { now as serverNow } from './clock.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import TimeBadge from './TimeBadge.jsx'
 
@@ -37,6 +38,15 @@ export default function Board() {
   const isNum = !['OT', 'SO'].includes(s.period)
   const isSO = s.period === 'SO'
 
+  if (o.layout === 'compact') {
+    return (
+      <div className={`board compactb ${clear ? 'clear' : ''}`} style={clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
+        <SoundToggle sound={sound} className="sound" />
+        <Compact s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
+      </div>
+    )
+  }
+
   return (
     <div className={`board ${clear ? 'clear' : ''} ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}
       style={arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
@@ -64,6 +74,8 @@ export default function Board() {
         <div className={`clock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
+        {/* reserved slot: always the same height, so GOAL! appearing moves nothing and covers nothing */}
+        <div className="evslot">{flash && <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal} <span>{s[flash].name}</span></div>}</div>
         {!arena && <div className="pens">
           {['home', 'away'].map(team => {
             const run = activePenalties(s, team)
@@ -77,12 +89,64 @@ export default function Board() {
           })}
         </div>}
         {!arena && o.logoImg && <img className="centerlogo" src={o.logoImg} alt="" />}
-        {flash && <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal} <span>{s[flash].name}</span></div>}
       </div>
 
       <Team t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
       {arena && ['home', 'away'].map(team => <PenBox key={team} team={team} s={s} />)}
       {!o.logoImg && !clear && <div className="brand">live by scoreboard</div>}
+    </div>
+  )
+}
+
+// Compact layout: one broadcast-style panel (the operator's earlier OBS design). Home | clock box,
+// period, tournament logo | away; scores in team colors; penalties under each team only when there
+// are any (space is reserved so nothing moves); date + time of day along the bottom when it is on.
+function Compact({ s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isSO }) {
+  const o = s.opts
+  const L = o.labels
+  const side = team => {
+    const t = s[team]
+    const pens = [...activePenalties(s, team), ...waitingPenalties(s, team)]
+    const running = new Set(activePenalties(s, team).map(p => p.id))
+    return (
+      <div className={`cteam ${flash === team ? 'flash' : ''}`} style={{ '--c': t.color }}>
+        <div className="clogo">{o[`${team}Logo`] && <img src={o[`${team}Logo`]} alt="" />}</div>
+        <div className="cname">{t.name}</div>
+        <div className="cscore tnum">{t.score}</div>
+        {isSO
+          ? <Shootout attempts={s.shootout[team]} className="so" />
+          : <><div className="clabel">{L.shots}</div><div className="cshots tnum">{t.shots}</div></>}
+        <div className="cpens">
+          {pens.slice(0, 3).map(p => (
+            <div key={p.id} className={`cpen ${running.has(p.id) ? '' : 'wait'}`}>
+              <span>{p.player ? `#${p.player}` : L.penalty}</span>
+              <b className="tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</b>
+            </div>
+          ))}
+          {pens.length > 3 && <div className="cpen more">+{pens.length - 3}</div>}
+        </div>
+      </div>
+    )
+  }
+  const d = new Date(serverNow())
+  return (
+    <div className="cpanel">
+      {side('home')}
+      <div className="cmid">
+        <div className={`cclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
+        <div className="clabel">{isNum ? L.period : ''}</div>
+        <div className="cperiod">{periodLabel(s)}</div>
+        <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
+        <div className="evslot">{flash && <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal}</div>}</div>
+        {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
+        {o.logoImg && <img className="cllogo" src={o.logoImg} alt="" />}
+      </div>
+      {side('away')}
+      {s.showTimeOfDay && (
+        <div className="cdate tnum">
+          {d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace(/,/g, '')} <b>{fmtTimeOfDay()}</b>
+        </div>
+      )}
     </div>
   )
 }

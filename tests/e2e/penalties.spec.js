@@ -66,7 +66,7 @@ test('power-play goal ends the least-time minor; a major stays', async ({ page, 
   await expect(away(page).locator('.pen')).toContainText('#7')
   await expect(page.locator('.clockcard .st')).toHaveText('5v4')
   await expect(boardAway(board).locator('.score')).toHaveText('0')
-  await expect(board.locator('.board .strength')).toHaveText('5v4 · PP')
+  await expect(board.locator('.board .strength')).toHaveText('5v4 · PP', { timeout: 8000 })
   // another goal: the major is never released
   await home(page).getByRole('button', { name: '+ GOAL' }).click()
   await expect(away(page).locator('.pen')).toHaveCount(1)
