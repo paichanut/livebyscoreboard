@@ -6,6 +6,7 @@ import Banner from './Banner.jsx'
 import Live from './Live.jsx'
 import Setup from './Setup.jsx'
 import Login from './Login.jsx'
+import Teams from './Teams.jsx'
 import { CONFIGURED } from './sync.js'
 
 function usePath() {
@@ -26,5 +27,6 @@ export default function App() {
   if (path === '/banner' || path.startsWith('/o/')) return <Banner />
   if (path === '/live' || path === '/games') return <Live />
   if (path === '/login') return <Login />
+  if (path === '/teams') return <Teams />
   return <Home />
 }

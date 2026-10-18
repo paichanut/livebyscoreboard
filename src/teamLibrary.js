@@ -25,6 +25,23 @@ export function saveTeam({ name, color, logo }) {
   return write([entry, ...list.filter(t => t.id !== id)].slice(0, 60))
 }
 
+// Change name / color / logo of a saved team. A new name that matches another team replaces it.
+export function updateTeam(id, patch) {
+  const list = listTeams()
+  const old = list.find(t => t.id === id)
+  if (!old) return false
+  const name = patch.name != null ? String(patch.name).trim() : old.name
+  if (!name || DEFAULT_NAMES.includes(name.toLowerCase())) return false
+  const entry = { ...old, ...patch, name, id: name.toLowerCase() }
+  return write(list.map(t => (t.id === id ? entry : t)).filter((t, i, a) => t === entry || t.id !== entry.id))
+}
+
+// "zeus_logo-2026.png" → "Zeus Logo 2026"
+export function nameFromFile(filename) {
+  return String(filename || '').replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+    .replace(/\b\w/g, c => c.toUpperCase()).slice(0, 40)
+}
+
 export function removeTeam(id) {
   return write(listTeams().filter(t => t.id !== id))
 }

@@ -169,10 +169,10 @@ function TeamsTab({ get, set, home, setHome, away, setAway }) {
 // One-tap list of teams saved in this browser (see teamLibrary.js)
 export function SavedTeams({ onPick, label = 'Saved teams' }) {
   const [list, setList] = useState(listTeams)
-  if (!list.length) return null
+  if (!list.length) return <div className="savedteams"><span className="hint"><a href="/teams" target="_blank" rel="noreferrer">+ Add team logos (one-tap teams) ▸</a></span></div>
   return (
     <div className="savedteams">
-      <span className="hint">{label}</span>
+      <span className="hint">{label} · <a href="/teams" target="_blank" rel="noreferrer">manage logos ▸</a></span>
       <div className="chips">
         {list.map(tm => (
           <span className="savedteam" key={tm.id} style={{ '--c': tm.color }}>

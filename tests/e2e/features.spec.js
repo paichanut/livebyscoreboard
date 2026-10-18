@@ -186,3 +186,27 @@ test('teams are remembered in this browser and picked with one tap', async ({ pa
   await page.locator('.sheet').getByRole('button', { name: 'Save' }).click()
   await expect(board.locator('.board .team').nth(1).locator('.name')).toHaveText('Zeus')
 })
+
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+
+test('team logos page: upload named by file, rename, then pick on the control page', async ({ page, context }) => {
+  await page.goto('/teams')
+  await page.locator('.teamsPage input[type=file][multiple]').setInputFiles([
+    { name: 'zeus_hockey.png', mimeType: 'image/png', buffer: PNG },
+    { name: 'bangkok-bears.png', mimeType: 'image/png', buffer: PNG },
+  ])
+  await expect(page.locator('.tcard')).toHaveCount(2)
+  const zeus = page.getByLabel('name of Zeus Hockey')
+  await zeus.fill('Zeus')
+  await zeus.press('Enter')
+  await expect(page.locator('[data-team="zeus"]')).toBeVisible()
+
+  const code = uniqueCode('logos')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await page.getByRole('button', { name: 'rename home' }).click()
+  await page.getByRole('button', { name: 'use team Bangkok Bears' }).click()
+  await page.locator('.sheet').getByRole('button', { name: 'Save' }).click()
+  await expect(board.locator('.board .team').first().locator('.name')).toHaveText('Bangkok Bears')
+  await expect(board.locator('.board .team').first().locator('.toplogo')).toBeVisible()
+})

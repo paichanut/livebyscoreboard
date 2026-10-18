@@ -478,3 +478,23 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .savedteam .btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; padding: 6px 8px; }
 .savedteam .btn img, .savedteam .btn i { width: 24px; height: 24px; object-fit: contain; display: inline-block; }
 .savedteam .x { background: none; color: var(--dim); padding: 4px 8px; font-size: 12px; }
+
+/* ---------- Team logos page ---------- */
+.teamsPage { max-width: 960px; margin: 0 auto; padding: 24px 16px 40px; display: flex; flex-direction: column; gap: 14px; }
+.teamsPage .head { display: flex; justify-content: space-between; align-items: baseline; }
+.teamsPage h1 { font-family: var(--font-display); font-size: 40px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.teamsPage a { color: var(--accent); }
+.teamsPage .hint { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.teamsPage .upload { align-self: flex-start; cursor: pointer; }
+.teamsPage .warn { background: #3a2b00; color: #ffd166; border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+.teamsPage .search { background: var(--card); color: var(--text); border: 1px solid var(--dim); border-radius: 12px; padding: 10px 14px; font-size: 16px; }
+.teamsPage .empty { color: var(--dim); }
+.teamsPage .tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.teamsPage .tcard { background: var(--card); border-radius: 16px; border-top: 5px solid var(--c); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.teamsPage .tcard .logo { height: 110px; display: flex; align-items: center; justify-content: center; background: var(--card2); border-radius: 12px; cursor: pointer; color: var(--dim); font-size: 13px; }
+.teamsPage .tcard .logo img { max-height: 96px; max-width: 90%; object-fit: contain; }
+.teamsPage .tcard .tname { background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text); font: 800 20px var(--font-display); text-transform: uppercase; text-align: center; padding: 4px; }
+.teamsPage .tcard .tname:hover, .teamsPage .tcard .tname:focus { border-color: var(--dim); outline: none; }
+.teamsPage .tcard .trow { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.teamsPage .tcard input[type=color] { width: 48px; height: 34px; border: none; background: none; }
+.savedteams .hint a { color: var(--accent); }

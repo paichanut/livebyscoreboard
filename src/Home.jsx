@@ -27,6 +27,7 @@ export default function Home() {
           : <a className="btn primary" href="/login">Operator login</a>}
         {g && <a className="btn" href={`/b/${g}`}>View display for "{g}"</a>}
         <a className="btn ghost" href="/live">Live games</a>
+        {canCreate && <a className="btn ghost" href="/teams">Team logos</a>}
       </div>
       {NEEDS_LOGIN && session && (
         <div className="who">logged in as <b>{sessionUser()}</b> · <button className="linkbtn" onClick={async () => { await logout(); setSession('') }}>log out</button></div>

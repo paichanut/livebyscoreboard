@@ -26,6 +26,7 @@ npm run build            # dist/ (Vercel builds this automatically)
 | `/c/CODE?k=KEY` (`/control?g=`) | Control.jsx | operator panel (phone or laptop) |
 | `/live` (`/games`) | Live.jsx | tournament page: every game, newest/running first, links to `/b/CODE` |
 | `/login` | Login.jsx | operator login (username + password) |
+| `/teams` | Teams.jsx | team logo library (this browser) |
 
 ## Architecture
 
@@ -67,6 +68,7 @@ Penalty kinds (`kindOf`): `minor`/`double`/`major` take one of the two slots and
 - Control page layout (≥900 px): clock card in the middle (status, ±1/±5 s beside the clock, START/STOP, All times / Period time / All penalties, ±1:00 / SET, period, horn/buzzer/time of day, timeouts, goal light), team cards left/right (tap the name to rename/recolor), and everything fits one screen (sizes use vh). Menu row and the status line (game code · who is logged in / log out, or "game key only · Log in" · live) sit at the bottom.
 - Display background: `opts.bgOpacity` (default 50 %; 100 = solid for a TV). Below 100 the page is see-through for OBS / camera-app overlays: cards stay solid, the middle (period/clock) is a card too, the status line and brand are hidden and the sound button only shows on hover. A background photo (`opts.bgImg`, arena) overrides it.
 - Tournament logo + background photo are in Options → Teams (top).
+- Team logos page `/teams` (Teams.jsx): upload several logos at once; each becomes a saved team named from the file name (`nameFromFile`: "bangkok_bears.png" → "Bangkok Bears"); rename, recolor, replace logo (320 px), delete. Linked from Home, Options → Teams and the control team sheet.
 - Saved teams (`src/teamLibrary.js`): name, color, logo kept in this browser's localStorage (`rinkboard:teams`), added when Options or the control team sheet is saved; picked with one tap in both places. Not shared between devices (a shared Supabase table was proposed but not applied).
 - Deleting games: `/live` → "Manage games" (logged-in operators) → 🗑 Delete on a card. RPC `delete_game(id, token)`; the key row goes with it (cascade).
 - Button groups inside Options/sheets use `<div>` rows, not `<label>` (label text would click the first button).
