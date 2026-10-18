@@ -207,7 +207,10 @@ export default function Control() {
             <div className="tc" key={team} style={{ '--c': tm.color }}>
               <button className="n" aria-label={`rename ${team}`} title={t('editTeam')} onClick={() => setSheet(`team-${team}`)}>{tm.name}</button>
               <div className="s tnum">{tm.score}</div>
-              <button className="goal" onClick={() => update(x => G.addScore(x, team, 1))}>{t('goal')}</button>
+              <div className="goalrow">
+                <button className="goal" onClick={() => update(x => G.addScore(x, team, 1))}>{t('goal')}</button>
+                <button className="goal horn" aria-label={`goal and horn ${team}`} onClick={() => update(x => G.fireHorn(G.addScore(x, team, 1)))}>{t('goalHorn')}</button>
+              </div>
               {isSO && (
                 <div className="so">
                   <div className="marks" aria-label={`shootout ${team}`}>{so.length ? so.map((a, i) => <span key={i} className={`so-${a}`}>{a === 'goal' ? '●' : '○'}</span>) : <span className="none">—</span>}</div>

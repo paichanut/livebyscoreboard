@@ -55,3 +55,16 @@ test('horn plays on the control page and the display at the same time (sound on 
   await page.locator('.csound').click()
   await expect(page.locator('.csound')).toHaveText(/sound off/)
 })
+
+test('+ GOAL 📯 adds the goal and sounds the horn on the display', async ({ page, context }) => {
+  await context.addInitScript(RECORD)
+  const code = uniqueCode('goalhorn')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await board.locator('.board').click({ position: { x: 5, y: 5 } })
+  await board.waitForTimeout(800)
+  await page.getByRole('button', { name: 'goal and horn home' }).click()
+  await expect(board.locator('.board .team').first().locator('.score')).toHaveText('1')
+  await board.waitForFunction(() => window.__played.length > 0)
+  expect((await board.evaluate(() => window.__played))[0].dur).toBeGreaterThan(4)
+})
