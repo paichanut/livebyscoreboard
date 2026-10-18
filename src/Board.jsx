@@ -79,7 +79,7 @@ export default function Board() {
         </div>
       )}
 
-      <Team t={s.home} logo={!minimal && o.homeLogo} logoTop={arena} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null} />
+      <Team key={`home-${flash === 'home' ? s.goalFlash.at : 0}`} t={s.home} logo={!minimal && o.homeLogo} logoTop={arena} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null} />
 
       <div className="mid">
         {toRem > 0 && (
@@ -109,7 +109,7 @@ export default function Board() {
         {!arena && o.logoImg && <div className="logofill"><img className="centerlogo" src={o.logoImg} alt="" /></div>}
       </div>
 
-      <Team t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
+      <Team key={`away-${flash === 'away' ? s.goalFlash.at : 0}`} t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
       {arena && ['home', 'away'].map(team => <PenBox key={team} team={team} s={s} />)}
       {!o.logoImg && !clear && <div className="brand">live by scoreboard</div>}
     </div>
@@ -127,7 +127,7 @@ function Compact({ s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isS
     const pens = [...activePenalties(s, team), ...waitingPenalties(s, team)]
     const running = new Set(activePenalties(s, team).map(p => p.id))
     return (
-      <div className={`cteam ${flash === team ? 'flash' : ''}`} style={{ '--c': t.color }}>
+      <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`cteam ${flash === team ? 'flash' : ''}`} style={{ '--c': t.color }}>
         <div className="clogo">{o[`${team}Logo`] && <img src={o[`${team}Logo`]} alt="" />}</div>
         <div className="cname">{t.name}</div>
         <div className="cscore tnum">{t.score}</div>

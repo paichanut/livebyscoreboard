@@ -239,7 +239,7 @@ test('developer contact on Home and the control page', async ({ page }) => {
   await expect(page.locator('.home .contact a[href="https://line.me/ti/p/~paichanut"]')).toBeVisible()
   await expect(page.locator('.home .contact a[href="mailto:paichanut@gmail.com"]')).toBeVisible()
   await openControl(page, uniqueCode('contact'))
-  await page.getByRole('button', { name: /Contact dev/ }).click()
+  await page.getByRole('button', { name: /Contact Pai/ }).click()
   await expect(page.locator('.sheet')).toContainText('Pai Chanut')
   await expect(page.locator('.sheet a[href="https://wa.me/66816351945"]')).toBeVisible()
 })

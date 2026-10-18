@@ -93,13 +93,13 @@ input, select { font-family: inherit; }
 .board .timeout { font-size: calc(2.4 * var(--u)); font-weight: 800; letter-spacing: .12em; color: #fff; background: var(--c); border-radius: 999px; padding: .6vh calc(2.4 * var(--u)); white-space: nowrap; }
 .board .timeout b { margin-left: calc(1 * var(--u)); }
 .board .team { position: relative; overflow: hidden; }
-.board .team.flash { animation: flashbg .5s ease-in-out 6 alternate; }
+.board .team.flash { animation: flashbg .5s ease-in-out infinite alternate; }
 /* goal: the scoring team's card flashes its background (numbers never move); the text sits in the middle card's empty bottom */
-.board .evslot { display: flex; align-items: center; justify-content: center; min-height: calc(4.6 * var(--u)); max-width: 100%; }
-.board.arena .evslot { min-height: calc(5 * var(--u)); }
-.board .goalflash { white-space: nowrap; text-align: center; font-size: calc(3.4 * var(--u)); font-weight: 800; letter-spacing: .12em; color: var(--c); line-height: 1; animation: blink .5s steps(2, jump-none) 6 alternate; }
+.board .evslot { display: flex; align-items: center; justify-content: center; min-height: calc(6.4 * var(--u)); max-width: 100%; }
+.board.arena .evslot { min-height: calc(7 * var(--u)); }
+.board .goalflash { white-space: nowrap; text-align: center; font-size: calc(5.8 * var(--u)); font-weight: 800; letter-spacing: .1em; color: var(--c); line-height: 1; animation: blink .5s steps(2, jump-none) infinite alternate; }
 .board .goalflash span { font-size: .7em; letter-spacing: .06em; color: var(--text); margin-left: .3em; }
-.board.arena .goalflash { font-size: calc(4.2 * var(--u)); }
+.board.arena .goalflash { font-size: calc(6.6 * var(--u)); }
 @keyframes blink { from { opacity: 1; } to { opacity: .35; } }
 @keyframes flashbg { from { background: var(--card); } to { background: color-mix(in srgb, var(--c) 35%, var(--card)); } }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -518,7 +518,7 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
   background: linear-gradient(180deg, #14408a 0%, #0c2a5e 55%, #0a2250 100%); border: calc(.35 * var(--u)) solid var(--frame); border-radius: calc(1.6 * var(--u));
   padding: calc(1.6 * var(--u)) calc(2 * var(--u)) calc(1 * var(--u)); color: #fff; font-family: var(--font-display); overflow: hidden; }
 .compactb .cteam { display: flex; flex-direction: column; align-items: center; min-width: 0; border-radius: calc(1.2 * var(--u)); padding: calc(.4 * var(--u)); }
-.compactb .cteam.flash { animation: cflash .5s ease-in-out 6 alternate; }
+.compactb .cteam.flash { animation: cflash .5s ease-in-out infinite alternate; }
 @keyframes cflash { from { background: transparent; } to { background: color-mix(in srgb, var(--c) 45%, transparent); } }
 .compactb .clogo { height: calc(9 * var(--u)); display: flex; align-items: center; justify-content: center; }
 .compactb .clogo img { max-height: 100%; max-width: calc(14 * var(--u)); object-fit: contain; }
@@ -541,8 +541,8 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .compactb .ctimeout { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .1em; background: var(--c); border-radius: 999px; padding: 0 calc(1.4 * var(--u)); margin-top: calc(.6 * var(--u)); }
 .compactb .cllogo { flex: 1 1 0; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; padding: calc(1 * var(--u)) 0; }
 .compactb .cllogo img { height: 100%; max-height: calc(30 * var(--u)); max-width: 92%; object-fit: contain; }
-.compactb .evslot { min-height: calc(3.6 * var(--u)); margin-top: calc(.4 * var(--u)); }
-.compactb .goalflash { font-size: calc(3.2 * var(--u)); }
+.compactb .evslot { min-height: calc(6.2 * var(--u)); margin-top: calc(.4 * var(--u)); }
+.compactb .goalflash { font-size: calc(5.6 * var(--u)); }
 .compactb .cdate { grid-column: 1 / -1; text-align: center; font-family: var(--font-ui); font-size: calc(1.9 * var(--u)); color: #a9c0e8; letter-spacing: .06em; margin-top: calc(.6 * var(--u)); }
 .compactb .cdate b { color: #fff; margin-left: .4em; }
 .compactb .so { font-size: calc(3.4 * var(--u)); }
@@ -599,3 +599,7 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .contactlinks .wa { background: #1f9d55; color: #fff; }
 .contactlinks .line { background: #06c755; color: #fff; }
 .home .contact { display: flex; flex-direction: column; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+
+/* control page: the scoring team's card blinks while the goal light is on */
+.control .tc.flash { animation: ctlflash .5s ease-in-out infinite alternate; }
+@keyframes ctlflash { from { background: var(--card); } to { background: color-mix(in srgb, var(--c) 40%, var(--card)); } }

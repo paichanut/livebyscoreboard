@@ -34,7 +34,7 @@ export default function Control() {
   // the single-game link to share with a helper; fetched once the game exists on the server
   const [shareKey, setShareKey] = useState(usingSession ? '' : key)
   useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
-  useTick(100, Boolean(s?.clock.running || s?.timeout))
+  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
   const [sheet, setSheet] = useState(null)
   const [openPen, setOpenPen] = useState(null) // penalty row showing its ±1/±5 s buttons
   // optional: play horn/buzzer on this device too (phone speaker / laptop plugged into the PA)
@@ -205,7 +205,8 @@ export default function Control() {
           const tm = s[team]
           const so = s.shootout?.[team] || []
           return (
-            <div className="tc" key={team} style={{ '--c': tm.color }}>
+            // the scoring team's card blinks on the control page too, for as long as the goal light is on
+            <div className={`tc ${G.goalFlashActive(s) === team ? 'flash' : ''}`} key={`${team}-${G.goalFlashActive(s) === team ? s.goalFlash.at : 0}`} style={{ '--c': tm.color }}>
               <button className="n" aria-label={`rename ${team}`} title={t('editTeam')} onClick={() => setSheet(`team-${team}`)}>{tm.name}</button>
               <div className="s tnum">{tm.score}</div>
               <div className="goalrow">

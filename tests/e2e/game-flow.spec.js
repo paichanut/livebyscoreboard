@@ -7,6 +7,7 @@ test('goals, shots and penalties flow from control to the display', async ({ pag
   const board = await openBoard(context, code)
 
   // goal via button: the card flashes, the numbers stay put, "GOAL! <team>" shows in the middle card
+  await board.evaluate(() => document.fonts.ready) // measure after the web font has loaded
   const before = await boardHome(board).locator('.score').boundingBox()
   await home(page).getByRole('button', { name: '+ GOAL' }).click()
   await expect(home(page).locator('.s')).toHaveText('1')
