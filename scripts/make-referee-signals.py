@@ -76,7 +76,7 @@ SIGNALS = [
    figure(arm([SH_R, (65, 47), (53, 44)], 'fist') + arm([SH_L, (35, 48), (51, 46)], 'palm', 90)), None),
   ('Hooking ↔ Spearing', '55 · 62', '', 'Both arms tug toward the stomach = Hooking. Jab out, then drop the hands = Spearing.',
    figure(arm([SH_L, (37, 48), (45, 46)], 'fist') + arm([SH_R, (63, 48), (55, 46)], 'fist') + arrow('M40,56 L46,52') + arrow('M60,56 L54,52')), None),
-  ('Interference · Icing called', '56 · 81', '', 'Arms crossed, still, in an X in front of the chest. Referee = Interference · linesperson after the whistle = Icing.',
+  ('Interference · Icing', '56 · 69 · 81', '', 'Arms crossed, still, in an X in front of the chest. Referee = Interference (also on the goaltender) · linesperson after the whistle = Icing.',
    figure(arm([SH_L, (39, 49), (61, 38)], 'fist') + arm([SH_R, (61, 49), (39, 38)], 'fist')), None),
   ('Butt-ending', '58', '', 'Closed-fist forearm moves under the other forearm, held palm down.',
    figure(arm([SH_R, (67, 44), (45, 40)], 'palm', 90) + arm([SH_L, (36, 50), (55, 48)], 'fist') + arrow('M40,53 L57,53')), None),
@@ -106,20 +106,52 @@ SIGNALS = [
   ('Time-out', '87', '', 'Both hands form a T in front of the chest.',
    figure(arm([SH_R, (61, 56), (52, 40)], 'none') + arm([SH_L, (33, 40), (42, 35)], 'none')
           + '<rect x="40" y="31.5" width="24" height="5" rx="2.5" fill="#f3d2b3" stroke="#111" stroke-width="1.4"/>'), None),
-  ('Face-off violation warning', '76', '', 'One arm bent, open palm up, on the side of the team that committed the violation.',
-   figure(arm([SH_R, (73, 43), (80, 32)], 'palm', 90) + DOWN_L), None),
+  ('Body checking', '101.1', '', 'Palm of the non-whistle hand brought across the body onto the opposite shoulder.',
+   figure(arm([SH_R, (60, 46), (41, 33)], 'palm', 60) + DOWN_L), None),
 ]
 
+
+# card name → (EN description, Thai name, Thai description, ⚠ note or None). Kept short so 25 cards fit one A4 page.
+TEXT = {
+  'Boarding': ('Fist strikes the open palm in front of the chest.', 'บอร์ดดิ้ง (ชนกระดาน)', 'กำหมัดทุบฝ่ามืออีกข้างหน้าอก', None),
+  'Charging': ('Fists rotate around each other in front of the chest.', 'ชาร์จจิ้ง (พุ่งชน)', 'หมุนกำปั้นวนรอบกันหน้าอก', None),
+  'Checking from behind': ('Both arms push forward, palms open, at shoulder level.', 'ชนจากด้านหลัง', 'ดันแขนไปข้างหน้า แบมือ', 'Open palms ≠ Cross-checking (fists)'),
+  'Cross-checking': ('Both fists push forward and back from the chest.', 'ครอสเช็ค', 'กำหมัด ดันออก–ดึงกลับ', 'Fists ≠ Checking from behind'),
+  'Tripping · Kneeing · Clipping': ('Hand strikes the leg: 1 below knee · 2 knee · 3 behind knee.', 'ขัดขา · ใช้เข่า · ตัดขาด้านหลัง', 'ตบขา 1 ใต้เข่า 2 เข่า 3 หลังเข่า', None),
+  'Elbowing': ('Tap one elbow with the other hand.', 'ใช้ศอก', 'ใช้มือแตะข้อศอกอีกข้าง', None),
+  'Check to head or neck': ('Open palm pats the side of the head.', 'กระแทกศีรษะ / คอ', 'แบมือตบข้างศีรษะ', None),
+  'Roughing · Fighting': ('Clenched fist, arm straight out to the side.', 'รัฟฟิ่ง · ชกต่อย', 'กำหมัด เหยียดแขนออกด้านข้าง', 'Fist ≠ Offside called (open hand)'),
+  'Holding · Holding the stick': ('Clasp one wrist on the chest; + stick grip = the stick.', 'จับตัว · จับไม้', 'จับข้อมือหน้าอก (+ท่าถือไม้ = จับไม้)', None),
+  'Hooking ↔ Spearing': ('Tug in toward the stomach = Hooking · jab out, drop = Spearing.', 'เกี่ยว ↔ แทง', 'ดึงเข้า = เกี่ยว · แทงออกแล้วปล่อย = แทง', None),
+  'Interference · Icing': ('Arms in an X on the chest (also goaltender int.). Linesperson = Icing.', 'ขัดขวาง · ไอซิ่ง', 'ไขว้แขนเป็น X (ไลน์สแมน = ไอซิ่ง)', None),
+  'Butt-ending': ('Fist forearm moves under the other, palm-down forearm.', 'ใช้ปลายด้ามไม้', 'ลากแขนกำหมัดใต้แขนอีกข้าง', None),
+  'High-sticking': ('Fists stacked at the forehead, as if holding a stick.', 'ไม้สูง', 'กำหมัดซ้อนกันระดับหน้าผาก', None),
+  'Slashing': ('Edge of the hand chops across the other forearm.', 'ฟาดไม้', 'ใช้สันมือสับแขนอีกข้าง', None),
+  'Delay of game': ('Flat hand slides up from the lower hand, centre of the body.', 'ถ่วงเวลา', 'มือแบนเลื่อนขึ้นจากมืออีกข้าง', None),
+  'Unsportsmanlike · Diving': ('Both hands on hips (+ two fingers).', 'ไม่มีน้ำใจนักกีฬา · แกล้งล้ม', 'เท้าสะเอวสองข้าง (+ ชู 2 นิ้ว)', None),
+  'Too many players': ('Six fingers in front of the chest.', 'ผู้เล่นเกิน', 'ชู 6 นิ้วหน้าอก', None),
+  'Penalty shot': ('Both arms crossed over the head.', 'ลูกโทษ', 'ไขว้แขนสองข้างเหนือศีรษะ', None),
+  'Goal': ('Hand points at the goal the puck entered.', 'ประตู', 'ชี้มือไปที่ประตูที่ลูกเข้า', None),
+  'Wash-out': ('Arms sweep out sideways, palms down: no goal / offside / icing.', 'ยกเลิก', 'กวาดแขนออกข้าง คว่ำมือ', None),
+  'Delayed offside · Possible icing': ('Arm straight up, flat hand. Lowered = cancelled.', 'ล้ำหน้ารอ · อาจไอซิ่ง', 'ชูแขนตรงขึ้น ลดแขนลง = ยกเลิก', None),
+  'Offside called': ('Whistle, then a flat hand points at the blue line.', 'ล้ำหน้า', 'เป่าแล้วชี้แขนไปเส้นน้ำเงิน', 'Open hand ≠ Roughing (fist)'),
+  'Hand pass': ('Open palm pushed forward once or twice.', 'ส่งลูกด้วยมือ', 'แบมือดันไปข้างหน้า 1–2 ครั้ง', None),
+  'Time-out': ('Hands form a T in front of the chest.', 'ขอเวลานอก', 'มือสองข้างทำเป็นตัว T', None),
+  'Body checking': ('Palm across the body onto the opposite shoulder.', 'บอดี้เช็ค (ชนผิดกติกา)', 'แบมือแตะไหล่ฝั่งตรงข้าม', None),
+}
+
 def card(n, s):
-    name, rule, th, desc, pic, note = s
+    name, rule, _, _, pic, _ = s
+    en, th_name, th, note = TEXT[name]
     note_html = f'<div class="note">⚠ {html.escape(note)}</div>' if note else ''
     full = name.startswith('Tripping')
     return (f'<div class="card"><div class="pic">{svg(pic, full)}</div><div class="txt">'
             f'<div class="en">{html.escape(name)} <span class="rule">R{html.escape(rule)}</span></div>'
-            f'<div class="desc">{html.escape(desc)}</div>{note_html}</div></div>')
+            f'<div class="thn">{html.escape(th_name)}</div>'
+            f'<div class="desc">{html.escape(en)}</div><div class="desc th">{html.escape(th)}</div>{note_html}</div></div>')
 
-page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Referee signals – Live by Scoreboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+page = f'''<!doctype html><html lang="th"><head><meta charset="utf-8"><title>Referee signals – Live by Scoreboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Sarabun:wght@400;600;700&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
 <style>
 @page {{ size: A4; margin: 6mm 7mm; }}
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -129,21 +161,24 @@ h1 {{ font-family: 'Barlow Condensed', sans-serif; font-size: 20pt; font-weight:
 header .sub {{ font-size: 8pt; color: #444; text-align: right; }}
 .grid {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.6mm; }}
 .card {{ border: 1px solid #bbb; border-radius: 2.5mm; padding: 1.2mm; display: flex; flex-direction: column; break-inside: avoid; height: 51mm; }}
-.pic {{ height: 27mm; display: flex; justify-content: center; }}
+.pic {{ height: 22mm; display: flex; justify-content: center; }}
 .pic svg {{ height: 100%; width: auto; overflow: hidden; }}
 .txt {{ line-height: 1.15; }}
-.en {{ font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 9.6pt; text-transform: uppercase; }}
+.en {{ font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 9.2pt; text-transform: uppercase; line-height: 1.05; }}
 .rule {{ font-weight: 700; color: #888; font-size: 7.5pt; }}
 .th {{ font-weight: 700; font-size: 8.2pt; color: #b0121f; }}
-.desc {{ font-size: 7.4pt; color: #222; margin-top: .4mm; }}
-.note {{ font-size: 6.8pt; color: #9a5b00; margin-top: .5mm; font-weight: 600; }}
-footer {{ margin-top: 1.6mm; font-size: 6.6pt; color: #555; display: flex; justify-content: space-between; gap: 4mm; }}
+.thn {{ font-family: Sarabun, sans-serif; font-weight: 700; font-size: 7.8pt; color: #b0121f; line-height: 1.32; margin-top: .9mm; }}
+.desc {{ font-size: 6.9pt; color: #222; margin-top: .3mm; line-height: 1.12; }}
+.desc.th {{ font-family: Sarabun, sans-serif; color: #444; font-size: 7pt; line-height: 1.32; font-weight: 400; }}
+.note {{ font-family: Barlow, Sarabun, sans-serif; font-size: 6.5pt; color: #9a5b00; margin-top: .5mm; font-weight: 600; }}
+footer {{ margin-top: 1.4mm; font-size: 6.4pt; color: #555; display: flex; justify-content: space-between; gap: 4mm; font-family: Barlow, Sarabun, sans-serif; line-height: 1.25; }} footer span:last-child {{ text-align: right; }}
 </style></head><body>
-<header><h1>REFEREE SIGNALS</h1>
+<header><h1>REFEREE SIGNALS · <span style="font-family:Sarabun">ท่าสัญญาณกรรมการ</span></h1>
 <div class="sub">IIHF Official Rule Book 2026/27 · Appendix I<br>Live by Scoreboard · contact Pai Chanut +66 81 635 1945</div></header>
 <div class="grid">{''.join(card(i, s) for i, s in enumerate(SIGNALS))}</div>
-<footer><span>Identical signals share a card · ⚠ lookalike signal, check the detail · red arrow = motion · R = IIHF rule number</span>
-<span>Illustrations are a memory aid. Official reference: IIHF Rule Book, Appendix I</span></footer>
+<footer><span>Identical signals share a card · ⚠ lookalike · red arrow = motion · R = IIHF rule · Misconduct / game misconduct: no hand signal<br>
+ท่าเหมือนกันรวมไว้ช่องเดียว · ⚠ ท่าคล้ายกัน ดูให้ดี · ลูกศรแดง = ทิศการเคลื่อนไหว · Misconduct / Game misconduct ไม่มีท่ามือ แจ้งที่โต๊ะโทษ</span>
+<span>Memory aid · ภาพช่วยจำ<br>Official: IIHF Rule Book, Appendix I</span></footer>
 </body></html>'''
 
 out = pathlib.Path(__file__).resolve().parent.parent / 'public' / 'referee-signals.html'
