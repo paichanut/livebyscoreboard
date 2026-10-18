@@ -1,5 +1,7 @@
 # Rinkboard
 
+Live at **https://livebyscoreboard.vercel.app**
+
 Browser-based ice hockey scoreboard. Open the **display** on a TV, run the **control** from your phone, share the display link/QR with spectators.
 
 ## Links (like ScoreLeader's `/b/CODE`)

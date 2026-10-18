@@ -1,6 +1,7 @@
 # Rinkboard — project context for Claude Code
 
 Web-based ice hockey scoreboard (React + Vite, hosted on Vercel, live sync via Supabase).
+**Production: https://livebyscoreboard.vercel.app** (Vercel project `livebyscoreboard`, auto-deploys main). Supabase project `rinkboard` (ap-southeast-1). The second Vercel project `rinkboard` is retired; use only livebyscoreboard.
 Owner: Pai. Built for the "3on3 Paradise 2026 OCT" tournament and future rink use; also used as an OBS overlay for streams.
 Reference product we are mirroring: PC Scoreboards "Hockey Scoreboard Pro v3" (Windows desktop) and ScoreLeader's public-link model.
 
@@ -71,7 +72,6 @@ E2E tests open the control page and the board in the same browser context (test 
 - Penalty queue beyond 2 shown on display (stacking rule)
 - Per-team name colors and "goal off" color (PC Scoreboards has them; we have one `teamName` color)
 - More rebindable keys from PC Scoreboards: reset period time, start/stop all penalties, remove penalty
-- Supabase env vars on Vercel still to be set by Pai (README has steps); Vercel deploy is done
 
 ## Conventions
 - Plain JS + JSX, no TypeScript. Functional components, hooks, no state library.
