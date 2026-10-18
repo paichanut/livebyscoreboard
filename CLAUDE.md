@@ -25,6 +25,7 @@ npm run build            # dist/ (Vercel builds this automatically)
 | `/o/CODE` (`/banner?g=`) | Banner.jsx | OBS overlay strip, chroma-key bg, read-only |
 | `/c/CODE?k=KEY` (`/control?g=`) | Control.jsx | operator panel (phone or laptop) |
 | `/live` (`/games`) | Live.jsx | tournament page: every game, newest/running first, links to `/b/CODE` |
+| `/login` | Login.jsx | operator login (username + password) |
 
 ## Architecture
 
@@ -37,7 +38,7 @@ npm run build            # dist/ (Vercel builds this automatically)
 - `src/horn.js` — Web Audio playback. Samples from `public/sounds/*.mp3` (horn, horn-short, horn-loop, buzzer; converted from PC Scoreboards WAVs, mono 48 kbps) are decoded once after `unlockAudio()` (needs a user gesture); synth horn/buzzer/beep are the fallback. `playSound(kind)` takes a `SOUND_CHOICES` value from options.js.
 - `src/Options.jsx` — tabbed options screen (Game, Teams, Keys, Colors, Sounds, Text, Banner, Other). Edits a draft copy, saves via `G.setOptions`.
 - `src/styles.css` — one file. Themes are `[data-theme=...]` CSS-variable sets; per-element color overrides are `--c-*` vars set by `useAppearance`.
-- `supabase.sql` — tables `games` (public select only) and `game_keys` (no access), RPCs `create_game`, `save_game`, `check_key`, `server_now`. Safe to re-run.
+- `supabase.sql` — tables `games` (public select only), `game_keys`, `operators`, `operator_sessions` (no access); RPCs `create_game`, `save_game`, `check_key`, `server_now`, `operator_login/logout/check/whoami`, `get_game_key`, `set_operator` (SQL editor only). Safe to re-run; the later definitions in the file win.
 
 ### Clock design (important)
 The clock is NOT ticked over the network. State stores `{remainingMs, running, since}`; every device derives the current value locally with `clockRemaining(state, now)`. `now` comes from `src/clock.js` (`now()` = `Date.now()` + offset to the server), never from `Date.now()` directly: in live mode `sync.js` measures the offset via the `server_now()` RPC (fallback: HTTP Date header) on load, every 5 min and on tab focus, so a phone with a wrong system time still agrees with the TV. `TimeBadge` shows the offset when it exceeds 0.5 s. Penalties store `clockAtStart` and derive remaining from the game clock, so all screens agree without chatter. The **control page is the authority**: it stops the clock at 0, prunes expired penalties, ends timeouts (interval in Control.jsx).
@@ -48,7 +49,11 @@ The clock is NOT ticked over the network. State stores `{remainingMs, running, s
 `summaryText(s)` / `summaryCsv(s)` in game.js render the log for export (Control → 📋 Summary).
 
 ## Decisions already made
-- Game code in path, operator key in `?k=` and localStorage (`rinkboard:key:CODE`). Public links can't write even with source access.
+- **Operator login.** Operators log in at `/login` (username + password, table `operators`, bcrypt via pgcrypto). The session token (30 days, table `operator_sessions`) lives in localStorage `rinkboard:session` and is passed to `save_game`/`check_key`/`create_game` instead of a game key; it never goes in a URL. Only a logged-in operator can create a game. Add/change an operator in the Supabase SQL editor: `select public.set_operator('name','password');` (logs that user out). Wrong password costs 1 s; no lockout a stranger could trigger.
+- **Watching is public:** `/b/`, `/o/`, `/live` need no login.
+- Per-game helper links still work: each game gets a random key in `game_keys`; a logged-in operator gets it via `get_game_key` (Control → QR → Copy operator link) and `?k=KEY` lets a helper run that one game without logging in.
+- Display sound is ON by default (unlocks itself where allowed, e.g. OBS; otherwise on the first tap anywhere); control-page sound is off by default. Mute choice is remembered per device.
+- Supabase SQL functions are plain `language sql` on purpose: plpgsql bodies time out through the Supabase MCP connector.
 - Options sync with the game (stored in `state.opts`) so phone changes reach the TV.
 - Images (logos, banners) are stored as resized data-URLs (≤512 px) inside state; fine for Supabase jsonb.
 - Skipped from PC Scoreboards on purpose: video queue, CSV data output, hardware relays, shot clock, screen size/position, log file.

@@ -14,6 +14,7 @@ test('public /b/ display is read-only: no controls, keys do nothing, key not in 
   const buttons = board.locator('.board button')
   await expect(buttons).toHaveCount(1)
   await expect(buttons.first()).toContainText('sound')
+  await expect(board.locator('.board .sound')).not.toContainText('sound off')
 
   // operator shortcuts have no effect on the display page
   await board.locator('body').click()

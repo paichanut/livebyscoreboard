@@ -10,7 +10,8 @@ Browser-based ice hockey scoreboard. Open the **display** on a TV, run the **con
 |---|---|---|
 | `/b/CODE` | public display — TV, spectators' phones, QR | no |
 | `/o/CODE` | OBS overlay / score banner | no |
-| `/c/CODE?k=KEY` | operator — keep this private | yes |
+| `/login` | operator login | — |
+| `/c/CODE` | operator panel (logged in), or `?k=KEY` for a helper running one game | yes |
 | `/live` | tournament page: all games, running ones first | no |
 
 Create a game on `/` (optionally pick your own code). You get the operator link; the QR/Share button shows all three.

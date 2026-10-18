@@ -130,3 +130,10 @@ test('/live lists games in this browser with score, period and clock', async ({ 
   await away(page).getByRole('button', { name: '+ GOAL' }).click()
   await expect(cardA.locator('.t').nth(1).locator('b')).toHaveText('1')
 })
+
+test('/live skips rows that are not scoreboard games', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.setItem('rinkboard:broken-row', JSON.stringify({ a: 1 })))
+  await page.goto('/live')
+  await expect(page.locator('.live h1')).toHaveText('Live games')
+})

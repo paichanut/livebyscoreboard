@@ -1,6 +1,6 @@
 // Tournament page: every game on this Supabase project (or in this browser, local mode), newest first.
 import React, { useEffect, useState } from 'react'
-import { createGamesList, ONLINE, storedKey } from './sync.js'
+import { createGamesList, ONLINE, storedKey, getSession } from './sync.js'
 import { withDefaults } from './options.js'
 import { clockShown, fmtClock, periodLabel, clockRemaining } from './game.js'
 import { useTick } from './useGame.js'
@@ -26,7 +26,8 @@ export default function Live() {
   useTick(1000, Boolean(rows?.some(r => r.state.clock?.running)))
 
   const now = serverNow()
-  const games = (rows || []).map(r => ({ ...r, state: withDefaults(r.state) }))
+  // skip rows that are not scoreboard games (a broken or foreign row must not take the page down)
+  const games = (rows || []).filter(r => r.state?.home && r.state?.away && r.state?.clock).map(r => ({ ...r, state: withDefaults(r.state) }))
   // running clocks first, then most recently touched
   games.sort((a, b) => Number(Boolean(b.state.clock.running)) - Number(Boolean(a.state.clock.running)) || b.updatedAt - a.updatedAt)
 
@@ -56,7 +57,7 @@ export default function Live() {
                 <span>{isNum ? `${s.opts.labels.period} ${periodLabel(s)}` : periodLabel(s)}</span>
                 <b className="tnum">{fmtClock(clockShown(s, now), { tenths: false })}</b>
               </div>
-              {storedKey(id) && <span className="op" onClick={e => { e.preventDefault(); window.location.href = `/c/${encodeURIComponent(id)}` }}>operate ▸</span>}
+              {(storedKey(id) || getSession()) && <span className="op" onClick={e => { e.preventDefault(); window.location.href = `/c/${encodeURIComponent(id)}` }}>operate ▸</span>}
             </a>
           )
         })}

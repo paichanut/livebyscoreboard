@@ -5,6 +5,7 @@ import Control from './Control.jsx'
 import Banner from './Banner.jsx'
 import Live from './Live.jsx'
 import Setup from './Setup.jsx'
+import Login from './Login.jsx'
 import { CONFIGURED } from './sync.js'
 
 function usePath() {
@@ -24,5 +25,6 @@ export default function App() {
   if (path === '/control' || path.startsWith('/c/')) return <Control />
   if (path === '/banner' || path.startsWith('/o/')) return <Banner />
   if (path === '/live' || path === '/games') return <Live />
+  if (path === '/login') return <Login />
   return <Home />
 }

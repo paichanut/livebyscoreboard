@@ -1,31 +1,41 @@
 import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
-import { ONLINE, randomKey, rememberKey, storedKey } from './sync.js'
-import { useAppearance, useGameSounds, SoundToggle } from './useOptions.jsx'
+import { ONLINE, NEEDS_LOGIN, randomKey, rememberKey, storedKey, getSession, helperKey } from './sync.js'
+import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
 import TimeBadge from './TimeBadge.jsx'
 import Options from './Options.jsx'
 
 export default function Control() {
   const gameId = useGameId()
-  // operator key: from URL ?k=, else remembered in this browser, else a fresh one (creates the game if it doesn't exist)
+  // Write access: a logged-in operator's session (any game; never put in the URL), else a single-game
+  // key from ?k= or remembered in this browser. The test build has no login and makes up a key.
+  const urlKey = useUrlKey()
+  const session = NEEDS_LOGIN ? getSession() : ''
   const [key] = useState(() => {
-    const k = useUrlKey() || storedKey(gameId) || randomKey()
-    rememberKey(gameId, k)
+    if (session) return session
+    const k = urlKey || storedKey(gameId) || (NEEDS_LOGIN ? '' : randomKey())
+    if (k) rememberKey(gameId, k)
     return k
   })
+  const usingSession = Boolean(session) && key === session
   const [s, update, access] = useGame(gameId, { key, canWrite: true })
   useAppearance(s)
   useEffect(() => {
+    if (usingSession || !key) return
     const u = new URL(window.location.href)
     if (u.searchParams.get('k') !== key) { u.searchParams.set('k', key); window.history.replaceState(null, '', u) }
-  }, [key])
+  }, [key, usingSession])
+
+  // the single-game link to share with a helper; fetched once the game exists on the server
+  const [shareKey, setShareKey] = useState(usingSession ? '' : key)
+  useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
   useTick(100, Boolean(s?.clock.running || s?.timeout))
   const [sheet, setSheet] = useState(null)
   // optional: play horn/buzzer on this device too (phone speaker / laptop plugged into the PA)
-  const [sound, setSound] = useState(false)
-  useGameSounds(s, sound)
+  const sound = useSound('rinkboard:sound:control', false)
+  useGameSounds(s, sound.playing)
   const t = translator(s?.opts?.uiLang)
 
   const ask = (key, msg) => !s.opts.confirm[key] || confirm(msg)
@@ -74,7 +84,7 @@ export default function Control() {
     return () => window.removeEventListener('keydown', on)
   }, [sheet, s?.opts?.keys, s?.opts?.confirm, s?.opts?.uiLang])
 
-  if (access === 'locked') return <LockedScreen gameId={gameId} t={t} />
+  if (access === 'locked' || access === 'missing' || (NEEDS_LOGIN && !key)) return <LockedScreen gameId={gameId} t={t} />
   if (!s) return <div className="loading">{t('connecting')}</div>
 
   const o = s.opts
@@ -84,7 +94,7 @@ export default function Control() {
   const origin = window.location.origin
   const boardUrl = `${origin}/b/${encodeURIComponent(gameId)}`
   const bannerUrl = `${origin}/o/${encodeURIComponent(gameId)}`
-  const controlUrl = `${origin}/c/${encodeURIComponent(gameId)}?k=${key}`
+  const controlUrl = shareKey ? `${origin}/c/${encodeURIComponent(gameId)}?k=${shareKey}` : `${origin}/c/${encodeURIComponent(gameId)}`
   const isNum = !['OT', 'SO'].includes(s.period)
   const isSO = s.period === 'SO'
 
@@ -94,7 +104,7 @@ export default function Control() {
         <span>{t('game')} · {gameId}</span>
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
       </div>
-      <SoundToggle sound={sound} setSound={setSound} className="btn sm csound" />
+      <SoundToggle sound={sound} className="btn sm csound" />
 
       <div className="card clockcard">
         <div className="p">
@@ -307,9 +317,9 @@ function LockedScreen({ gameId, t }) {
       <p>{t('lockedText', { id: gameId })}</p>
       <div className="code"><input value={k} onChange={e => setK(e.target.value)} placeholder={t('keyPlaceholder')} onKeyDown={e => e.key === 'Enter' && go()} /></div>
       <div className="links">
-        <button className="btn primary" onClick={go}>{t('unlock')}</button>
+        {NEEDS_LOGIN && <a className="btn primary" href={`/login?next=${encodeURIComponent('/c/' + gameId)}`}>{t('login')}</a>}
+        <button className={`btn ${NEEDS_LOGIN ? '' : 'primary'}`} onClick={go}>{t('unlock')}</button>
         <a className="btn" href={`/b/${gameId}`}>{t('openDisplay')}</a>
-        <a className="btn ghost" href="/">{t('newGame')}</a>
       </div>
     </div>
   )

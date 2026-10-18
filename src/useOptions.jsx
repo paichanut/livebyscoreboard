@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { unlockAudio, playSound, audioReady } from './horn.js'
 import { timeoutRemaining, clockRemaining } from './game.js'
 
@@ -62,10 +62,34 @@ export function useGameSounds(s, enabled) {
   }, [s, enabled])
 }
 
-export function SoundToggle({ sound, setSound, className }) {
+// Sound setting for one page. On by default where `defaultOn` (the display): the page unlocks audio
+// by itself where the browser allows it (OBS browser sources do), otherwise on the first tap or key
+// anywhere on the page. The choice to mute is remembered on this device.
+export function useSound(storageKey, defaultOn) {
+  const [on, setOnState] = useState(() => {
+    try { const v = localStorage.getItem(storageKey); return v == null ? defaultOn : v === '1' } catch { return defaultOn }
+  })
+  const [ready, setReady] = useState(false)
+  const setOn = v => { setOnState(v); try { localStorage.setItem(storageKey, v ? '1' : '0') } catch {} }
+  useEffect(() => {
+    if (!on) return
+    unlockAudio()
+    const unlock = () => unlockAudio()
+    const evs = ['pointerdown', 'keydown', 'touchstart']
+    evs.forEach(e => document.addEventListener(e, unlock, { passive: true }))
+    const id = setInterval(() => setReady(audioReady()), 300)
+    setReady(audioReady())
+    return () => { evs.forEach(e => document.removeEventListener(e, unlock)); clearInterval(id) }
+  }, [on])
+  return { on, ready, playing: on && ready, setOn }
+}
+
+export function SoundToggle({ sound, className }) {
+  const { on, ready, setOn } = sound
+  const label = !on ? '🔇 sound off' : ready ? '🔊 sound on' : '🔈 tap anywhere to enable sound'
   return (
-    <button className={`${className} ${sound ? 'on' : ''}`} onClick={() => { unlockAudio(); setSound(true); if (!audioReady()) setTimeout(() => setSound(audioReady()), 200) }}>
-      {sound ? '🔊 sound on' : '🔈 tap to enable sound'}
-    </button>
+    <button className={`${className} ${on && ready ? 'on' : ''}`} onClick={() => {
+      if (!on) { setOn(true); unlockAudio() } else if (!ready) { unlockAudio() } else { setOn(false) }
+    }}>{label}</button>
   )
 }

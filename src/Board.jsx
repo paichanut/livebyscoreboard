@@ -2,15 +2,15 @@ import React, { useState } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
 import { clockShown, fmtClock, strengthLabel, activePenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, periodLabel, clockRemaining } from './game.js'
 import { ONLINE } from './sync.js'
-import { useAppearance, useGameSounds, SoundToggle } from './useOptions.jsx'
+import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import TimeBadge from './TimeBadge.jsx'
 
 export default function Board() {
   const gameId = useGameId()
   const [s, , access] = useGame(gameId)
   useAppearance(s)
-  const [sound, setSound] = useState(false)
-  useGameSounds(s, sound)
+  const sound = useSound('rinkboard:sound:board', true)
+  useGameSounds(s, sound.playing)
   useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
 
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
@@ -32,7 +32,7 @@ export default function Board() {
   return (
     <div className={`board ${minimal ? 'minimal' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}>
       <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>
-      <SoundToggle sound={sound} setSound={setSound} className="sound" />
+      <SoundToggle sound={sound} className="sound" />
 
       {!minimal && (o.bannerImg || o.title || o.topLeftImg || o.topRightImg) && (
         <div className="topbar">

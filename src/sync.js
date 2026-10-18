@@ -26,6 +26,47 @@ export function randomKey(len = 12) {
   return out
 }
 
+// ---------- Operator login ----------
+// One login on a device lets the operator create and edit any game. The session token lives in
+// localStorage and is sent instead of a per-game key; it never goes into a URL.
+// The test build (local store) has no server, so it has no login and every page can write.
+const SESSION = 'rinkboard:session'
+const SESSION_USER = 'rinkboard:user'
+export const NEEDS_LOGIN = ONLINE
+export function getSession() { try { return localStorage.getItem(SESSION) || '' } catch { return '' } }
+export function sessionUser() { try { return localStorage.getItem(SESSION_USER) || '' } catch { return '' } }
+
+export async function login(username, password) {
+  const { data, error } = await supabase.rpc('operator_login', { p_username: username, p_password: password })
+  if (error) throw new Error(error.message)
+  if (!data) return false
+  try { localStorage.setItem(SESSION, data); localStorage.setItem(SESSION_USER, username.trim().toLowerCase()) } catch {}
+  return true
+}
+
+export async function logout() {
+  const t = getSession()
+  try { localStorage.removeItem(SESSION); localStorage.removeItem(SESSION_USER) } catch {}
+  if (t && supabase) await supabase.rpc('operator_logout', { p_token: t })
+}
+
+// Still valid on the server? (sessions last 30 days; changing the password ends them)
+export async function checkSession() {
+  const t = getSession()
+  if (!t || !supabase) return false
+  const { data } = await supabase.rpc('operator_check', { p_token: t })
+  if (!data) { try { localStorage.removeItem(SESSION); localStorage.removeItem(SESSION_USER) } catch {} }
+  return Boolean(data)
+}
+
+// The single-game operator link (?k=) a logged-in operator can hand to a helper
+export async function helperKey(gameId) {
+  const t = getSession()
+  if (!t || !supabase) return ''
+  const { data } = await supabase.rpc('get_game_key', { p_id: gameId, p_token: t })
+  return data || ''
+}
+
 // Operator keys are remembered per game in this browser
 export function rememberKey(gameId, key) { try { localStorage.setItem(`rinkboard:key:${gameId}`, key) } catch {} }
 export function storedKey(gameId) { try { return localStorage.getItem(`rinkboard:key:${gameId}`) || '' } catch { return '' } }

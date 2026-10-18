@@ -10,19 +10,16 @@ const RECORD = () => {
   OscillatorNode.prototype.start = function (...a) { window.__played.push({ kind: 'synth' }); return O.apply(this, a) }
 }
 
-test('horn button on control plays the horn sample on the display after sound is enabled', async ({ page, context }) => {
+test('horn button on control plays the horn sample on the display (sound on by default)', async ({ page, context }) => {
   await context.addInitScript(RECORD)
   const code = uniqueCode('horn')
   await openControl(page, code)
   const board = await openBoard(context, code)
 
-  // before enabling sound nothing plays
-  await page.getByRole('button', { name: '📯 Horn' }).click()
-  await board.waitForTimeout(300)
-  expect(await board.evaluate(() => window.__played.length)).toBe(0)
-
-  await board.getByRole('button', { name: /enable sound/ }).click()
+  // sound is on by default; if the browser holds audio back, a tap anywhere unlocks it
+  await board.locator('.board').click({ position: { x: 5, y: 5 } })
   await expect(board.locator('.board .sound')).toHaveClass(/on/)
+  await expect(board.locator('.board .sound')).toHaveText(/sound on/)
   // samples are decoded after the tap
   await board.waitForFunction(() => window.__played !== undefined)
   await board.waitForTimeout(800)
@@ -44,7 +41,10 @@ test('horn button on control plays the horn sample on the display after sound is
 test('control page can play sounds itself when its sound toggle is on', async ({ page, context }) => {
   await context.addInitScript(RECORD)
   await openControl(page, uniqueCode('hornc'))
-  await page.getByRole('button', { name: /enable sound/ }).click()
+  // the control page starts muted: one tap turns it on
+  await expect(page.locator('.csound')).toHaveText(/sound off/)
+  await page.locator('.csound').click()
+  await expect(page.locator('.csound')).toHaveText(/sound on/)
   await page.waitForTimeout(800)
   await page.getByRole('button', { name: '📯 Horn' }).click()
   await page.waitForFunction(() => window.__played.length > 0)
