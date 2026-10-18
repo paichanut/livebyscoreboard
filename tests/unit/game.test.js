@@ -436,3 +436,13 @@ test('overtime length comes from opts.otMinutes', () => {
   assert.equal(G.periodLength({ ...s, period: 'OT', opts: { ...s.opts, otMinutes: 10 } }), 10 * MIN)
   assert.equal(withDefaults({ opts: {} }).opts.otMinutes, 5)
 })
+
+test('older games move from the old default horns to the NHL horn once; later choices stay', () => {
+  const old = withDefaults({ opts: { sounds: { horn: 'horn-loop', timeoutStart: 'horn', buzzer: 'buzzer' } } })
+  assert.equal(old.opts.sounds.horn, 'horn-nhl')
+  assert.equal(old.opts.sounds.timeoutStart, 'horn-nhl-short')
+  const picked = withDefaults({ opts: { soundsV: 2, sounds: { horn: 'horn-loop' } } })
+  assert.equal(picked.opts.sounds.horn, 'horn-loop')
+  const other = withDefaults({ opts: { sounds: { horn: 'buzzer' } } })
+  assert.equal(other.opts.sounds.horn, 'buzzer')
+})

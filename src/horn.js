@@ -10,6 +10,8 @@ export const SAMPLES = {
   'horn-short': '/sounds/horn-short.mp3', // 1.1 s blast
   'horn-loop': '/sounds/horn-loop.mp3',  // 0.6 s loop segment, repeated for a long horn
   buzzer: '/sounds/buzzer.mp3',        // 1.3 s end-of-period buzzer
+  'horn-nhl': '/sounds/horn-nhl.mp3',  // 4.2 s NHL-style goal horn (synthesized, scripts/make-nhl-horn.py)
+  'horn-nhl-short': '/sounds/horn-nhl-short.mp3', // 1.3 s blast of the same horn
 }
 export const LONG_HORN_SEC = 3
 
@@ -135,6 +137,8 @@ export function playSound(kind) {
   if (kind === 'horn-loop') return playSample('horn-loop', { loopSec: LONG_HORN_SEC }) || playHorn(LONG_HORN_SEC)
   if (kind === 'horn-short') return playSample('horn-short') || playHorn(1)
   if (kind === 'horn') return playSample('horn') || playHorn()
+  if (kind === 'horn-nhl') return playSample('horn-nhl') || playHorn(4)
+  if (kind === 'horn-nhl-short') return playSample('horn-nhl-short') || playHorn(1.3)
   if (kind === 'buzzer') return playSample('buzzer') || playBuzzer()
   if (kind === 'synth-horn') return playHorn()
   if (kind === 'synth-buzzer') return playBuzzer()

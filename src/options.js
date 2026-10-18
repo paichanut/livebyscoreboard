@@ -42,6 +42,8 @@ export const KEY_LABELS = {
 }
 
 export const SOUND_CHOICES = [
+  ['horn-nhl', 'NHL goal horn (4 s)'],
+  ['horn-nhl-short', 'NHL horn, short'],
   ['horn', 'Horn'],
   ['horn-loop', 'Horn, long (3 s loop)'],
   ['horn-short', 'Horn, short'],
@@ -111,7 +113,8 @@ export function defaultOptions() {
     colors: {},
     // Sounds
     // same defaults as PC Scoreboards: horn button loops, timeout warning is the short blast
-    sounds: { horn: 'horn-loop', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn', timeoutWarn: 'horn-short', timeoutEnd: 'horn' },
+    sounds: { horn: 'horn-nhl', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn-nhl-short', timeoutWarn: 'horn-short', timeoutEnd: 'horn-nhl-short' },
+    soundsV: 2, // 2 = NHL horn defaults; older games are moved over once in withDefaults
     // Text
     labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP' },
     font: 'Barlow Condensed',
@@ -145,6 +148,12 @@ function deepMerge(base, over) {
 export function withDefaults(state) {
   if (!state) return state
   const opts = deepMerge(defaultOptions(), state.opts || {})
+  // games saved before the NHL horn: swap the old default horns for it once (a deliberate choice made later stays)
+  if (!state.opts?.soundsV) {
+    const old = { horn: 'horn-loop', timeoutStart: 'horn', timeoutEnd: 'horn' }
+    const nhl = defaultOptions().sounds
+    for (const [k, v] of Object.entries(old)) if (opts.sounds[k] === v) opts.sounds[k] = nhl[k]
+  }
   // fields added after v2 games were first saved
   const events = Array.isArray(state.events) ? state.events : []
   const shootout = state.shootout && Array.isArray(state.shootout.home) ? state.shootout : { home: [], away: [] }

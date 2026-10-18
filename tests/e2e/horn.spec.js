@@ -28,8 +28,7 @@ test('horn button on control plays the horn sample on the display (sound on by d
   await board.waitForFunction(() => window.__played.length > 0)
   const played = await board.evaluate(() => window.__played)
   expect(played[0].kind).toBe('sample')
-  expect(played[0].loop).toBe(true) // default horn button = long looping horn
-  expect(played[0].dur).toBeGreaterThan(0.5)
+  expect(played[0].dur).toBeGreaterThan(4) // default horn button = NHL goal horn
 
   await page.getByRole('button', { name: '🔔 Buzzer' }).click()
   await board.waitForFunction(() => window.__played.length > 1)
