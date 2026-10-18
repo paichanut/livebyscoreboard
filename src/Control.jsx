@@ -237,6 +237,11 @@ export default function Control() {
                 <button className="btn minus" aria-label="shot −1" onClick={() => update(x => G.addShot(x, team, -1))}>−1</button>
                 <button className="btn plus" aria-label="Shot +" onClick={() => update(x => G.addShot(x, team, 1))}>+1</button>
               </div>
+              <div className="mini">
+                <span className="ml">{t('offside')} <b className="tnum">{tm.offsides || 0}</b></span>
+                <button className="btn minus" aria-label={`offside −1 ${team}`} onClick={() => update(x => G.addOffside(x, team, -1))}>−1</button>
+                <button className="btn plus" aria-label={`offside +1 ${team}`} onClick={() => update(x => G.addOffside(x, team, 1))}>+1</button>
+              </div>
               <div className="penhead">
                 <span>{o.labels.player} · {o.labels.penalty}</span>
                 <button className="btn addpen" aria-label="add penalty" onClick={() => setSheet(`pen-${team}`)}>+</button>

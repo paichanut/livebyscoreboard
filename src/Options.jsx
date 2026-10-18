@@ -258,7 +258,7 @@ function SoundsTab({ o, set }) {
 }
 
 function TextTab({ o, set }) {
-  const FIELDS = [['period', 'Period'], ['shots', 'Shots on goal'], ['player', 'Penalty player'], ['penalty', 'Penalty'], ['goal', 'Goal indicator'], ['timeout', 'Timeout'], ['pp', 'Power play']]
+  const FIELDS = [['period', 'Period'], ['shots', 'Shots on goal'], ['player', 'Penalty player'], ['penalty', 'Penalty'], ['goal', 'Goal indicator'], ['timeout', 'Timeout'], ['pp', 'Power play'], ['offside', 'Offside']]
   const t = translator(o.uiLang)
   return (
     <>

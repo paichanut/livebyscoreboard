@@ -29,7 +29,7 @@ test('goals, shots and penalties flow from control to the display', async ({ pag
   // shots
   await home(page).getByRole('button', { name: 'Shot +', exact: true }).click()
   await home(page).getByRole('button', { name: 'Shot +', exact: true }).click()
-  await expect(home(page).locator('.mini .ml b')).toHaveText('2')
+  await expect(home(page).locator('.mini', { hasText: /shots/i }).locator('.ml b')).toHaveText('2')
   await expect(boardHome(board).locator('.shots b')).toHaveText('2')
 
   // penalty: 2 min on #12 (home) → 4v5, counts down with the game clock

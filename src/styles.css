@@ -603,3 +603,6 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 /* control page: the scoring team's card blinks while the goal light is on */
 .control .tc.flash { animation: ctlflash .5s ease-in-out infinite alternate; }
 @keyframes ctlflash { from { background: var(--card); } to { background: color-mix(in srgb, var(--c) 40%, var(--card)); } }
+
+/* offside: same slot as GOAL!, a steady (non-blinking) label for a few seconds */
+.board .goalflash.offside { animation: none; letter-spacing: .08em; }

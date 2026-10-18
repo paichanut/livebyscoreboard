@@ -392,6 +392,20 @@ export function clearGoalFlash(s) {
   return s.goalFlash ? touch({ ...s, goalFlash: null }) : s
 }
 
+// Offside: counted per team, logged (time + side, no player) and shown on the display for a few seconds
+export const OFFSIDE_SHOW_MS = 5000
+export function addOffside(s, team, delta) {
+  const offsides = Math.max(0, (s[team].offsides || 0) + delta)
+  if (offsides === (s[team].offsides || 0)) return s
+  let next = { ...s, [team]: { ...s[team], offsides } }
+  if (delta > 0) next = { ...logEvent(next, 'offside', { team }), offside: { team, at: wallNow() } }
+  else next = { ...dropLastEvent(next, e => e.type === 'offside' && e.team === team), offside: null }
+  return touch(next)
+}
+export function offsideActive(s, now = wallNow()) {
+  return s.offside && now - s.offside.at < OFFSIDE_SHOW_MS ? s.offside.team : null
+}
+
 // Each shot on goal goes into the game log (time + team) for the timeline; −1 takes back the last one
 export function addShot(s, team, delta) {
   const shots = Math.max(0, s[team].shots + delta)
@@ -507,8 +521,8 @@ export function setOptions(s, opts) {
 
 export function resetGame(s) {
   return newGame({
-    home: { ...s.home, score: 0, shots: 0 },
-    away: { ...s.away, score: 0, shots: 0 },
+    home: { ...s.home, score: 0, shots: 0, offsides: 0 },
+    away: { ...s.away, score: 0, shots: 0, offsides: 0 },
     periodLengthMs: s.periodLengthMs,
     skaters: s.skaters,
     theme: s.theme,
@@ -606,6 +620,7 @@ export function gameSheet(s) {
     goals: s[t].score,
     shots: s[t].shots,
     pim: penalties.filter(p => p.team === t).reduce((n, p) => n + p.pim, 0),
+    offsides: events.filter(e => e.type === 'offside' && e.team === t).length,
     ppg: goals.filter(g => g.team === t && g.situation.startsWith('PP')).length,
     shg: goals.filter(g => g.team === t && g.situation.startsWith('SH')).length,
   })
@@ -615,6 +630,7 @@ export function gameSheet(s) {
   const goalById = Object.fromEntries(goals.map(x => [x.id, x]))
   const what = e => {
     if (e.type === 'shot') return ['SHOT', 'Shot on goal']
+    if (e.type === 'offside') return ['OFFSIDE', 'Offside']
     if (e.type === 'goal') { const x = goalById[e.id]; return ['GOAL', `${num(x.scorer) || '?'}${x.a1 ? ` (${[num(x.a1), num(x.a2)].filter(Boolean).join(', ')})` : ''} ${x.situation} ${x.score}`] }
     if (e.type === 'penalty') return ['PENALTY', `${num(e.player)} ${e.kind === 'game' ? 'GM' : `${e.minutes} min`}${e.infraction ? ` ${e.infraction}` : ''}`.trim()]
     if (e.type === 'penaltyEnd') return ['PEN END', `${num(penById[e.penaltyId]?.player)} back on ice`.trim()]
@@ -662,8 +678,8 @@ export function summaryText(s, date = new Date(wallNow())) {
     out.push(col('Time', 7) + col('Team', w) + col('No', 5) + col('PIM', 5) + col('Offence', 26) + 'End')
     for (const x of g.penalties) out.push(col(x.time, 7) + col(x.teamName, w) + col(num(x.player), 5) + col(x.pim, 5) + col(x.offence, 26) + x.end)
   }
-  out.push('', 'TOTALS', col('', w) + col('SOG', 6) + col('PIM', 6) + col('PPG', 6) + 'SHG')
-  for (const t of ['home', 'away']) { const x = g.totals[t]; out.push(col(g[t].name, w) + col(x.shots, 6) + col(x.pim, 6) + col(x.ppg, 6) + x.shg) }
+  out.push('', 'TOTALS', col('', w) + col('SOG', 6) + col('PIM', 6) + col('PPG', 6) + col('SHG', 6) + 'OFFSIDE')
+  for (const t of ['home', 'away']) { const x = g.totals[t]; out.push(col(g[t].name, w) + col(x.shots, 6) + col(x.pim, 6) + col(x.ppg, 6) + col(x.shg, 6) + x.offsides) }
   out.push('', 'TIMELINE')
   if (!g.timeline.length) out.push('  —')
   let cur = null
@@ -683,7 +699,7 @@ export function summaryCsv(s) {
   const lines = [head.join(',')]
   for (const x of g.goals) lines.push(['goal', x.period, x.time, x.teamName, x.scorer, x.a1, x.a2, x.situation, '', '', '', x.score].map(csvCell).join(','))
   for (const x of g.penalties) lines.push(['penalty', x.period, x.time, x.teamName, x.player, '', '', '', x.pim, x.offence, x.end, ''].map(csvCell).join(','))
-  for (const x of g.timeline.filter(x => x.kind === 'SHOT')) lines.push(['shot', x.period, x.time, x.teamName, '', '', '', '', '', '', '', ''].map(csvCell).join(','))
+  for (const x of g.timeline.filter(x => x.kind === 'SHOT' || x.kind === 'OFFSIDE')) lines.push([x.kind.toLowerCase(), x.period, x.time, x.teamName, '', '', '', '', '', '', '', ''].map(csvCell).join(','))
   return lines.join('\n')
 }
 
@@ -710,8 +726,8 @@ ${rows(g.goals, x => [x.no, x.time, x.teamName, num(x.scorer) || '?', num(x.a1),
 <h2>Penalties</h2><table><tr><th>Time</th><th>Team</th><th>No</th><th>PIM</th><th>Offence</th><th>End</th></tr>
 ${rows(g.penalties, x => [x.time, x.teamName, num(x.player), x.pim, x.offence, x.end])}</table>
 ${g.shootout.home.length + g.shootout.away.length ? `<h2>Shootout</h2><table>${['home', 'away'].map(t => `<tr><th>${esc(g[t].name)}</th><td>${g.shootout[t].map(x => (x === 'goal' ? '●' : '○')).join(' ')}</td><td><b>${g.shootout[t + 'Goals']}</b></td></tr>`).join('')}</table>` : ''}
-<h2>Totals</h2><table><tr><th>Team</th><th>Goals</th><th>SOG</th><th>PIM</th><th>PPG</th><th>SHG</th></tr>
-${['home', 'away'].map(t => { const x = g.totals[t]; return `<tr><th>${esc(g[t].name)}</th><td>${x.goals}</td><td>${x.shots}</td><td>${x.pim}</td><td>${x.ppg}</td><td>${x.shg}</td></tr>` }).join('')}</table>
+<h2>Totals</h2><table><tr><th>Team</th><th>Goals</th><th>SOG</th><th>PIM</th><th>PPG</th><th>SHG</th><th>Offside</th></tr>
+${['home', 'away'].map(t => { const x = g.totals[t]; return `<tr><th>${esc(g[t].name)}</th><td>${x.goals}</td><td>${x.shots}</td><td>${x.pim}</td><td>${x.ppg}</td><td>${x.shg}</td><td>${x.offsides}</td></tr>` }).join('')}</table>
 <h2>Timeline</h2><table class="tl"><tr><th>Time</th><th style="border-left:6px solid ${esc(g.home.color)}">${esc(g.home.name)}</th><th style="border-left:6px solid ${esc(g.away.color)}">${esc(g.away.name)}</th></tr>
 ${g.timeline.length ? g.timeline.map(x => { const c = `<b>${esc(x.kind)}</b> ${esc(x.text)}`; return `<tr class="k-${esc(x.kind.toLowerCase().replace(' ', '-'))}"><td>${esc(x.time)}</td><td>${x.team === 'home' ? c : ''}</td><td>${x.team === 'away' ? c : ''}</td></tr>` }).join('') : '<tr><td colspan="3">—</td></tr>'}</table>
 <div class="legend">Times are game time from the start of the game. Sit.: EQ even strength · PP1/PP2 power play · SH1/SH2 short-handed · PS penalty shot · EN empty net. PIM = penalty minutes, PPG/SHG = power-play / short-handed goals.</div>

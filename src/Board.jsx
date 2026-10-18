@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
-import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, periodLabel, clockRemaining } from './game.js'
+import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, periodLabel, clockRemaining } from './game.js'
 import { ONLINE } from './sync.js'
 import { now as serverNow } from './clock.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
@@ -35,7 +35,7 @@ export default function Board() {
     document.addEventListener('dblclick', on)
     return () => document.removeEventListener('dblclick', on)
   }, [])
-  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.showTimeOfDay || s?.penalties?.length))
+  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.showTimeOfDay || s?.penalties?.length))
 
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
@@ -93,7 +93,7 @@ export default function Board() {
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         {/* reserved slot: always the same height, so GOAL! appearing moves nothing and covers nothing */}
-        <div className="evslot">{flash && <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal} <span>{s[flash].name}</span></div>}</div>
+        <div className="evslot"><EventText s={s} flash={flash} withName /></div>
         {!arena && <div className="pens">
           {['home', 'away'].map(team => {
             const run = activePenalties(s, team)
@@ -114,6 +114,15 @@ export default function Board() {
       {!o.logoImg && !clear && <div className="brand">live by scoreboard</div>}
     </div>
   )
+}
+
+// The reserved slot under the strength chip: GOAL! while the goal light is on, else OFFSIDE for a few seconds
+function EventText({ s, flash, withName }) {
+  const L = s.opts.labels
+  const off = offsideActive(s)
+  if (flash) return <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal}{withName && <span>{s[flash].name}</span>}</div>
+  if (off) return <div className="goalflash offside" style={{ '--c': s[off].color }}>{L.offside || 'OFFSIDE'}{withName && <span>{s[off].name}</span>}</div>
+  return null
 }
 
 // Compact layout: one broadcast-style panel (the operator's earlier OBS design). Home | clock box,
@@ -155,7 +164,7 @@ function Compact({ s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isS
         <div className="clabel">{isNum ? L.period : ''}</div>
         <div className="cperiod">{periodLabel(s)}</div>
         <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
-        <div className="evslot">{flash && <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal}</div>}</div>
+        <div className="evslot"><EventText s={s} flash={flash} /></div>
         {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
         {/* the tournament logo takes all the space left in the middle column */}
         {o.logoImg && <div className="cllogo"><img src={o.logoImg} alt="" /></div>}

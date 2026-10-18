@@ -307,7 +307,7 @@ test('game sheet (IIHF style): game time, scorer/assists, situation, penalty end
     ['06:00', 'PEN END', 'away'], ['06:00', 'GOAL', 'home'], ['46:00', 'SHOT', 'away'], ['46:00', 'GOAL', 'away'],
   ])
   assert.equal(g.timeline[3].text, '#12 back on ice')
-  assert.deepEqual(g.totals.home, { goals: 2, shots: 1, pim: 0, ppg: 1, shg: 0 })
+  assert.deepEqual(g.totals.home, { goals: 2, shots: 1, pim: 0, offsides: 0, ppg: 1, shg: 0 })
   assert.equal(g.totals.away.pim, 2)
   const text = G.summaryText(s)
   assert.match(text, /^GAME SUMMARY/)
@@ -480,4 +480,21 @@ test('older games move from the old default horns to the NHL horn once; later ch
   assert.equal(picked.opts.sounds.horn, 'horn-loop')
   const other = withDefaults({ opts: { sounds: { horn: 'buzzer' } } })
   assert.equal(other.opts.sounds.horn, 'buzzer')
+})
+
+test('offside: counted per team, logged with time and side (no player), shown for a few seconds, −1 undoes', () => {
+  let s = { ...game(), clock: { remainingMs: 12 * MIN, running: false, since: null } }
+  s = G.addOffside(s, 'away', 1)
+  s = G.addOffside(s, 'away', 1)
+  assert.equal(s.away.offsides, 2)
+  assert.equal(G.offsideActive(s), 'away')
+  assert.equal(G.offsideActive(s, s.offside.at + G.OFFSIDE_SHOW_MS + 1), null)
+  const g = G.gameSheet(s)
+  assert.deepEqual(g.timeline.map(x => [x.time, x.kind, x.team, x.text]), [['03:00', 'OFFSIDE', 'away', 'Offside'], ['03:00', 'OFFSIDE', 'away', 'Offside']])
+  assert.equal(g.totals.away.offsides, 2)
+  assert.ok(G.summaryCsv(s).includes('offside,1,03:00,AWAY,'))
+  s = G.addOffside(s, 'away', -1)
+  assert.equal(s.away.offsides, 1)
+  assert.equal(s.events.filter(e => e.type === 'offside').length, 1)
+  assert.equal(G.offsideActive(s), null)
 })

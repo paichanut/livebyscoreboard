@@ -243,3 +243,16 @@ test('developer contact on Home and the control page', async ({ page }) => {
   await expect(page.locator('.sheet')).toContainText('Pai Chanut')
   await expect(page.locator('.sheet a[href="https://wa.me/66816351945"]')).toBeVisible()
 })
+
+test('offside: shows on the scoreboard and goes into the game log', async ({ page, context }) => {
+  const code = uniqueCode('offside')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await page.getByRole('button', { name: 'offside +1 away' }).click()
+  await expect(away(page).locator('.mini', { hasText: 'Offside' })).toContainText('1')
+  await expect(board.locator('.board .evslot')).toContainText('OFFSIDE')
+  await expect(board.locator('.board .evslot')).toContainText('AWAY')
+  await expect(board.locator('.board .evslot .goalflash')).toHaveCount(0, { timeout: 8000 }) // gone after a few seconds
+  await page.getByRole('button', { name: '📋 Summary' }).click()
+  await expect(page.locator('.sheet pre.summary')).toContainText(/OFFSIDE +AWAY +Offside/)
+})

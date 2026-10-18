@@ -116,7 +116,7 @@ export function defaultOptions() {
     sounds: { horn: 'horn-nhl', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn-nhl-short', timeoutWarn: 'horn-short', timeoutEnd: 'horn-nhl-short' },
     soundsV: 2, // 2 = NHL horn defaults; older games are moved over once in withDefaults
     // Text
-    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP' },
+    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE' },
     font: 'Barlow Condensed',
     digits: 'normal', // 'normal' | 'segments'
     // Score banner (OBS overlay)
