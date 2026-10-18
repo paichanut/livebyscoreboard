@@ -277,7 +277,7 @@ test('shootout attempts, undo, clear', () => {
   assert.deepEqual(G.resetGame(G.soAttempt(s, 'home', true)).shootout, { home: [], away: [] })
 })
 
-test('game sheet (IIHF style): game time, scorer/assists, situation, penalty end, shots by period', () => {
+test('game sheet (IIHF style): game time, scorer/assists, situation, penalty end, timeline', () => {
   let s = G.setTeam(G.setTeam(game({ periodLengthMs: 15 * MIN }), 'home', { name: 'Bears' }), 'away', { name: 'Sharks' })
   const at = (ms, period = s.period) => { s = { ...s, period, clock: { remainingMs: ms, running: false, since: null } } }
   at(10 * MIN + 30_000)
@@ -301,7 +301,12 @@ test('game sheet (IIHF style): game time, scorer/assists, situation, penalty end
   ])
   assert.deepEqual(g.penalties.map(x => [x.time, x.player, x.pim, x.offence, x.end]), [['04:30', '12', 2, 'Tripping', '06:00']])
   assert.deepEqual(g.periods.map(p => p.label), ['P1', 'P2', 'P3', 'OT'])
-  assert.deepEqual([g.shotsBy.home['1'], g.shotsBy.away.OT], [1, 1])
+  // timeline: every shot, goal and penalty in order, with its side
+  assert.deepEqual(g.timeline.map(x => [x.time, x.kind, x.team]), [
+    ['04:30', 'SHOT', 'home'], ['04:30', 'GOAL', 'home'], ['04:30', 'PENALTY', 'away'],
+    ['06:00', 'PEN END', 'away'], ['06:00', 'GOAL', 'home'], ['46:00', 'SHOT', 'away'], ['46:00', 'GOAL', 'away'],
+  ])
+  assert.equal(g.timeline[3].text, '#12 back on ice')
   assert.deepEqual(g.totals.home, { goals: 2, shots: 1, pim: 0, ppg: 1, shg: 0 })
   assert.equal(g.totals.away.pim, 2)
   const text = G.summaryText(s)
@@ -313,20 +318,23 @@ test('game sheet (IIHF style): game time, scorer/assists, situation, penalty end
   assert.equal(csv[0], 'section,period,time,team,number,assist1,assist2,situation,pim,offence,end,score')
   assert.equal(csv[1], 'goal,1,04:30,Bears,17,9,4,EQ,,,,1:0')
   assert.ok(csv.includes('penalty,1,04:30,Sharks,12,,,,2,Tripping,06:00,'))
+  assert.ok(csv.includes('shot,1,04:30,Bears,,,,,,,,'))
+  assert.match(text, /TIMELINE\nPERIOD 1\n  04:30  SHOT     Bears +Shot on goal/)
   assert.match(G.summaryHtml(s), /<td>#17<\/td><td>#9<\/td><td>#4<\/td><td>EQ<\/td>/)
   // quoting
   const q = G.setTeam(game(), 'home', { name: 'A, "B"' })
   assert.match(G.summaryCsv(G.addScore(q, 'home', 1)), /"A, ""B"""/)
 })
 
-test('short-handed and penalty-shot goals; -1 shot comes off the current period', () => {
+test('short-handed and penalty-shot goals; −1 shot takes the last shot out of the log', () => {
   let s = G.addPenalty(game(), 'home', '3', 2)
   s = { ...s, clock: { remainingMs: 10 * MIN, running: false, since: null } }
   s = G.addScore(s, 'home', 1)
   s = G.addScore(s, 'away', 1, { penaltyShot: true })
   assert.deepEqual(s.events.filter(e => e.type === 'goal').map(e => e.situation), ['SH1', 'PS'])
-  s = G.addShot(G.addShot(s, 'away', 1), 'away', -1)
-  assert.equal(s.away.shotsBy['1'], 0)
+  s = G.addShot(G.addShot(G.addShot(s, 'away', 1), 'away', 1), 'away', -1)
+  assert.equal(s.away.shots, 1)
+  assert.equal(s.events.filter(e => e.type === 'shot').length, 1)
   assert.equal(G.gameSheet(s).totals.home.shg, 1)
 })
 

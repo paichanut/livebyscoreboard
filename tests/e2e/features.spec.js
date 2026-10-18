@@ -67,7 +67,7 @@ test('game summary (IIHF style): scorer and assists after a goal, penalties, sho
   expect(text).toMatch(/04:30 +HOME +#17 +#9, #4 +EQ +1:0/)
   expect(text).toMatch(/15:00 +AWAY +\? +SH1 +1:1/) // period 2 starts at 15:00 game time; AWAY is a man down
   expect(text).toMatch(/04:30 +AWAY +#12 +2 +Minor/)
-  expect(text).toMatch(/SHOTS ON GOAL[\s\S]*HOME +1 +0 +0 +1/)
+  expect(text).toMatch(/TIMELINE\nPERIOD 1\n  04:30  SHOT     HOME +Shot on goal/)
   // edit the away goal from the list
   await page.getByRole('button', { name: 'edit goal 2' }).click()
   await page.locator('.sheet').getByLabel('Goal #').fill('8')
@@ -83,7 +83,8 @@ test('game summary (IIHF style): scorer and assists after a goal, penalties, sho
 
   const [popup] = await Promise.all([page.waitForEvent('popup'), page.getByRole('button', { name: 'Print / PDF' }).click()])
   await expect(popup.locator('h1')).toContainText('Game summary')
-  await expect(popup.locator('table').nth(2)).toContainText('#17')
+  await expect(popup.locator('table').nth(1)).toContainText('#17') // goals
+  await expect(popup.locator('table.tl')).toContainText('Shot on goal') // timeline
 })
 
 test('Thai control UI: switch language in Options → Text', async ({ page }) => {
