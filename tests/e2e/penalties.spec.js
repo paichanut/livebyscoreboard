@@ -108,3 +108,38 @@ test('PC Scoreboards controls: period time only, goal light, time of day, edit p
   await page.keyboard.press('F7')
   await expect(away(page).locator('.pen')).toHaveCount(0)
 })
+
+test('misconduct, coincidental and game misconduct stay off the display; penalty-shot goal releases no one', async ({ page, context }) => {
+  const code = uniqueCode('kinds')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await addPenalty(page, 'away', 9, 2)
+  await addPenalty(page, 'away', 9, 10)
+  // coincidental minor for home
+  await home(page).getByRole('button', { name: 'add penalty' }).click()
+  let sheet = page.locator('.sheet')
+  await sheet.getByPlaceholder('#').fill('5')
+  await sheet.getByRole('button', { name: '2 min', exact: true }).click()
+  await sheet.getByRole('button', { name: /Coincidental/ }).click()
+  await sheet.getByRole('button', { name: 'Add penalty' }).click()
+  // game misconduct for home
+  await home(page).getByRole('button', { name: 'add penalty' }).click()
+  sheet = page.locator('.sheet')
+  await sheet.getByPlaceholder('#').fill('4')
+  await sheet.getByRole('button', { name: 'game misconduct', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Add penalty' }).click()
+  await expect(sheet).toBeHidden()
+
+  await expect(home(page).locator('.pen')).toHaveCount(2)
+  await expect(home(page).locator('.pen[data-status="game"] .pt')).toHaveText(/GM/)
+  await expect(away(page).locator('.pen')).toHaveCount(2)
+  await expect(away(page).locator('.pen[data-status="waiting"]')).toHaveCount(1)
+  await expect(page.locator('.clockcard .st')).toHaveText('5v4')
+  const cols = board.locator('.board .pens .col')
+  await expect(cols.nth(1).locator('.pen')).toHaveCount(1)
+  await expect(cols.nth(0).locator('.pen')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'penalty shot goal home' }).click()
+  await expect(home(page).locator('.s')).toHaveText('1')
+  await expect(away(page).locator('.pen')).toHaveCount(2)
+})

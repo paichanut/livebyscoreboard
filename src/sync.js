@@ -82,7 +82,7 @@ export function storedKey(gameId) { try { return localStorage.getItem(`rinkboard
 export function createStore(gameId, opts = {}) {
   if (ONLINE) { startTimeSync(); return supabaseStore(gameId, opts) }
   if (ALLOW_LOCAL) return localStore(gameId, opts)
-  throw new Error('Rinkboard is not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
+  throw new Error('Live by Scoreboard is not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
 }
 
 // ---------- Server time ----------

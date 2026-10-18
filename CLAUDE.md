@@ -1,7 +1,7 @@
-# Rinkboard — project context for Claude Code
+# Live by Scoreboard — project context for Claude Code
 
-Web-based ice hockey scoreboard (React + Vite, hosted on Vercel, live sync via Supabase).
-**Production: https://livebyscoreboard.vercel.app** (Vercel project `livebyscoreboard`, auto-deploys main). Supabase project `rinkboard` (ap-southeast-1). The second Vercel project `rinkboard` is retired; use only livebyscoreboard.
+**Name: Live by Scoreboard** (not "Rinkboard"; that old name survives only in localStorage keys `rinkboard:*` and the Supabase project name, kept so saved logins/keys still work). Web-based ice hockey scoreboard (React + Vite, hosted on Vercel, live sync via Supabase).
+**Production: https://livebyscoreboard.vercel.app** (Vercel project `livebyscoreboard`, auto-deploys main). Supabase project `rinkboard` (ap-southeast-1). The old Vercel project `rinkboard` is deleted; use only livebyscoreboard.
 Owner: Pai. Built for the "3on3 Paradise 2026 OCT" tournament and future rink use; also used as an OBS overlay for streams.
 Reference product we are mirroring: PC Scoreboards "Hockey Scoreboard Pro v3" (Windows desktop) and ScoreLeader's public-link model.
 
@@ -45,6 +45,8 @@ The clock is NOT ticked over the network. State stores `{remainingMs, running, s
 
 ### State shape (see `newGame()` in game.js)
 `home/away {name, score, shots, color}`, `playLive`, `penFoldAt`, `showTimeOfDay`, `period` ('1'..'n','OT','SO'), `periodLengthMs`, `skaters` (3/4/5), `theme`, `clock`, `penalties[]`, `horn`/`buzzer` counters (bump = play), `timeout`, `goalFlash`, `events[]` (game log: goal/penalty/timeout/so with period + clock, capped at 400; −1 on a score undoes the last goal entry), `shootout {home[], away[]}` ('goal'|'miss'), `opts` (see options.js), `updatedAt` (used to drop stale echoes).
+
+Penalty kinds (`kindOf`): `minor`/`double`/`major` take one of the two slots and reduce strength. `coincidental: true` (RB 19.1), `misconduct` and `game` (game misconduct, 20 min in the log, no clock) never take a slot, never change strength and are not on the display/banner (`onPenaltyClock`). A misconduct starts only when the same player's slot penalties are over. A penalty-shot goal (`addScore(..., {penaltyShot: true})`) releases nobody. OT length is `opts.otMinutes` (IIHF: 5 round robin, 10 playoffs).
 
 `summaryText(s)` / `summaryCsv(s)` in game.js render the log for export (Control → 📋 Summary).
 

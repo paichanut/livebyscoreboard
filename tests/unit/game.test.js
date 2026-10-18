@@ -97,8 +97,9 @@ test('misconduct runs but takes no slot and does not change strength', () => {
   s = G.addPenalty(s, 'away', '3', 10)
   assert.equal(s.penalties[2].kind, 'misconduct')
   assert.equal(G.strengthLabel(s), '5v3')
-  assert.equal(G.activePenalties(s, 'away').length, 3)
+  assert.equal(G.activePenalties(s, 'away').length, 2, 'misconduct is not on the display')
   assert.equal(G.waitingPenalties(s, 'away').length, 0)
+  assert.equal(G.teamPenalties(s, 'away').length, 3, 'but it is on the control list')
 })
 
 test('goal by the side with more skaters ends the least-time minor (Rule 16.2)', () => {
@@ -350,4 +351,88 @@ test('default keys follow the PC Scoreboards layout and do not collide', async (
   const grouped = KEY_GROUPS.flatMap(([, names]) => names)
   assert.deepEqual([...grouped].sort(), Object.keys(DEFAULT_KEYS).sort(), 'every key is listed in a group')
   for (const k of grouped) assert.ok(KEY_LABELS[k], `label for ${k}`)
+})
+
+const live = (s, t0 = 1_000_000) => ({ ...s, clock: { remainingMs: 15 * MIN, running: true, since: t0 }, penFoldAt: t0, playLive: true })
+
+test('coincidental penalties run but are off the display and do not change strength', () => {
+  let s = G.addPenalty(game(), 'home', '5', 2, 'Roughing', { coincidental: true })
+  s = G.addPenalty(s, 'away', '7', 2, 'Roughing', { coincidental: true })
+  s = G.addPenalty(s, 'away', '9', 2)
+  s = live(s)
+  const t = 1_000_000 + 30_000
+  assert.equal(G.strengthLabel(s, t), '5v4')
+  assert.deepEqual(G.activePenalties(s, 'away', t).map(p => p.player), ['9'])
+  assert.equal(G.activePenalties(s, 'home', t).length, 0)
+  assert.equal(G.teamPenalties(s, 'home', t)[0].remainingMs, 90_000)
+  assert.match(G.summaryText(s), /\(coincidental\)/)
+})
+
+test('a goal does not release a coincidental penalty', () => {
+  let s = G.addPenalty(game(), 'away', '7', 2, '', { coincidental: true })
+  s = G.addScore(live(s, Date.now()), 'home', 1)
+  assert.equal(s.penalties.length, 1)
+})
+
+test('misconduct is off the display and starts after the same player\'s minor', () => {
+  let s = G.addPenalty(game(), 'away', '12', 2)
+  s = G.addPenalty(s, 'away', '12', 10)
+  s = G.addPenalty(s, 'away', '30', 10)
+  s = live(s)
+  const t0 = 1_000_000
+  const at = (ms, who) => G.teamPenalties(s, 'away', t0 + ms).find(p => p.player === who && p.kind === 'misconduct')
+  assert.equal(at(60_000, '12').status, 'waiting')
+  assert.equal(at(60_000, '12').remainingMs, 10 * MIN)
+  assert.equal(at(60_000, '30').remainingMs, 9 * MIN, 'a misconduct alone starts at once')
+  assert.equal(at(150_000, '12').remainingMs, 10 * MIN - 30_000)
+  assert.deepEqual(G.activePenalties(s, 'away', t0 + 60_000).map(p => p.kind), ['minor'])
+  assert.equal(G.strengthLabel(s, t0 + 150_000), G.strengthLabel(game()), 'even strength once the minor is over')
+  // folding mid-way keeps the delayed start
+  const f = G.foldPenalties(s, t0 + 60_000)
+  assert.equal(G.teamPenalties(f, 'away', t0 + 150_000).find(p => p.player === '12').remainingMs, 10 * MIN - 30_000)
+})
+
+test('a goal releasing the minor starts the same player\'s misconduct', () => {
+  let s = G.addPenalty(game(), 'away', '12', 2)
+  s = G.addPenalty(s, 'away', '12', 10)
+  s = live(s)
+  const t0 = 1_000_000
+  // goal at 0:00 elapsed (now() ~ real time is far past t0, so use fold at a known time)
+  const f = G.foldPenalties(s, t0 + 20_000)
+  const r = G.releaseOnGoal(f, 'home', t0 + 20_000)
+  const left = G.teamPenalties(r, 'away', t0 + 20_000)
+  assert.deepEqual(left.map(p => p.kind), ['misconduct'])
+  assert.equal(left[0].status, 'running')
+})
+
+test('game misconduct: no clock, no strength, not displayed, 20 min in the log', () => {
+  let s = G.addPenalty(game(), 'home', '4', 5, 'Checking from behind')
+  s = G.addPenalty(s, 'home', '4', 0, 'Checking from behind', { kind: 'game' })
+  s = live(s)
+  const t = 1_000_000 + 2 * MIN
+  const gm = G.teamPenalties(s, 'home', t).find(p => p.kind === 'game')
+  assert.equal(gm.status, 'game')
+  assert.equal(gm.minutes, 20)
+  assert.equal(G.activePenalties(s, 'home', t).length, 1)
+  assert.equal(G.strengthLabel(s, t), '4v5')
+  assert.match(G.summaryText(s), /game misconduct/)
+  // still there after the major is over and after a fold
+  const f = G.pruneExpiredPenalties({ ...s, clock: { ...s.clock, since: Date.now() - 20 * MIN } })
+  assert.deepEqual(f.penalties.map(p => p.kind), ['game'])
+})
+
+test('penalty-shot goal counts but releases no one', () => {
+  let s = G.addPenalty(game(), 'away', '9', 2)
+  s = G.addScore(live(s, Date.now()), 'home', 1, { penaltyShot: true })
+  assert.equal(s.home.score, 1)
+  assert.equal(s.penalties.length, 1)
+  assert.equal(s.events.at(-1).penaltyShot, true)
+  assert.match(G.summaryText(s), /penalty shot/)
+})
+
+test('overtime length comes from opts.otMinutes', () => {
+  const s = game()
+  assert.equal(G.periodLength({ ...s, period: 'OT' }), 5 * MIN)
+  assert.equal(G.periodLength({ ...s, period: 'OT', opts: { ...s.opts, otMinutes: 10 } }), 10 * MIN)
+  assert.equal(withDefaults({ opts: {} }).opts.otMinutes, 5)
 })

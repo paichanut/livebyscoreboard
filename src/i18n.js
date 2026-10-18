@@ -29,7 +29,7 @@ export const UI = {
     startBtn: 'Start', stopBtn: 'Stop', showTimeOfDay: 'Show time of day', showPeriodTime: 'Show period time', todOnDisplay: 'time of day on display',
     timeoutBtn: 'Timeout', goalLight: 'Goal', none: 'None', scoreLbl: 'Score', correction: 'Correction', help: 'Help', savePenalty: 'Save penalty',
     keysTitle: 'Keyboard shortcuts', keysHint: 'Same layout as PC Scoreboards. Change any key in Options → Keys.',
-    waiting: 'waiting', kind_minor: '2 min', kind_double: 'double', kind_major: 'major', kind_misconduct: 'misconduct',
+    waiting: 'waiting', kind_minor: '2 min', kind_double: 'double', kind_major: 'major', kind_misconduct: 'misconduct', kind_game: 'game misconduct', gmShort: 'GM', restOfGame: 'rest of game', coincidental: 'Coincidental (not on display)', coincShort: 'coincidental', psGoal: 'Penalty-shot goal', notOnDisplay: 'not on display',
   },
   th: {
     game: 'เกม', live: '● ออนไลน์', local: '● เครื่องนี้เท่านั้น', connecting: 'กำลังเชื่อมต่อ…', up: '▲ นับขึ้น',
@@ -56,7 +56,7 @@ export const UI = {
     startBtn: 'เริ่ม', stopBtn: 'หยุด', showTimeOfDay: 'แสดงเวลาปัจจุบัน', showPeriodTime: 'แสดงเวลาช่วง', todOnDisplay: 'จอแสดงเวลาปัจจุบัน',
     timeoutBtn: 'เวลานอก', goalLight: 'ไฟประตู', none: 'ปิด', scoreLbl: 'คะแนน', correction: 'แก้เวลา', help: 'ช่วยเหลือ', savePenalty: 'บันทึกโทษ',
     keysTitle: 'คีย์ลัด', keysHint: 'ตำแหน่งเดียวกับ PC Scoreboards เปลี่ยนคีย์ได้ที่ ตั้งค่า → คีย์ลัด',
-    waiting: 'รอ', kind_minor: '2 นาที', kind_double: 'ดับเบิล', kind_major: 'เมเจอร์', kind_misconduct: 'มิสคอนดักต์',
+    waiting: 'รอ', kind_minor: '2 นาที', kind_double: 'ดับเบิล', kind_major: 'เมเจอร์', kind_misconduct: 'มิสคอนดักต์', kind_game: 'เกมมิสคอนดักต์', gmShort: 'GM', restOfGame: 'ตลอดเกม', coincidental: 'โทษหักล้าง (ไม่ขึ้นจอ)', coincShort: 'หักล้าง', psGoal: 'ประตูจากลูกโทษ', notOnDisplay: 'ไม่ขึ้นจอ',
   },
 }
 

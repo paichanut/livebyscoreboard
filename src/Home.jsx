@@ -16,7 +16,7 @@ export default function Home() {
   }
   return (
     <div className="home">
-      <h1>Rinkboard</h1>
+      <h1>Live by Scoreboard</h1>
       <p>Hockey scoreboard that runs in a browser. Operators log in to run games. The <b>display</b>, the <b>OBS banner</b> and <b>live games</b> are public: anyone with the link can watch.</p>
       <div className="code">
         <input value={code} onChange={e => setCode(e.target.value)} placeholder="game code (optional, e.g. rink-a)" />

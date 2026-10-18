@@ -75,8 +75,8 @@ input, select { font-family: inherit; }
 }
 .board .team .name { font-size: 4.6vw; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #dfe5ec; text-align: center; line-height: 1; overflow-wrap: normal; word-break: normal; max-width: 100%; }
 .board .team .score { font-size: 24vw; font-weight: 800; line-height: .9; margin: 1vh 0 2vh; }
-.board .team .shots { font-family: var(--font-ui); font-size: 1.8vw; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-.board .team .shots b { color: var(--text); font-size: 2.3vw; }
+.board .team .shots { font-family: var(--font-display); font-size: 3.2vw; font-weight: 700; color: #c9d3de; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: baseline; gap: .6vw; }
+.board .team .shots b { color: var(--text); font-size: 5.6vw; font-weight: 800; }
 .board .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; min-width: 0; }
 .board .period { font-size: 3.2vw; font-weight: 600; letter-spacing: .2em; color: var(--muted); }
 .board .period b { color: var(--accent); font-weight: 800; }
@@ -107,7 +107,7 @@ input, select { font-family: inherit; }
   .board .strength { font-size: 5vw; min-height: 8vw; }
   .board .team .name { font-size: 8vw; }
   .board .team .score { font-size: 34vw; }
-  .board .team .shots { font-size: 3.5vw; } .board .team .shots b { font-size: 4.5vw; }
+  .board .team .shots { font-size: 5vw; } .board .team .shots b { font-size: 8vw; }
   .board .pen { font-size: 4.5vw; }
   .board .brand, .board .status, .board .sound { font-size: 3vw; }
 }
@@ -132,6 +132,7 @@ input, select { font-family: inherit; }
 .control .tc .n { font-family: var(--font-display); font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; text-align: center; line-height: 1.05; min-height: 2.1em; display: flex; align-items: center; justify-content: center; }
 .control .tc .s { font-family: var(--font-display); font-size: 88px; font-weight: 800; text-align: center; line-height: 1; }
 .control .tc .goal { width: 100%; border-radius: 14px; padding: 18px 8px; font: 800 22px var(--font-display); background: var(--c); color: #fff; letter-spacing: .1em; }
+.control .tc .psgoal { width: 100%; margin-top: 6px; padding: 8px; font-size: 13px; border: 1px dashed var(--c); background: transparent; }
 .control .tc .mini { display: flex; gap: 6px; }
 .control .tc .mini .btn { flex: 1; padding: 10px 4px; font-size: 13px; border-radius: 10px; }
 .control .tc .sh { font-size: 12px; color: var(--muted); text-align: center; letter-spacing: .08em; text-transform: uppercase; display: flex; justify-content: center; gap: 8px; align-items: center; }
@@ -226,7 +227,8 @@ input, select { font-family: inherit; }
 .banner .btlogo { height: 56px; width: 56px; object-fit: contain; }
 .banner .btname { font-size: 30px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .banner .btscore { font-size: 48px; font-weight: 800; min-width: 48px; text-align: center; }
-.banner .btshots { font-size: 14px; opacity: .7; letter-spacing: .1em; }
+.banner .btshots { font-size: 20px; font-weight: 700; opacity: .9; letter-spacing: .08em; }
+.banner .btshots b { font-size: 26px; }
 .banner .btpen { font-size: 18px; background: rgba(255,255,255,.12); padding: 4px 10px; border-radius: 6px; }
 .banner .bclock { flex-direction: column; justify-content: center; background: var(--bclockbg); color: var(--bclockfg); padding: 0 22px; min-width: 150px; order: 1; }
 .banner .bteam:nth-of-type(1) { order: 0; }

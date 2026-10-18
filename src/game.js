@@ -59,7 +59,7 @@ export function clockShown(state, now = wallNow()) {
 }
 
 export function periodLength(state) {
-  if (state.period === 'OT') return 5 * MIN
+  if (state.period === 'OT') return (Number(state.opts?.otMinutes) || 5) * MIN
   if (state.period === 'SO') return 0
   return state.periodLengthMs
 }
@@ -91,32 +91,50 @@ function liveBudget(s, now) {
   return Math.max(0, end - (s.penFoldAt ?? s.clock.since))
 }
 
-// { [id]: { remainingMs, status: 'running' | 'waiting' | 'done' } }
+// Penalties that take one of the two slots and reduce strength (minor, double minor, major).
+// Coincidental penalties (RB 19.1: they cancel out, only the difference goes on the clock), misconducts
+// and game misconducts never take a slot, never change strength and are not shown on the display.
+const takesSlot = p => !p.coincidental && ['minor', 'double', 'major'].includes(kindOf(p))
+// Shown on the display's penalty clocks
+export const onPenaltyClock = p => takesSlot(p)
+
+// { [id]: { remainingMs, status: 'running' | 'waiting' | 'done' | 'game' } }
 export function penaltyView(s, now = wallNow()) {
   const budget = liveBudget(s, now)
   const out = {}
   for (const team of ['home', 'away']) {
     const list = (s.penalties || []).filter(p => p.team === team)
-    for (const p of list) {
-      if (kindOf(p) !== 'misconduct') continue
-      const rem = Math.max(0, p.durationMs - (p.elapsedMs || 0) - budget)
-      out[p.id] = { remainingMs: rem, status: rem > 0 ? 'running' : 'done' }
-    }
-    let pending = list.filter(p => kindOf(p) !== 'misconduct').map(p => ({ id: p.id, rem: Math.max(0, p.durationMs - (p.elapsedMs || 0)) }))
-    for (const x of pending) if (x.rem <= 0) out[x.id] = { remainingMs: 0, status: 'done' }
+    // slot penalties: spend the live time on the (at most two) running ones; when one ends, the next starts
+    const endAt = {} // live-time offset at which a slot penalty ended (Infinity = still going)
+    let pending = list.filter(takesSlot).map(p => ({ id: p.id, rem: Math.max(0, p.durationMs - (p.elapsedMs || 0)) }))
+    for (const x of pending) if (x.rem <= 0) { out[x.id] = { remainingMs: 0, status: 'done' }; endAt[x.id] = 0 }
     pending = pending.filter(x => x.rem > 0)
     let b = budget
-    // spend the live time on the (at most two) running penalties; when one ends, the next waiting one starts
+    let used = 0
     while (b > 0 && pending.length) {
       const running = pending.slice(0, 2)
       const step = Math.min(...running.map(x => x.rem))
-      if (step > b) { running.forEach(x => { x.rem -= b }); b = 0; break }
+      if (step > b) { running.forEach(x => { x.rem -= b }); used += b; b = 0; break }
       running.forEach(x => { x.rem -= step })
+      used += step
       b -= step
-      for (const x of running) if (x.rem <= 0) out[x.id] = { remainingMs: 0, status: 'done' }
+      for (const x of running) if (x.rem <= 0) { out[x.id] = { remainingMs: 0, status: 'done' }; endAt[x.id] = used }
       pending = pending.filter(x => x.rem > 0)
     }
-    pending.forEach((x, i) => { out[x.id] = { remainingMs: x.rem, status: i < 2 ? 'running' : 'waiting' } })
+    pending.forEach((x, i) => { out[x.id] = { remainingMs: x.rem, status: i < 2 ? 'running' : 'waiting' }; endAt[x.id] = Infinity })
+    // everything else runs on its own
+    for (const p of list) {
+      if (takesSlot(p)) continue
+      if (kindOf(p) === 'game') { out[p.id] = { remainingMs: 0, status: 'game' }; continue }
+      // a misconduct starts only when the same player's other penalties are over (RB 22.3)
+      let start = 0
+      if (kindOf(p) === 'misconduct' && p.player) {
+        for (const q of list) if (takesSlot(q) && q.player === p.player) start = Math.max(start, endAt[q.id] ?? 0)
+      }
+      const run = start === Infinity ? 0 : Math.max(0, budget - start)
+      const rem = Math.max(0, p.durationMs - (p.elapsedMs || 0) - run)
+      out[p.id] = { remainingMs: rem, status: rem <= 0 ? 'done' : start === Infinity ? 'waiting' : 'running' }
+    }
   }
   return out
 }
@@ -129,16 +147,16 @@ export function penaltyStatus(state, p, now = wallNow()) {
   return penaltyView(state, now)[p.id]?.status ?? 'done'
 }
 
-// Penalties on the clock right now (shown on the board), slot penalties first
+// Penalty clocks shown on the display right now
 export function activePenalties(state, team, now = wallNow()) {
   const v = penaltyView(state, now)
-  const run = state.penalties.filter(p => p.team === team && v[p.id]?.status === 'running')
-  return [...run.filter(p => kindOf(p) !== 'misconduct'), ...run.filter(p => kindOf(p) === 'misconduct')]
+  return state.penalties.filter(p => p.team === team && onPenaltyClock(p) && v[p.id]?.status === 'running')
 }
 
+// Shown on the display as "+N"
 export function waitingPenalties(state, team, now = wallNow()) {
   const v = penaltyView(state, now)
-  return state.penalties.filter(p => p.team === team && v[p.id]?.status === 'waiting')
+  return state.penalties.filter(p => p.team === team && onPenaltyClock(p) && v[p.id]?.status === 'waiting')
 }
 
 // Every penalty still to serve, in order (control page list)
@@ -150,7 +168,7 @@ export function teamPenalties(state, team, now = wallNow()) {
 
 export function skaters(state, now = wallNow()) {
   const v = penaltyView(state, now)
-  const down = team => state.penalties.filter(p => p.team === team && kindOf(p) !== 'misconduct' && v[p.id]?.status === 'running').length
+  const down = team => state.penalties.filter(p => p.team === team && takesSlot(p) && v[p.id]?.status === 'running').length
   let h = state.skaters - down('home')
   let a = state.skaters - down('away')
   const lift = Math.max(0, 3 - Math.min(h, a))
@@ -249,7 +267,7 @@ export function setPlayLive(s, live) {
 
 export function removeLastPenalty(s) {
   const v = penaltyView(s)
-  const open = s.penalties.filter(p => v[p.id] && v[p.id].status !== 'done')
+  const open = s.penalties.filter(p => v[p.id] && v[p.id].status !== 'done' && v[p.id].status !== 'game')
   return open.length ? removePenalty(s, open[open.length - 1].id) : s
 }
 
@@ -312,7 +330,7 @@ export function releaseOnGoal(s, team, now = wallNow()) {
   const sk = skaters(f, now)
   if (sk[team] <= sk[opp]) return f
   const v = penaltyView(f, now)
-  const cands = f.penalties.filter(p => p.team === opp && ['minor', 'double'].includes(kindOf(p)) && v[p.id]?.status === 'running')
+  const cands = f.penalties.filter(p => p.team === opp && takesSlot(p) && ['minor', 'double'].includes(kindOf(p)) && v[p.id]?.status === 'running')
   if (!cands.length) return f
   const target = cands.reduce((a, b) => (v[b.id].remainingMs < v[a.id].remainingMs ? b : a))
   const rem = v[target.id].remainingMs
@@ -327,7 +345,7 @@ export function addScore(s, team, delta, { penaltyShot = false } = {}) {
   const goalFlash = delta > 0 ? { team, at: wallNow() } : s.goalFlash
   const base = delta > 0 && !penaltyShot ? releaseOnGoal(s, team) : s
   let next = { ...base, [team]: { ...s[team], score }, goalFlash }
-  if (delta > 0) next = logEvent(next, 'goal', { team })
+  if (delta > 0) next = logEvent(next, 'goal', penaltyShot ? { team, penaltyShot: true } : { team })
   else if (score !== s[team].score) next = dropLastEvent(next, e => e.type === 'goal' && e.team === team) // undo a mistaken goal
   return touch(next)
 }
@@ -345,19 +363,26 @@ export function setTeam(s, team, patch) {
   return touch({ ...s, [team]: { ...s[team], ...patch } })
 }
 
-export function addPenalty(s, team, player, minutes, infraction = '') {
+// opts.kind 'game' = game misconduct (rest of the game, 20 min in the records, no clock).
+// opts.coincidental = cancels against the other team's equal penalty: tracked, but not on the display
+// and no change in strength (RB 19.1).
+export function addPenalty(s, team, player, minutes, infraction = '', { kind, coincidental = false } = {}) {
   const f = foldPenalties(s)
+  const game = kind === 'game'
   const p = {
     id: Math.random().toString(36).slice(2, 9),
     team,
     player: String(player || '').trim(),
     infraction: String(infraction || '').trim(),
-    minutes,
-    kind: penaltyKind(minutes),
-    durationMs: minutes * MIN,
+    minutes: game ? 20 : minutes,
+    kind: game ? 'game' : penaltyKind(minutes),
+    durationMs: game ? 0 : minutes * MIN,
     elapsedMs: 0,
+    ...(coincidental && !game ? { coincidental: true } : {}),
   }
-  return touch(logEvent({ ...f, penalties: [...f.penalties, p] }, 'penalty', { team, player: p.player, minutes, infraction: p.infraction, penaltyId: p.id }))
+  return touch(logEvent({ ...f, penalties: [...f.penalties, p] }, 'penalty', {
+    team, player: p.player, minutes: p.minutes, infraction: p.infraction, penaltyId: p.id, kind: p.kind, ...(p.coincidental ? { coincidental: true } : {}),
+  }))
 }
 
 export function removePenalty(s, id) {
@@ -370,22 +395,26 @@ export function removePenalty(s, id) {
 }
 
 // Fix a penalty after the fact: player, infraction, or length (time already served is kept)
-export function editPenalty(s, id, { player, minutes, infraction }) {
+export function editPenalty(s, id, { player, minutes, infraction, kind, coincidental }) {
   const f = foldPenalties(s)
   return touch({
     ...f,
     penalties: f.penalties.map(p => {
       if (p.id !== id) return p
-      const durationMs = minutes != null ? minutes * MIN : p.durationMs
-      return {
+      // kind: 'game' | 'auto' (from minutes) | undefined (keep)
+      const game = kind === 'game' || (kind == null && minutes == null && p.kind === 'game')
+      const durationMs = game ? 0 : minutes != null ? minutes * MIN : p.durationMs
+      const next = {
         ...p,
         player: player != null ? String(player).trim() : p.player,
         infraction: infraction != null ? String(infraction).trim() : p.infraction,
-        minutes: minutes ?? p.minutes,
-        kind: minutes != null ? penaltyKind(minutes) : p.kind,
+        minutes: game ? 20 : minutes ?? p.minutes,
+        kind: game ? 'game' : minutes != null ? penaltyKind(minutes) : p.kind,
         durationMs,
         elapsedMs: Math.min(p.elapsedMs, durationMs),
       }
+      if (coincidental != null) { if (coincidental && !game) next.coincidental = true; else delete next.coincidental }
+      return next
     }),
   })
 }
@@ -489,7 +518,8 @@ export function summaryRows(s) {
     if (e.type === 'goal') e.team === 'home' ? h++ : a++
     const name = s[e.team]?.name || e.team?.toUpperCase() || ''
     let detail = ''
-    if (e.type === 'penalty') detail = `${e.player ? `#${e.player} ` : ''}${e.minutes} min${e.infraction ? ` ${e.infraction}` : ''}`
+    if (e.type === 'penalty') detail = `${e.player ? `#${e.player} ` : ''}${e.kind === 'game' ? 'game misconduct' : `${e.minutes} min`}${e.infraction ? ` ${e.infraction}` : ''}${e.coincidental ? ' (coincidental)' : ''}`
+    else if (e.type === 'goal' && e.penaltyShot) detail = 'penalty shot'
     else if (e.type === 'timeout') detail = `${e.seconds} s`
     else if (e.type === 'so') detail = `attempt ${e.attempt} ${e.scored ? 'goal' : 'miss'}`
     rows.push({ period: e.period, time: fmtEventClock(e, s.opts?.clockDir), type: e.type, team: e.team, teamName: name, detail, home: h, away: a, player: e.player || '', minutes: e.minutes ?? '' })

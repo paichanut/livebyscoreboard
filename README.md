@@ -1,4 +1,4 @@
-# Rinkboard
+# Live by Scoreboard
 
 Live at **https://livebyscoreboard.vercel.app**
 

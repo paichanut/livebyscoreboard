@@ -69,7 +69,7 @@ export default function Board() {
       </div>
 
       <Team t={s.away} logo={!minimal && o.awayLogo} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
-      {!o.logoImg && <div className="brand">rinkboard</div>}
+      {!o.logoImg && <div className="brand">live by scoreboard</div>}
     </div>
   )
 }

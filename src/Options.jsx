@@ -80,6 +80,7 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters }) 
       <h4>Clock</h4>
       <Row label="Period length (min)"><input type="number" min={1} max={60} value={periodMin} onChange={e => setPeriodMin(e.target.value)} style={{ width: 80 }} /></Row>
       <Num label="Number of regular periods" path="periods" get={get} set={set} min={1} max={9} />
+      <Num label="Overtime length (min) — IIHF: 5 round robin, 10 playoffs" path="otMinutes" get={get} set={set} min={1} max={20} />
       <Row label="Overtime indicator"><input type="text" value={o.otLabel} onChange={e => set('otLabel', e.target.value.slice(0, 3))} style={{ width: 80 }} /></Row>
       <Row label="Period time direction">
         <select value={o.clockDir} onChange={e => set('clockDir', e.target.value)} style={{ width: 120 }}><option value="down">Down</option><option value="up">Up</option></select>

@@ -78,6 +78,7 @@ export function defaultOptions() {
     // Game setup
     periods: 3,
     otLabel: 'OT',
+    otMinutes: 5, // overtime length; IIHF: 5:00 preliminary round, 10:00 playoffs (RB 84)
     clockDir: 'down', // 'down' | 'up'
     timeout1Sec: 30,
     timeout2Sec: 60,
@@ -95,6 +96,8 @@ export function defaultOptions() {
       { name: 'High-sticking (injury)', minutes: 4 },
       { name: 'Boarding', minutes: 5 }, { name: 'Checking from behind', minutes: 5 }, { name: 'Fighting', minutes: 5 },
       { name: 'Misconduct', minutes: 10 },
+      { name: 'Major + game misconduct', minutes: 5, alsoGame: true },
+      { name: 'Game misconduct', kind: 'game' },
     ],
     layout: 'full', // 'full' | 'minimal' (no shots/logos/title, bigger numbers)
     uiLang: 'en', // control page language: 'en' | 'th' (display labels are the free-text `labels` below)

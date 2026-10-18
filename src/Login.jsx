@@ -13,7 +13,7 @@ export default function Login() {
 
   useEffect(() => { if (getSession()) checkSession().then(ok => { if (!ok) setWho('') }) }, [])
 
-  if (!NEEDS_LOGIN) return <div className="home"><h1>Rinkboard</h1><p>This test build has no login.</p><a className="btn" href="/">Home</a></div>
+  if (!NEEDS_LOGIN) return <div className="home"><h1>Live by Scoreboard</h1><p>This test build has no login.</p><a className="btn" href="/">Home</a></div>
 
   const submit = async e => {
     e.preventDefault()
@@ -28,7 +28,7 @@ export default function Login() {
 
   if (who) return (
     <div className="home login">
-      <h1>Rinkboard</h1>
+      <h1>Live by Scoreboard</h1>
       <p>Logged in as <b>{who}</b>. You can create and run any game on this device.</p>
       <div className="links">
         <a className="btn primary" href={safeNext}>Continue</a>
@@ -40,7 +40,7 @@ export default function Login() {
 
   return (
     <form className="home login" onSubmit={submit}>
-      <h1>Rinkboard</h1>
+      <h1>Live by Scoreboard</h1>
       <p>Operator login. Spectators, the TV display and the OBS banner do not need this.</p>
       <div className="fields">
         <input id="login-user" autoComplete="username" autoCapitalize="none" placeholder="username" value={user} onChange={e => setUser(e.target.value)} autoFocus />

@@ -34,7 +34,7 @@ export default function Banner() {
               {sh.teamName && <div className="btname">{t.name}</div>}
               {sh.score && <div className="btscore tnum">{t.score}</div>}
               {s.period === 'SO' && s.shootout[team].length > 0 && <Shootout attempts={s.shootout[team]} className="btso" />}
-              {sh.shots && <div className="btshots">{L.shots} {t.shots}</div>}
+              {sh.shots && <div className="btshots">{L.shots} <b className="tnum">{t.shots}</b></div>}
               {pens.map(p => <div className="btpen tnum" key={p.id}>{p.player ? `#${p.player} ` : ''}{fmtClock(penaltyRemaining(s, p), { tenths: false })}</div>)}
               {more > 0 && <div className="btpen">+{more}</div>}
             </div>
