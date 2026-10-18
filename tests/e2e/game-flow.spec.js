@@ -6,11 +6,17 @@ test('goals, shots and penalties flow from control to the display', async ({ pag
   await openControl(page, code)
   const board = await openBoard(context, code)
 
-  // goal via button
+  // goal via button: the card flashes, the numbers stay put, "GOAL! <team>" shows in the middle card
+  const before = await boardHome(board).locator('.score').boundingBox()
   await home(page).getByRole('button', { name: '+ GOAL' }).click()
   await expect(home(page).locator('.s')).toHaveText('1')
   await expect(boardHome(board).locator('.score')).toHaveText('1')
-  await expect(boardHome(board).locator('.goalflash')).toHaveText('GOAL!')
+  await expect(boardHome(board)).toHaveClass(/flash/)
+  await expect(board.locator('.board .mid .goalflash')).toContainText('GOAL!')
+  await expect(board.locator('.board .mid .goalflash')).toContainText('HOME')
+  const after = await boardHome(board).locator('.score').boundingBox()
+  expect(Math.abs(after.y - before.y)).toBeLessThan(1)
+  await expect(boardHome(board).locator('.shots')).toBeVisible()
 
   // goal via keyboard shortcut (A = away +1), then −1 via button
   await page.keyboard.press('KeyA')

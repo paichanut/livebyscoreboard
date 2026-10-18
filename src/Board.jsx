@@ -77,6 +77,7 @@ export default function Board() {
           })}
         </div>}
         {!arena && o.logoImg && <img className="centerlogo" src={o.logoImg} alt="" />}
+        {flash && <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal} <span>{s[flash].name}</span></div>}
       </div>
 
       <Team t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
@@ -89,7 +90,6 @@ export default function Board() {
 function Team({ t, logo, logoTop, flash, L, showShots, so }) {
   return (
     <div className={`team ${flash ? 'flash' : ''}`} style={{ '--c': t.color }}>
-      {flash && <div className="goalflash">{L.goal}</div>}
       {logo && !logoTop && <img className="bglogo" src={logo} alt="" aria-hidden="true" />}
       {logo && logoTop && <img className="toplogo" src={logo} alt="" />}
       <div className="name">{t.name}</div>
