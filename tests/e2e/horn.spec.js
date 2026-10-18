@@ -38,15 +38,21 @@ test('horn button on control plays the horn sample on the display (sound on by d
   expect(buzzer.dur).toBeGreaterThan(1.2)
 })
 
-test('control page can play sounds itself when its sound toggle is on', async ({ page, context }) => {
+test('horn plays on the control page and the display at the same time (sound on by default on both)', async ({ page, context }) => {
   await context.addInitScript(RECORD)
-  await openControl(page, uniqueCode('hornc'))
-  // the control page starts muted: one tap turns it on
-  await expect(page.locator('.csound')).toHaveText(/sound off/)
-  await page.locator('.csound').click()
+  const code = uniqueCode('hornc')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await board.locator('.board').click({ position: { x: 5, y: 5 } })
+  await page.locator('.clockcard .c').click()
   await expect(page.locator('.csound')).toHaveText(/sound on/)
   await page.waitForTimeout(800)
   await page.getByRole('button', { name: '📯 Horn' }).click()
   await page.waitForFunction(() => window.__played.length > 0)
+  await board.waitForFunction(() => window.__played.length > 0)
   expect((await page.evaluate(() => window.__played))[0].kind).toBe('sample')
+  expect((await board.evaluate(() => window.__played))[0].kind).toBe('sample')
+  // the operator can still mute their own page
+  await page.locator('.csound').click()
+  await expect(page.locator('.csound')).toHaveText(/sound off/)
 })

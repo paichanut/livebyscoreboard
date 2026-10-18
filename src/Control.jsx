@@ -37,7 +37,8 @@ export default function Control() {
   const [sheet, setSheet] = useState(null)
   const [openPen, setOpenPen] = useState(null) // penalty row showing its ±1/±5 s buttons
   // optional: play horn/buzzer on this device too (phone speaker / laptop plugged into the PA)
-  const sound = useSound('rinkboard:sound:control', false)
+  // horn / buzzer play here too, not only on the display (new key so everyone starts with sound on)
+  const sound = useSound('rinkboard:sound:ctl', true)
   useGameSounds(s, sound.playing)
   const t = translator(s?.opts?.uiLang)
 

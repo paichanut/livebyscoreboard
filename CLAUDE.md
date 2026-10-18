@@ -55,7 +55,7 @@ Penalty kinds (`kindOf`): `minor`/`double`/`major` take one of the two slots and
 - **Operator login.** Operators log in at `/login` (username + password, table `operators`, bcrypt via pgcrypto). The session token (30 days, table `operator_sessions`) lives in localStorage `rinkboard:session` and is passed to `save_game`/`check_key`/`create_game` instead of a game key; it never goes in a URL. Only a logged-in operator can create a game. Add/change an operator in the Supabase SQL editor: `select public.set_operator('name','password');` (logs that user out). Wrong password costs 1 s; no lockout a stranger could trigger.
 - **Watching is public:** `/b/`, `/o/`, `/live` need no login.
 - Per-game helper links still work: each game gets a random key in `game_keys`; a logged-in operator gets it via `get_game_key` (Control → QR → Copy operator link) and `?k=KEY` lets a helper run that one game without logging in.
-- Display sound is ON by default (unlocks itself where allowed, e.g. OBS; otherwise on the first tap anywhere); control-page sound is off by default. Mute choice is remembered per device.
+- Sound is ON by default on both the display and the control page (horn/buzzer play on both; unlocks itself where allowed, e.g. OBS; otherwise on the first tap anywhere). Mute choice is remembered per device (`rinkboard:sound:board`, `rinkboard:sound:ctl`).
 - Supabase SQL functions are plain `language sql` on purpose: plpgsql bodies time out through the Supabase MCP connector.
 - Options sync with the game (stored in `state.opts`) so phone changes reach the TV.
 - Images (logos, banners) are stored as resized data-URLs (≤512 px) inside state; fine for Supabase jsonb.
