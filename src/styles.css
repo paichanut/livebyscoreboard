@@ -462,7 +462,7 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .board.arena .strength { font-size: calc(2.4 * var(--u)); min-height: calc(4 * var(--u)); }
 .board.arena .centerlogo.top { max-height: calc(11 * var(--u)); }
 .board.arena .mid { gap: calc(1 * var(--u)); }
-.board.arena .penbox { min-height: 0; padding: calc(.8 * var(--u)) calc(1.4 * var(--u)); }
+.board.arena .penbox { min-height: calc(8.6 * var(--u)); padding: calc(.8 * var(--u)) calc(1.4 * var(--u)); justify-content: center; }
 .board.arena .penbox .ph { font-size: calc(1.8 * var(--u)); }
 .board.arena .penbox .prow { font-size: calc(3.2 * var(--u)); }
 .board.arena .penbox .pnone { font-size: calc(2.2 * var(--u)); }

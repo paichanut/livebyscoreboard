@@ -113,7 +113,7 @@ export function defaultOptions() {
     // same defaults as PC Scoreboards: horn button loops, timeout warning is the short blast
     sounds: { horn: 'horn-loop', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn', timeoutWarn: 'horn-short', timeoutEnd: 'horn' },
     // Text
-    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', penalties: 'PENALTIES', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP' },
+    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP' },
     font: 'Barlow Condensed',
     digits: 'normal', // 'normal' | 'segments'
     // Score banner (OBS overlay)

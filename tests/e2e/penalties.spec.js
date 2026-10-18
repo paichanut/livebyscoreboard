@@ -41,7 +41,7 @@ test('third penalty waits; display shows +1; nudges adjust time', async ({ page,
   const col = board.locator('.board .penbox.pb-away')
   await expect(col.locator('.prow')).toHaveCount(3)
   await expect(col.locator('.prow.wait')).toHaveCount(1)
-  await expect(col.locator('.ph')).toContainText('PENALTIES')
+  await expect(col.locator('.ph')).toHaveCount(0)
   // nudge the first penalty: +5 is capped at the full 2:00, −5 takes 5 s off
   const first = away(page).locator('.pen').first()
   await first.getByRole('button', { name: 'more' }).click()

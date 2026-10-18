@@ -120,8 +120,6 @@ function PenBox({ team, s }) {
   const shown = list.slice(0, 3)
   return (
     <div className={`penbox pb-${team}`} style={{ '--c': s[team].color }}>
-      <div className="ph">{s[team].name} {L.penalties}</div>
-      {shown.length === 0 && <div className="pnone">—</div>}
       {shown.map((p, i) => (
         <div className={`prow ${i >= 2 || !activePenalties(s, team).some(a => a.id === p.id) ? 'wait' : ''}`} key={p.id}>
           <span className="pp">{p.player ? `#${p.player}` : L.penalty}</span>
