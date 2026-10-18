@@ -592,3 +592,10 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .sheet .goallist { display: flex; flex-direction: column; gap: 6px; max-height: 30vh; overflow: auto; }
 .sheet .goallist .btn { display: flex; gap: 8px; align-items: baseline; justify-content: flex-start; text-align: left; }
 .sheet .goallist .btn small { color: var(--muted); }
+
+/* developer contact */
+.contactlinks { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.contactlinks .btn { text-decoration: none; text-align: center; }
+.contactlinks .wa { background: #1f9d55; color: #fff; }
+.contactlinks .line { background: #06c755; color: #fff; }
+.home .contact { display: flex; flex-direction: column; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }

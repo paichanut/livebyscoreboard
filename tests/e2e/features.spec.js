@@ -230,3 +230,16 @@ test('team logos page: upload named by file, rename, then pick on the control pa
   await expect(board.locator('.board .team').first().locator('.name')).toHaveText('Bangkok Bears')
   await expect(board.locator('.board .team').first().locator('.toplogo')).toBeVisible()
 })
+
+test('developer contact on Home and the control page', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('.home .contact')).toContainText('Pai Chanut')
+  await expect(page.locator('.home .contact a[href="tel:+66816351945"]')).toBeVisible()
+  await expect(page.locator('.home .contact a[href="https://wa.me/66816351945"]')).toBeVisible()
+  await expect(page.locator('.home .contact a[href="https://line.me/ti/p/~paichanut"]')).toBeVisible()
+  await expect(page.locator('.home .contact a[href="mailto:paichanut@gmail.com"]')).toBeVisible()
+  await openControl(page, uniqueCode('contact'))
+  await page.getByRole('button', { name: /Contact dev/ }).click()
+  await expect(page.locator('.sheet')).toContainText('Pai Chanut')
+  await expect(page.locator('.sheet a[href="https://wa.me/66816351945"]')).toBeVisible()
+})

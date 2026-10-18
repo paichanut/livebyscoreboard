@@ -6,6 +6,7 @@ import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOption
 import { translator } from './i18n.js'
 import { saveTeam } from './teamLibrary.js'
 import TimeBadge from './TimeBadge.jsx'
+import { ContactLinks, DEV } from './Contact.jsx'
 import Options, { SavedTeams, resizeImage } from './Options.jsx'
 import { KEY_GROUPS, KEY_LABELS, keyName } from './options.js'
 
@@ -282,6 +283,7 @@ export default function Control() {
           ? <span className="who">👤 {sessionUser()} · <button className="linkbtn" onClick={async () => { await logout(); window.location.reload() }}>{t('logout')}</button></span>
           : <a className="who" href={`/login?next=/c/${encodeURIComponent(gameId)}`}>🔑 {t('keyOnly')} · {t('login')}</a>)}
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
+        <button className="linkbtn who" onClick={() => setSheet('contact')}>💬 {t('contactDev')}</button>
       </div>
 
       {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={s} update={update} close={() => setSheet(null)} t={t} />}
@@ -321,6 +323,13 @@ export default function Control() {
       )}
       {sheet === 'options' && <Options s={s} update={update} close={() => setSheet(null)} />}
       {sheet === 'summary' && <SummarySheet s={s} gameId={gameId} close={() => setSheet(null)} t={t} editGoal={id => setSheet(`goal-${id}`)} />}
+      {sheet === 'contact' && (
+        <Sheet close={() => setSheet(null)}>
+          <h3>{t('contactDev')} · {DEV.name}</h3>
+          <ContactLinks />
+          <button className="btn ghost" onClick={() => setSheet(null)}>{t('close')}</button>
+        </Sheet>
+      )}
       {sheet?.startsWith('goal-') && <GoalSheet s={s} id={sheet.slice(5)} update={update} close={() => setSheet(null)} t={t} />}
       {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} t={t} />}
     </div>

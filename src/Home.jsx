@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { ONLINE, NEEDS_LOGIN, randomKey, rememberKey, getSession, sessionUser, logout } from './sync.js'
 import { cleanCode } from './useGame.js'
+import { ContactLinks, DEV } from './Contact.jsx'
 
 export default function Home() {
   const [code, setCode] = useState('')
@@ -33,6 +34,10 @@ export default function Home() {
         <div className="who">logged in as <b>{sessionUser()}</b> · <button className="linkbtn" onClick={async () => { await logout(); setSession('') }}>log out</button></div>
       )}
       <div className="mode">{ONLINE ? 'live sync on' : 'test build — local store, this browser only'}</div>
+      <div className="contact">
+        <div className="who">Contact developer · <b>{DEV.name}</b></div>
+        <ContactLinks />
+      </div>
     </div>
   )
 }
