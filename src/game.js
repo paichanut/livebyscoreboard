@@ -213,8 +213,8 @@ const MAX_EVENTS = 400
 const uid = () => Math.random().toString(36).slice(2, 9)
 
 // Append an entry to the game log, stamped with period and game clock.
-export function logEvent(s, type, data = {}) {
-  const e = { id: uid(), t: wallNow(), type, period: s.period, clockMs: clockRemaining(s), periodMs: periodLength(s), ...data }
+export function logEvent(s, type, data = {}, now = wallNow()) {
+  const e = { id: uid(), t: now, type, period: s.period, clockMs: clockRemaining(s, now), periodMs: periodLength(s), ...data }
   const events = [...(s.events || []), e]
   return { ...s, events: events.length > MAX_EVENTS ? events.slice(-MAX_EVENTS) : events }
 }
@@ -236,7 +236,13 @@ export function foldPenalties(s, now = wallNow()) {
   const v = penaltyView(s, now)
   const penalties = (s.penalties || []).filter(p => v[p.id] && v[p.id].status !== 'done')
     .map(p => ({ ...p, kind: kindOf(p), elapsedMs: p.durationMs - v[p.id].remainingMs }))
-  return { ...s, penalties, penFoldAt: now }
+  const ended = (s.penalties || []).filter(p => !penalties.some(q => q.id === p.id))
+  return logPenaltyEnds({ ...s, penalties, penFoldAt: now }, ended, 'expired', now)
+}
+
+// Game-sheet "End" time for penalties that left the box (time served, released by a goal, removed)
+function logPenaltyEnds(s, ended, reason, now = wallNow()) {
+  return ended.reduce((acc, p) => logEvent(acc, 'penaltyEnd', { team: p.team, penaltyId: p.id, reason }, now), s)
 }
 
 // startClock = faceoff: the clock starts and play is live. { penalties: false } starts only the
@@ -337,17 +343,49 @@ export function releaseOnGoal(s, team, now = wallNow()) {
   if (kindOf(target) === 'double' && rem > 2 * MIN) {
     return { ...f, penalties: f.penalties.map(p => (p.id === target.id ? { ...p, elapsedMs: p.durationMs - 2 * MIN } : p)) }
   }
-  return { ...f, penalties: f.penalties.filter(p => p.id !== target.id) }
+  return logPenaltyEnds({ ...f, penalties: f.penalties.filter(p => p.id !== target.id) }, [target], 'goal', now)
+}
+
+// IIHF goal situation from the skaters on the ice when the goal was scored:
+// EQ even, PP1/PP2 power play by one/two, SH1/SH2 short-handed, PS penalty shot (EN is set by hand).
+export function goalSituation(s, team, { penaltyShot = false } = {}, now = wallNow()) {
+  if (penaltyShot) return 'PS'
+  const sk = skaters(s, now)
+  const d = sk[team] - sk[team === 'home' ? 'away' : 'home']
+  return d === 0 ? 'EQ' : d > 0 ? `PP${d}` : `SH${-d}`
 }
 
 export function addScore(s, team, delta, { penaltyShot = false } = {}) {
   const score = Math.max(0, s[team].score + delta)
   const goalFlash = delta > 0 ? { team, at: wallNow() } : s.goalFlash
+  const situation = delta > 0 ? goalSituation(s, team, { penaltyShot }) : null
   const base = delta > 0 && !penaltyShot ? releaseOnGoal(s, team) : s
   let next = { ...base, [team]: { ...s[team], score }, goalFlash }
-  if (delta > 0) next = logEvent(next, 'goal', penaltyShot ? { team, penaltyShot: true } : { team })
+  if (delta > 0) next = logEvent(next, 'goal', { team, situation, scorer: '', a1: '', a2: '', ...(penaltyShot ? { penaltyShot: true } : {}) })
   else if (score !== s[team].score) next = dropLastEvent(next, e => e.type === 'goal' && e.team === team) // undo a mistaken goal
   return touch(next)
+}
+
+// Game-sheet details for a goal already logged: scorer, assists, empty net, situation
+export function editGoal(s, eventId, { scorer, a1, a2, en, situation }) {
+  const num = v => String(v ?? '').replace(/[^0-9]/g, '').slice(0, 3)
+  return touch({
+    ...s,
+    events: (s.events || []).map(e => (e.id !== eventId || e.type !== 'goal' ? e : {
+      ...e,
+      ...(scorer != null ? { scorer: num(scorer) } : {}),
+      ...(a1 != null ? { a1: num(a1) } : {}),
+      ...(a2 != null ? { a2: num(a2) } : {}),
+      ...(en != null ? { en: Boolean(en) } : {}),
+      ...(situation ? { situation } : {}),
+    })),
+  })
+}
+
+// Last logged goal of a team that still has no scorer (control page prompt)
+export function goalNeedingScorer(s, team) {
+  const g = [...(s.events || [])].reverse().find(e => e.type === 'goal' && e.team === team)
+  return g && !g.scorer ? g : null
 }
 
 export function clearGoalFlash(s) {
@@ -356,7 +394,11 @@ export function clearGoalFlash(s) {
 
 export function addShot(s, team, delta) {
   const shots = Math.max(0, s[team].shots + delta)
-  return touch({ ...s, [team]: { ...s[team], shots } })
+  if (shots === s[team].shots) return s
+  // per period too, for the game sheet (a −1 comes off the current period if it has any)
+  const by = { ...(s[team].shotsBy || {}) }
+  by[s.period] = Math.max(0, (by[s.period] || 0) + delta)
+  return touch({ ...s, [team]: { ...s[team], shots, shotsBy: by } })
 }
 
 export function setTeam(s, team, patch) {
@@ -391,6 +433,7 @@ export function removePenalty(s, id) {
   let next = { ...f, penalties: f.penalties.filter(x => x.id !== id) }
   // a penalty removed before it ran at all was a mistake: drop it from the log too
   if (p && !p.elapsedMs) next = dropLastEvent(next, e => e.type === 'penalty' && e.penaltyId === id)
+  else if (p) next = logPenaltyEnds(next, [p], 'removed')
   return touch(next)
 }
 
@@ -464,8 +507,8 @@ export function setOptions(s, opts) {
 
 export function resetGame(s) {
   return newGame({
-    home: { ...s.home, score: 0, shots: 0 },
-    away: { ...s.away, score: 0, shots: 0 },
+    home: { ...s.home, score: 0, shots: 0, shotsBy: {} },
+    away: { ...s.away, score: 0, shots: 0, shotsBy: {} },
     periodLengthMs: s.periodLengthMs,
     skaters: s.skaters,
     theme: s.theme,
@@ -499,9 +542,22 @@ export function soGoals(s, team) {
 }
 
 // ---- game summary (export) ----
-function fmtEventClock(e, clockDir) {
-  const ms = clockDir === 'up' ? Math.max(0, (e.periodMs ?? 0) - (e.clockMs ?? 0)) : (e.clockMs ?? 0)
-  return fmtClock(ms, { tenths: false })
+// ---- game sheet (IIHF Game Summary style) ----
+// Times are game time counted up from the start of the game, as on an IIHF game sheet
+// (2nd period 3:12 = 23:12 with 20-minute periods). The shootout has no time.
+const pad2 = n => String(n).padStart(2, '0')
+export function fmtGameTime(ms) {
+  if (ms == null) return ''
+  const t = Math.max(0, Math.floor(ms / 1000))
+  return `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`
+}
+export function eventGameTimeMs(s, e) {
+  if (e.period === 'SO') return null
+  const inPeriod = Math.max(0, (e.periodMs ?? 0) - (e.clockMs ?? 0))
+  const regular = s.periodLengthMs || 20 * MIN
+  const periods = Math.max(1, Math.min(9, Number(s.opts?.periods) || 3))
+  const before = e.period === 'OT' ? periods * regular : (Number(e.period) - 1) * regular
+  return before + inPeriod
 }
 
 function periodTitle(s, p) {
@@ -509,52 +565,141 @@ function periodTitle(s, p) {
   if (p === 'SO') return 'SO'
   return `${s.opts?.labels?.period || 'Period'} ${p}`
 }
+const periodShort = (s, p) => (p === 'OT' ? s.opts?.otLabel || 'OT' : p === 'SO' ? 'SO' : `P${p}`)
 
-// Rows for the summary: [{ period, time, type, team, teamName, detail, home, away }] in game order, with the running score.
-export function summaryRows(s) {
-  const rows = []
+// Everything the game sheet needs, in one structure (text, CSV and the printable page all use it)
+export function gameSheet(s) {
+  const events = s.events || []
+  const used = new Set(events.map(e => e.period))
+  for (const t of ['home', 'away']) for (const [p, n] of Object.entries(s[t].shotsBy || {})) if (n) used.add(p)
+  used.add(s.period)
+  const periods = periodList(s).filter(p => /^\d+$/.test(p) || used.has(p))
+  const time = e => fmtGameTime(eventGameTimeMs(s, e))
+  const team = t => ({ name: s[t]?.name || t.toUpperCase(), color: s[t]?.color })
   let h = 0, a = 0
-  for (const e of s.events || []) {
-    if (e.type === 'goal') e.team === 'home' ? h++ : a++
-    const name = s[e.team]?.name || e.team?.toUpperCase() || ''
-    let detail = ''
-    if (e.type === 'penalty') detail = `${e.player ? `#${e.player} ` : ''}${e.kind === 'game' ? 'game misconduct' : `${e.minutes} min`}${e.infraction ? ` ${e.infraction}` : ''}${e.coincidental ? ' (coincidental)' : ''}`
-    else if (e.type === 'goal' && e.penaltyShot) detail = 'penalty shot'
-    else if (e.type === 'timeout') detail = `${e.seconds} s`
-    else if (e.type === 'so') detail = `attempt ${e.attempt} ${e.scored ? 'goal' : 'miss'}`
-    rows.push({ period: e.period, time: fmtEventClock(e, s.opts?.clockDir), type: e.type, team: e.team, teamName: name, detail, home: h, away: a, player: e.player || '', minutes: e.minutes ?? '' })
+  const goals = []
+  const goalsBy = { home: {}, away: {} }
+  for (const e of events) {
+    if (e.type !== 'goal') continue
+    e.team === 'home' ? h++ : a++
+    goalsBy[e.team][e.period] = (goalsBy[e.team][e.period] || 0) + 1
+    const sit = e.situation || (e.penaltyShot ? 'PS' : '')
+    goals.push({
+      no: goals.length + 1, id: e.id, period: e.period, time: time(e), team: e.team, teamName: team(e.team).name,
+      scorer: e.scorer || '', a1: e.a1 || '', a2: e.a2 || '',
+      situation: [sit, e.en ? 'EN' : ''].filter(Boolean).join(' '), score: `${h}:${a}`,
+    })
   }
-  return rows
+  const ends = {}
+  for (const e of events) if (e.type === 'penaltyEnd' && !ends[e.penaltyId]) ends[e.penaltyId] = time(e)
+  const penalties = events.filter(e => e.type === 'penalty').map(e => {
+    const game = e.kind === 'game'
+    const pim = game ? 20 : Number(e.minutes) || 0
+    const base = { 2: 'Minor', 4: 'Double minor', 5: 'Major', 10: 'Misconduct' }[pim] || ''
+    const offence = game ? `Game misconduct${e.infraction ? ` – ${e.infraction}` : ''}` : e.infraction || base
+    return {
+      period: e.period, time: time(e), team: e.team, teamName: team(e.team).name, player: e.player || '', pim,
+      offence: offence + (e.coincidental ? ' (coincidental)' : ''),
+      end: game ? '' : ends[e.penaltyId] || '',
+    }
+  })
+  const totals = t => ({
+    goals: s[t].score,
+    shots: s[t].shots,
+    pim: penalties.filter(p => p.team === t).reduce((n, p) => n + p.pim, 0),
+    ppg: goals.filter(g => g.team === t && g.situation.startsWith('PP')).length,
+    shg: goals.filter(g => g.team === t && g.situation.startsWith('SH')).length,
+  })
+  const timeouts = events.filter(e => e.type === 'timeout').map(e => ({ period: e.period, time: time(e), teamName: team(e.team).name }))
+  return {
+    title: s.opts?.title || '',
+    home: team('home'), away: team('away'),
+    periods: periods.map(p => ({ id: p, label: periodShort(s, p) })),
+    goalsBy, shotsBy: { home: s.home.shotsBy || {}, away: s.away.shotsBy || {} },
+    goals, penalties, timeouts,
+    shootout: { home: s.shootout?.home || [], away: s.shootout?.away || [], homeGoals: soGoals(s, 'home'), awayGoals: soGoals(s, 'away') },
+    totals: { home: totals('home'), away: totals('away') },
+  }
 }
 
-export function summaryText(s) {
-  const L = s.opts?.labels || {}
+const col = (v, w) => String(v ?? '').padEnd(w)
+const num = n => (n ? `#${n}` : '')
+
+export function summaryText(s, date = new Date(wallNow())) {
+  const g = gameSheet(s)
   const out = []
-  if (s.opts?.title) out.push(s.opts.title)
-  out.push(`${s.home.name} ${s.home.score} - ${s.away.score} ${s.away.name}`)
-  out.push(`${L.shots || 'SHOTS'}: ${s.home.name} ${s.home.shots} - ${s.away.shots} ${s.away.name}`)
-  const soH = soGoals(s, 'home'), soA = soGoals(s, 'away')
-  if ((s.shootout?.home?.length || 0) + (s.shootout?.away?.length || 0) > 0) {
-    const mark = l => l.map(x => (x === 'goal' ? 'O' : 'X')).join('') || '-'
-    out.push(`SO: ${s.home.name} ${soH} (${mark(s.shootout.home)}) - ${soA} (${mark(s.shootout.away)}) ${s.away.name}`)
+  out.push(`GAME SUMMARY${g.title ? ' — ' + g.title : ''}`)
+  out.push(date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))
+  out.push('', `${g.home.name} ${g.totals.home.goals} – ${g.totals.away.goals} ${g.away.name}`)
+  const w = Math.max(g.home.name.length, g.away.name.length, 4) + 2
+  const head = col('', w) + g.periods.map(p => col(p.label, 5)).join('') + 'TOTAL'
+  const line = (t, by, total) => col(g[t].name, w) + g.periods.map(p => col(by[t][p.id] || 0, 5)).join('') + total
+  out.push('', 'GOALS BY PERIOD', head, line('home', g.goalsBy, g.totals.home.goals), line('away', g.goalsBy, g.totals.away.goals))
+  out.push('', 'SHOTS ON GOAL', head, line('home', g.shotsBy, g.totals.home.shots), line('away', g.shotsBy, g.totals.away.shots))
+  if (g.shootout.home.length + g.shootout.away.length) {
+    const mark = l => l.map(x => (x === 'goal' ? 'O' : 'X')).join(' ') || '-'
+    out.push('', 'SHOOTOUT', `${col(g.home.name, w)}${mark(g.shootout.home)}  (${g.shootout.homeGoals})`, `${col(g.away.name, w)}${mark(g.shootout.away)}  (${g.shootout.awayGoals})`)
   }
-  const rows = summaryRows(s)
-  let cur = null
-  const TYPE = { goal: (L.goal || 'GOAL').replace(/!$/, ''), penalty: L.penalty || 'PENALTY', timeout: L.timeout || 'TIMEOUT', so: 'SO' }
-  for (const r of rows) {
-    if (r.period !== cur) { cur = r.period; out.push('', periodTitle(s, cur)) }
-    const score = r.type === 'goal' ? ` (${r.home}-${r.away})` : ''
-    out.push(`  ${r.time}  ${TYPE[r.type] || r.type}  ${r.teamName}${r.detail ? ' ' + r.detail : ''}${score}`)
+  out.push('', 'GOALS')
+  if (!g.goals.length) out.push('  —')
+  else {
+    out.push(col('No', 4) + col('Time', 7) + col('Team', w) + col('Goal', 6) + col('Assists', 12) + col('Sit.', 8) + 'Score')
+    for (const x of g.goals) out.push(col(x.no, 4) + col(x.time, 7) + col(x.teamName, w) + col(num(x.scorer) || '?', 6) + col([num(x.a1), num(x.a2)].filter(Boolean).join(', '), 12) + col(x.situation, 8) + x.score)
   }
-  if (!rows.length) out.push('', '(no events)')
+  out.push('', 'PENALTIES')
+  if (!g.penalties.length) out.push('  —')
+  else {
+    out.push(col('Time', 7) + col('Team', w) + col('No', 5) + col('PIM', 5) + col('Offence', 26) + 'End')
+    for (const x of g.penalties) out.push(col(x.time, 7) + col(x.teamName, w) + col(num(x.player), 5) + col(x.pim, 5) + col(x.offence, 26) + x.end)
+  }
+  out.push('', 'TOTALS', col('', w) + col('SOG', 6) + col('PIM', 6) + col('PPG', 6) + 'SHG')
+  for (const t of ['home', 'away']) { const x = g.totals[t]; out.push(col(g[t].name, w) + col(x.shots, 6) + col(x.pim, 6) + col(x.ppg, 6) + x.shg) }
+  if (g.timeouts.length) out.push('', 'TIMEOUTS', ...g.timeouts.map(x => `${col(x.time, 7)}${x.teamName}`))
+  out.push('', 'Sit.: EQ even strength · PP1/PP2 power play · SH1/SH2 short-handed · PS penalty shot · EN empty net')
   return out.join('\n')
 }
 
 const csvCell = v => { const t = String(v ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t }
 
 export function summaryCsv(s) {
-  const head = ['period', 'time', 'event', 'team', 'player', 'minutes', 'detail', 'home', 'away']
+  const g = gameSheet(s)
+  const head = ['section', 'period', 'time', 'team', 'number', 'assist1', 'assist2', 'situation', 'pim', 'offence', 'end', 'score']
   const lines = [head.join(',')]
-  for (const r of summaryRows(s)) lines.push([r.period, r.time, r.type, r.teamName, r.player, r.minutes, r.detail, r.home, r.away].map(csvCell).join(','))
+  for (const x of g.goals) lines.push(['goal', x.period, x.time, x.teamName, x.scorer, x.a1, x.a2, x.situation, '', '', '', x.score].map(csvCell).join(','))
+  for (const x of g.penalties) lines.push(['penalty', x.period, x.time, x.teamName, x.player, '', '', '', x.pim, x.offence, x.end, ''].map(csvCell).join(','))
+  for (const t of ['home', 'away']) {
+    for (const p of g.periods) lines.push(['shots', p.id, '', g[t].name, '', '', '', '', '', '', '', g.shotsBy[t][p.id] || 0].map(csvCell).join(','))
+  }
   return lines.join('\n')
+}
+
+const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+
+// Printable game sheet (Control → Summary → Print / PDF)
+export function summaryHtml(s, date = new Date(wallNow())) {
+  const g = gameSheet(s)
+  const byRow = (t, by, total) => `<tr><th style="border-left:6px solid ${esc(g[t].color)}">${esc(g[t].name)}</th>${g.periods.map(p => `<td>${by[t][p.id] || 0}</td>`).join('')}<td><b>${total}</b></td></tr>`
+  const periodHead = `<tr><th></th>${g.periods.map(p => `<th>${esc(p.label)}</th>`).join('')}<th>Total</th></tr>`
+  const rows = (list, cells) => list.length ? list.map(x => `<tr>${cells(x).map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="9">—</td></tr>'
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Game summary ${esc(g.home.name)} vs ${esc(g.away.name)}</title>
+<style>
+body{font:13px/1.35 system-ui,sans-serif;color:#111;margin:24px}h1{font-size:20px;margin:0}h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:18px 0 6px;border-bottom:2px solid #111;padding-bottom:2px}
+.score{font-size:26px;font-weight:800;margin:8px 0}.muted{color:#555}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:4px 6px;text-align:left}thead th,tr:first-child th{background:#eee}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}.legend{margin-top:14px;font-size:11px;color:#555}@media print{body{margin:10mm}}
+</style></head><body>
+<h1>Game summary${g.title ? ' — ' + esc(g.title) : ''}</h1>
+<div class="muted">${esc(date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</div>
+<div class="score">${esc(g.home.name)} ${g.totals.home.goals} – ${g.totals.away.goals} ${esc(g.away.name)}</div>
+<div class="two"><div><h2>Goals by period</h2><table>${periodHead}${byRow('home', g.goalsBy, g.totals.home.goals)}${byRow('away', g.goalsBy, g.totals.away.goals)}</table></div>
+<div><h2>Shots on goal</h2><table>${periodHead}${byRow('home', g.shotsBy, g.totals.home.shots)}${byRow('away', g.shotsBy, g.totals.away.shots)}</table></div></div>
+<h2>Goals</h2><table><tr><th>No</th><th>Time</th><th>Team</th><th>Goal</th><th>A1</th><th>A2</th><th>Sit.</th><th>Score</th></tr>
+${rows(g.goals, x => [x.no, x.time, x.teamName, num(x.scorer) || '?', num(x.a1), num(x.a2), x.situation, x.score])}</table>
+<h2>Penalties</h2><table><tr><th>Time</th><th>Team</th><th>No</th><th>PIM</th><th>Offence</th><th>End</th></tr>
+${rows(g.penalties, x => [x.time, x.teamName, num(x.player), x.pim, x.offence, x.end])}</table>
+${g.shootout.home.length + g.shootout.away.length ? `<h2>Shootout</h2><table>${['home', 'away'].map(t => `<tr><th>${esc(g[t].name)}</th><td>${g.shootout[t].map(x => (x === 'goal' ? '●' : '○')).join(' ')}</td><td><b>${g.shootout[t + 'Goals']}</b></td></tr>`).join('')}</table>` : ''}
+<h2>Totals</h2><table><tr><th>Team</th><th>Goals</th><th>SOG</th><th>PIM</th><th>PPG</th><th>SHG</th></tr>
+${['home', 'away'].map(t => { const x = g.totals[t]; return `<tr><th>${esc(g[t].name)}</th><td>${x.goals}</td><td>${x.shots}</td><td>${x.pim}</td><td>${x.ppg}</td><td>${x.shg}</td></tr>` }).join('')}</table>
+${g.timeouts.length ? `<h2>Timeouts</h2><table>${g.timeouts.map(x => `<tr><td>${esc(x.time)}</td><td>${esc(x.teamName)}</td></tr>`).join('')}</table>` : ''}
+<div class="legend">Times are game time from the start of the game. Sit.: EQ even strength · PP1/PP2 power play · SH1/SH2 short-handed · PS penalty shot · EN empty net. PIM = penalty minutes, PPG/SHG = power-play / short-handed goals.</div>
+</body></html>`
 }

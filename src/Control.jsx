@@ -211,6 +211,10 @@ export default function Control() {
                 <button className="goal" onClick={() => update(x => G.addScore(x, team, 1))}>{t('goal')}</button>
                 <button className="goal horn" aria-label={`goal and horn ${team}`} onClick={() => update(x => G.fireHorn(G.addScore(x, team, 1)))}>{t('goalHorn')}</button>
               </div>
+              {(() => {
+                const g = G.goalNeedingScorer(s, team)
+                return g && <button className="btn sm scorerbtn" aria-label={`goal details ${team}`} onClick={() => setSheet(`goal-${g.id}`)}>✎ {t('addScorer')} · {G.fmtGameTime(G.eventGameTimeMs(s, g))}</button>
+              })()}
               {isSO && (
                 <div className="so">
                   <div className="marks" aria-label={`shootout ${team}`}>{so.length ? so.map((a, i) => <span key={i} className={`so-${a}`}>{a === 'goal' ? '●' : '○'}</span>) : <span className="none">—</span>}</div>
@@ -316,7 +320,8 @@ export default function Control() {
         </Sheet>
       )}
       {sheet === 'options' && <Options s={s} update={update} close={() => setSheet(null)} />}
-      {sheet === 'summary' && <SummarySheet s={s} gameId={gameId} close={() => setSheet(null)} t={t} />}
+      {sheet === 'summary' && <SummarySheet s={s} gameId={gameId} close={() => setSheet(null)} t={t} editGoal={id => setSheet(`goal-${id}`)} />}
+      {sheet?.startsWith('goal-') && <GoalSheet s={s} id={sheet.slice(5)} update={update} close={() => setSheet(null)} t={t} />}
       {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} t={t} />}
     </div>
   )
@@ -446,21 +451,74 @@ function download(name, text, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-function SummarySheet({ s, gameId, close, t }) {
+function SummarySheet({ s, gameId, close, t, editGoal }) {
   const text = G.summaryText(s)
+  const sheet = G.gameSheet(s)
   const [copied, setCopied] = useState(false)
   const stamp = new Date().toISOString().slice(0, 10)
   const base = `${gameId}-${stamp}`
+  // printable IIHF-style game sheet; "Save as PDF" in the print dialog gives the PDF
+  const print = () => {
+    const html = G.summaryHtml(s)
+    const w = window.open('', '_blank')
+    if (!w) { download(`${base}.html`, html, 'text/html'); return }
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => w.print(), 300)
+  }
   return (
     <Sheet close={close}>
       <h3>{t('summaryTitle')}</h3>
+      {sheet.goals.length > 0 && (
+        <div className="goallist">
+          {sheet.goals.map(g => (
+            <button key={g.id} className="btn sm" aria-label={`edit goal ${g.no}`} onClick={() => editGoal(g.id)}>
+              <span className="tnum">{g.time}</span> <b>{g.teamName}</b> {g.scorer ? `#${g.scorer}` : '?'}{g.a1 ? ` (${[g.a1, g.a2].filter(Boolean).map(n => '#' + n).join(', ')})` : ''} <small>{g.situation}</small> <span className="tnum">{g.score}</span> ✎
+            </button>
+          ))}
+        </div>
+      )}
       <pre className="summary">{text}</pre>
       <div className="row">
         <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>{copied ? t('copied') : t('copy')}</button>
         <button className="btn sm" onClick={() => download(`${base}.txt`, text, 'text/plain')}>{t('downloadTxt')}</button>
         <button className="btn sm" onClick={() => download(`${base}.csv`, G.summaryCsv(s), 'text/csv')}>{t('downloadCsv')}</button>
+        <button className="btn sm accent" onClick={print}>{t('printPdf')}</button>
       </div>
       <button className="btn ghost" onClick={close}>{t('close')}</button>
+    </Sheet>
+  )
+}
+
+// Game-sheet details for one goal: scorer, assists, situation, empty net
+const SITUATIONS = ['EQ', 'PP1', 'PP2', 'SH1', 'SH2', 'PS']
+function GoalSheet({ s, id, update, close, t }) {
+  const e = (s.events || []).find(x => x.id === id && x.type === 'goal')
+  const [scorer, setScorer] = useState(e?.scorer || '')
+  const [a1, setA1] = useState(e?.a1 || '')
+  const [a2, setA2] = useState(e?.a2 || '')
+  const [situation, setSituation] = useState(e?.situation || 'EQ')
+  const [en, setEn] = useState(Boolean(e?.en))
+  if (!e) return null
+  const save = () => { update(x => G.editGoal(x, id, { scorer, a1, a2, situation, en })); close() }
+  const enter = ev => ev.key === 'Enter' && save()
+  return (
+    <Sheet close={close}>
+      <h3 style={{ color: s[e.team].color }}>{t('goalDetails')} · {s[e.team].name} · <span className="tnum">{G.fmtGameTime(G.eventGameTimeMs(s, e))}</span></h3>
+      <div className="grid3">
+        <label>{t('scorer')}<input inputMode="numeric" autoFocus value={scorer} onChange={ev => setScorer(ev.target.value)} placeholder="#" onKeyDown={enter} /></label>
+        <label>{t('assist1')}<input inputMode="numeric" value={a1} onChange={ev => setA1(ev.target.value)} placeholder="#" onKeyDown={enter} /></label>
+        <label>{t('assist2')}<input inputMode="numeric" value={a2} onChange={ev => setA2(ev.target.value)} placeholder="#" onKeyDown={enter} /></label>
+      </div>
+      {/* a <div>, not a <label>: label text would "click" the first button */}
+      <div className="field">{t('situation')}
+        <div className="choices" style={{ flexWrap: 'wrap' }}>
+          {SITUATIONS.map(x => <button key={x} className={`btn sm ${situation === x ? 'on' : ''}`} onClick={() => setSituation(x)}>{x}</button>)}
+          <button className={`btn sm ${en ? 'on' : ''}`} aria-pressed={en} onClick={() => setEn(!en)}>EN · {t('emptyNet')}</button>
+        </div>
+      </div>
+      <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={save}>{t('save')}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
     </Sheet>
   )
 }

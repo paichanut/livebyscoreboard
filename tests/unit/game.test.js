@@ -254,7 +254,8 @@ test('removing a penalty that never ran drops it from the log; one that ran stay
   const id = s.penalties[0].id
   s = { ...s, clock: { remainingMs: 15 * MIN, running: true, since: Date.now() - 30_000 }, penFoldAt: Date.now() - 30_000, playLive: true } // 30 s served
   s = G.removePenalty(s, id)
-  assert.equal(s.events.length, 1, 'early release stays in the log')
+  assert.equal(s.events.filter(e => e.type === 'penalty').length, 1, 'early release stays in the log')
+  assert.equal(s.events.filter(e => e.type === 'penaltyEnd' && e.penaltyId === id).length, 1, 'with its end time')
 })
 
 test('shootout attempts, undo, clear', () => {
@@ -276,31 +277,57 @@ test('shootout attempts, undo, clear', () => {
   assert.deepEqual(G.resetGame(G.soAttempt(s, 'home', true)).shootout, { home: [], away: [] })
 })
 
-test('summary text and CSV', () => {
-  let s = G.setTeam(G.setTeam(game(), 'home', { name: 'Bears' }), 'away', { name: 'Sharks' })
-  s = { ...s, clock: { remainingMs: 10 * MIN + 30_000, running: false, since: null } }
+test('game sheet (IIHF style): game time, scorer/assists, situation, penalty end, shots by period', () => {
+  let s = G.setTeam(G.setTeam(game({ periodLengthMs: 15 * MIN }), 'home', { name: 'Bears' }), 'away', { name: 'Sharks' })
+  const at = (ms, period = s.period) => { s = { ...s, period, clock: { remainingMs: ms, running: false, since: null } } }
+  at(10 * MIN + 30_000)
+  s = G.addShot(s, 'home', 1)
   s = G.addScore(s, 'home', 1)
-  s = G.addPenalty(s, 'away', '12', 2)
+  s = G.editGoal(s, s.events.at(-1).id, { scorer: '17', a1: '9', a2: '#4x' })
+  s = G.addPenalty(s, 'away', '12', 2, 'Tripping')
+  at(9 * MIN)
+  s = G.addScore(s, 'home', 1) // power play: releases #12
+  assert.equal(s.events.filter(e => e.type === 'goal').at(-1).situation, 'PP1')
   s = G.setPeriod(s, 'OT')
-  s = { ...s, clock: { remainingMs: 4 * MIN, running: false, since: null } }
+  at(4 * MIN)
+  s = G.addShot(s, 'away', 1)
   s = G.addScore(s, 'away', 1)
-  s = G.addShot(G.addShot(s, 'home', 1), 'away', 1)
+  s = G.editGoal(s, s.events.at(-1).id, { en: true, scorer: '8' })
+  const g = G.gameSheet(s)
+  assert.deepEqual(g.goals.map(x => [x.time, x.teamName, x.scorer, x.a1, x.a2, x.situation, x.score]), [
+    ['04:30', 'Bears', '17', '9', '4', 'EQ', '1:0'],
+    ['06:00', 'Bears', '', '', '', 'PP1', '2:0'],
+    ['46:00', 'Sharks', '8', '', '', 'EQ EN', '2:1'], // OT: 3 × 15:00 + 1:00
+  ])
+  assert.deepEqual(g.penalties.map(x => [x.time, x.player, x.pim, x.offence, x.end]), [['04:30', '12', 2, 'Tripping', '06:00']])
+  assert.deepEqual(g.periods.map(p => p.label), ['P1', 'P2', 'P3', 'OT'])
+  assert.deepEqual([g.shotsBy.home['1'], g.shotsBy.away.OT], [1, 1])
+  assert.deepEqual(g.totals.home, { goals: 2, shots: 1, pim: 0, ppg: 1, shg: 0 })
+  assert.equal(g.totals.away.pim, 2)
   const text = G.summaryText(s)
-  assert.match(text, /^Bears 1 - 1 Sharks\n/)
-  assert.match(text, /SHOTS: Bears 1 - 1 Sharks/)
-  assert.match(text, /PERIOD 1\n  10:30  GOAL  Bears \(1-0\)\n  10:30  PENALTY  Sharks #12 2 min/)
-  assert.match(text, /\nOT\n  4:00  GOAL  Sharks \(1-1\)/)
-  // count-up clock shows elapsed time
-  const up = { ...s, opts: { ...s.opts, clockDir: 'up' } }
-  assert.match(G.summaryText(up), /4:30  GOAL  Bears/)
+  assert.match(text, /^GAME SUMMARY/)
+  assert.match(text, /Bears 2 – 1 Sharks/)
+  assert.match(text, /04:30 +Bears +#17 +#9, #4 +EQ +1:0/)
+  assert.match(text, /04:30 +Sharks +#12 +2 +Tripping +06:00/)
   const csv = G.summaryCsv(s).split('\n')
-  assert.equal(csv[0], 'period,time,event,team,player,minutes,detail,home,away')
-  assert.equal(csv[1], '1,10:30,goal,Bears,,,,1,0')
-  assert.equal(csv[2], '1,10:30,penalty,Sharks,12,2,#12 2 min,1,0')
-  assert.equal(csv[3], 'OT,4:00,goal,Sharks,,,,1,1')
+  assert.equal(csv[0], 'section,period,time,team,number,assist1,assist2,situation,pim,offence,end,score')
+  assert.equal(csv[1], 'goal,1,04:30,Bears,17,9,4,EQ,,,,1:0')
+  assert.ok(csv.includes('penalty,1,04:30,Sharks,12,,,,2,Tripping,06:00,'))
+  assert.match(G.summaryHtml(s), /<td>#17<\/td><td>#9<\/td><td>#4<\/td><td>EQ<\/td>/)
   // quoting
   const q = G.setTeam(game(), 'home', { name: 'A, "B"' })
   assert.match(G.summaryCsv(G.addScore(q, 'home', 1)), /"A, ""B"""/)
+})
+
+test('short-handed and penalty-shot goals; -1 shot comes off the current period', () => {
+  let s = G.addPenalty(game(), 'home', '3', 2)
+  s = { ...s, clock: { remainingMs: 10 * MIN, running: false, since: null } }
+  s = G.addScore(s, 'home', 1)
+  s = G.addScore(s, 'away', 1, { penaltyShot: true })
+  assert.deepEqual(s.events.filter(e => e.type === 'goal').map(e => e.situation), ['SH1', 'PS'])
+  s = G.addShot(G.addShot(s, 'away', 1), 'away', -1)
+  assert.equal(s.away.shotsBy['1'], 0)
+  assert.equal(G.gameSheet(s).totals.home.shg, 1)
 })
 
 test('withDefaults adds events and shootout to games saved before they existed', () => {
@@ -415,7 +442,7 @@ test('game misconduct: no clock, no strength, not displayed, 20 min in the log',
   assert.equal(gm.minutes, 20)
   assert.equal(G.activePenalties(s, 'home', t).length, 1)
   assert.equal(G.strengthLabel(s, t), '4v5')
-  assert.match(G.summaryText(s), /game misconduct/)
+  assert.match(G.summaryText(s), /Game misconduct – Checking from behind/)
   // still there after the major is over and after a fold
   const f = G.pruneExpiredPenalties({ ...s, clock: { ...s.clock, since: Date.now() - 20 * MIN } })
   assert.deepEqual(f.penalties.map(p => p.kind), ['game'])

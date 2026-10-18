@@ -40,31 +40,50 @@ test('shootout: attempts show on control, display and banner; score stays manual
   await expect(boardHome(board).locator('.so')).toHaveCount(0)
 })
 
-test('game summary sheet lists goals and penalties with the running score', async ({ page }) => {
+test('game summary (IIHF style): scorer and assists after a goal, penalties, shots, CSV and print', async ({ page }) => {
   const code = uniqueCode('sum')
   await openControl(page, code)
   await page.getByRole('button', { name: 'SET', exact: true }).click()
   await page.locator('.sheet').getByLabel('Minutes').fill('10')
   await page.locator('.sheet').getByLabel('Seconds').fill('30')
   await page.locator('.sheet').getByRole('button', { name: 'Set', exact: true }).click()
+  await home(page).getByRole('button', { name: 'Shot +', exact: true }).click()
   await home(page).getByRole('button', { name: '+ GOAL' }).click()
+  // the team card offers the scorer right after the goal
+  await page.getByRole('button', { name: 'goal details home' }).click()
+  const sheet = page.locator('.sheet')
+  await sheet.getByLabel('Goal #').fill('17')
+  await sheet.getByLabel('Assist 1 #').fill('9')
+  await sheet.getByLabel('Assist 2 #').fill('4')
+  await sheet.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('button', { name: 'goal details home' })).toHaveCount(0)
   await addPenalty(page, 'away', 12, 2)
   await page.getByRole('button', { name: 'Period ▶' }).click()
   await away(page).getByRole('button', { name: '+ GOAL' }).click()
-  await away(page).getByRole('button', { name: 'Shot +', exact: true }).click()
 
   await page.getByRole('button', { name: '📋 Summary' }).click()
   const text = await page.locator('.sheet pre.summary').textContent()
-  expect(text).toContain('HOME 1 - 1 AWAY')
-  expect(text).toContain('SHOTS: HOME 0 - 1 AWAY')
-  expect(text).toContain('PERIOD 1\n  10:30  GOAL  HOME (1-0)\n  10:30  PENALTY  AWAY #12 2 min')
-  expect(text).toContain('PERIOD 2\n  15:00  GOAL  AWAY (1-1)')
+  expect(text).toContain('HOME 1 – 1 AWAY')
+  expect(text).toMatch(/04:30 +HOME +#17 +#9, #4 +EQ +1:0/)
+  expect(text).toMatch(/15:00 +AWAY +\? +SH1 +1:1/) // period 2 starts at 15:00 game time; AWAY is a man down
+  expect(text).toMatch(/04:30 +AWAY +#12 +2 +Minor/)
+  expect(text).toMatch(/SHOTS ON GOAL[\s\S]*HOME +1 +0 +0 +1/)
+  // edit the away goal from the list
+  await page.getByRole('button', { name: 'edit goal 2' }).click()
+  await page.locator('.sheet').getByLabel('Goal #').fill('8')
+  await page.locator('.sheet').getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: '📋 Summary' }).click()
+  await expect(page.locator('.sheet pre.summary')).toContainText('#8')
 
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download .csv' }).click()])
   expect(dl.suggestedFilename()).toMatch(new RegExp(`^${code}-\\d{4}-\\d{2}-\\d{2}\\.csv$`))
   const csv = await (await dl.createReadStream()).toArray().then(b => Buffer.concat(b).toString())
-  expect(csv.split('\n')[0]).toBe('period,time,event,team,player,minutes,detail,home,away')
-  expect(csv).toContain('1,10:30,penalty,AWAY,12,2,#12 2 min,1,0')
+  expect(csv.split('\n')[0]).toBe('section,period,time,team,number,assist1,assist2,situation,pim,offence,end,score')
+  expect(csv).toContain('goal,1,04:30,HOME,17,9,4,EQ,,,,1:0')
+
+  const [popup] = await Promise.all([page.waitForEvent('popup'), page.getByRole('button', { name: 'Print / PDF' }).click()])
+  await expect(popup.locator('h1')).toContainText('Game summary')
+  await expect(popup.locator('table').nth(2)).toContainText('#17')
 })
 
 test('Thai control UI: switch language in Options → Text', async ({ page }) => {

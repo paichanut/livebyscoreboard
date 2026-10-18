@@ -585,3 +585,10 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 /* full layout: the tournament logo fills what is left under the clock */
 .board .logofill { flex: 1 1 0; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
 .board .logofill .centerlogo { height: 100%; max-height: calc(26 * var(--u)); max-width: 90%; object-fit: contain; }
+
+/* goal details (IIHF game sheet) */
+.control .tc .scorerbtn { width: 100%; padding: 6px; font-size: 13px; background: transparent; border: 1px dashed var(--c); color: var(--accent); }
+.sheet .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sheet .goallist { display: flex; flex-direction: column; gap: 6px; max-height: 30vh; overflow: auto; }
+.sheet .goallist .btn { display: flex; gap: 8px; align-items: baseline; justify-content: flex-start; text-align: left; }
+.sheet .goallist .btn small { color: var(--muted); }
