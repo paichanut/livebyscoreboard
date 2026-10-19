@@ -28,7 +28,7 @@ npm run build            # dist/ (Vercel builds this automatically)
 | `/login` | Login.jsx | operator login (username + password) |
 | `/teams` | Teams.jsx | team logo library (this browser) |
 
-**Offline desktop app** (`desktop/`, see desktop/README.md): Electron wrapper for one computer + HDMI. `npm run build:desktop` = `vite build --mode desktop` (`.env.desktop`: `VITE_DESKTOP=1`, `VITE_ALLOW_LOCAL=1`) → `desktop/web`; `sync.js` `DESKTOP` forces the same-computer store (ONLINE false, no login), `fonts-offline.js` bundles the fonts (vite.config drops the Google Fonts links in that mode), Control hides Home/QR. `desktop/main.cjs` serves the build on `app://scoreboard`, opens `/c/main` maximized on the primary screen and `/b/main` full screen on the external screen (re-placed on display-added/removed), autoplay allowed. Windows builds: `.github/workflows/desktop.yml` (windows-latest → GitHub Release).
+**Offline desktop app** (`desktop/`, see desktop/README.md): Electron wrapper for one computer + HDMI. `npm run build:desktop` = `vite build --mode desktop` (`.env.desktop`: `VITE_DESKTOP=1`, `VITE_ALLOW_LOCAL=1`) → `desktop/web`; `sync.js` `DESKTOP` forces the same-computer store (ONLINE false, no login), `fonts-offline.js` bundles the fonts (vite.config drops the Google Fonts links in that mode), Control hides Home/QR. `desktop/main.cjs` serves the build on `app://scoreboard`, opens `/c/main` maximized on the primary screen and `/b/main` full screen on the external screen (re-placed on display-added/removed), autoplay allowed. Windows builds: `.github/workflows/desktop.yml` (windows-latest → .msi + setup .exe + portable .exe as a GitHub Release).
 
 ## Architecture
 

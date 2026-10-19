@@ -15,9 +15,9 @@ is still there after a restart.
 ```bash
 npm ci && npm run build:desktop          # web app → desktop/web (mode "desktop": local store, bundled fonts)
 cd desktop && npm ci
-npx electron-builder --win nsis portable # on Windows (or CI). On Linux without Wine:
+npx electron-builder --win msi nsis portable # on Windows (or CI). On Linux without Wine:
 npx electron-builder --win zip -c.win.signAndEditExecutable=false
 ```
 
-CI: `.github/workflows/desktop.yml` builds the installer and portable .exe on `windows-latest` for every
+CI: `.github/workflows/desktop.yml` builds the .msi, the installer .exe and the portable .exe on `windows-latest` for every
 push to main that touches the app, and publishes them as a GitHub Release.

@@ -1,4 +1,4 @@
-# Builds the offline Windows app (desktop/) on a real Windows runner: installer + portable .exe.
+# Builds the offline Windows app (desktop/) on a real Windows runner: .msi, installer .exe and portable .exe.
 # Each run publishes a GitHub Release; https://github.com/<owner>/<repo>/releases/latest is the newest.
 name: Desktop app (Windows)
 
@@ -24,20 +24,25 @@ jobs:
       - run: npm run build:desktop
       - run: npm ci
         working-directory: desktop
-      - run: npx electron-builder --win nsis portable --x64 --publish never
+      - run: npx electron-builder --win msi nsis portable --x64 --publish never
         working-directory: desktop
       - uses: actions/upload-artifact@v4
         with:
           name: LiveByScoreboard-windows
-          path: desktop/dist/*.exe
+          path: |
+            desktop/dist/*.msi
+            desktop/dist/*.exe
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: desktop-build-${{ github.run_number }}
           name: Live by Scoreboard desktop (build ${{ github.run_number }})
           body: |
             Offline Windows app: one computer, control on the laptop, scoreboard full screen on the HDMI screen. No internet needed.
-            - LiveByScoreboard-Setup-*.exe: installer (Start menu + desktop shortcut)
+            - LiveByScoreboard-*.msi: Windows Installer package (Start menu + desktop shortcut)
+            - LiveByScoreboard-Setup-*.exe: the same as an .exe installer
             - LiveByScoreboard-Portable-*.exe: no install, just run
             Windows may warn the first time (unsigned app): More info → Run anyway.
-          files: desktop/dist/*.exe
+          files: |
+            desktop/dist/*.msi
+            desktop/dist/*.exe
           make_latest: true

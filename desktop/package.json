@@ -8,7 +8,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist:win": "electron-builder --win nsis portable --publish never"
+    "dist:win": "electron-builder --win msi nsis portable --publish never"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -27,6 +27,7 @@
     "icon": "icon.png",
     "win": {
       "target": [
+        "msi",
         "nsis",
         "portable"
       ]
@@ -40,6 +41,14 @@
     },
     "portable": {
       "artifactName": "LiveByScoreboard-Portable-${version}.exe"
+    },
+    "msi": {
+      "oneClick": false,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Live by Scoreboard",
+      "artifactName": "LiveByScoreboard-${version}.msi"
     }
   }
 }
