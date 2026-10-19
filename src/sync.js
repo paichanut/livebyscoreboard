@@ -269,52 +269,114 @@ function supabaseStore(gameId, { key = '', canWrite = false } = {}) {
 }
 
 // ---------- Online link viewer (desktop app shared through a tunnel) ----------
-// Long polling desktop/share.cjs: GET /api/state/<id>?v=<updatedAt> answers when the game changes (or after
-// ~25 s with no state). Each answer carries the desktop computer's clock; the fastest round trip so far gives
-// the offset, so this phone's game clock matches the rink's.
+// Long polling desktop/share.cjs: GET /api/state/<id>?v=<seq> answers when the game changes (or after ~25 s
+// with nothing new). Pictures come as /api/img/<hash> (fetched once). The clock offset comes from
+// GET /api/time, a tiny answer sent at once: the fastest of a few round trips gives the offset, so this
+// phone's game clock matches the rink's (a long poll's time would include the wait and the download).
+// A controller opened through the link sends only the parts of the game it changed; the desktop merges
+// them into its own game, so two phones changing different things never undo each other.
+const same = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b)
+
 function viewerStore(gameId) {
+  const api = `/api/state/${encodeURIComponent(gameId)}`
+  let server = null // the desktop's game
+  let seq = 0
+  const local = {} // parts changed here that the desktop has not confirmed yet
+  const dirty = new Set() // ...and not sent yet
   let state = null
-  let bestRtt = Infinity
   let stopped = false
-  let pending = null
   let sendTimer = null
+  let sending = false
   const listeners = new Set()
   const access = () => (state ? 'ok' : 'reading')
+  const emit = () => listeners.forEach(fn => fn(state, access()))
+  const rebuild = () => {
+    for (const k of Object.keys(local)) if (!dirty.has(k) && same(local[k], server?.[k])) delete local[k]
+    state = server && { ...server, ...local }
+    emit()
+  }
+  // pictures (logos, background) load once when the page opens and stay cached (immutable on the desktop side)
+  const preloaded = new Set()
+  const preload = st => {
+    for (const src of JSON.stringify(st).match(/\/api\/img\/[0-9a-f]{40}/g) || []) {
+      if (!preloaded.has(src)) { preloaded.add(src); new Image().src = src }
+    }
+  }
+  const take = m => { if (m?.state && m.seq > seq) { seq = m.seq; server = m.state; preload(server) } }
+
   async function send() {
     sendTimer = null
-    const body = JSON.stringify({ state: pending })
-    pending = null
-    const r = await fetch(`/api/state/${encodeURIComponent(gameId)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).catch(() => null)
-    if (r?.status === 401) window.location.reload() // logged out (12 h): the page sends you to log in again
+    if (sending || !dirty.size) return
+    const patch = {}
+    for (const k of dirty) patch[k] = k in local ? local[k] ?? null : server?.[k] ?? null
+    dirty.clear()
+    sending = true
+    try {
+      const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch }) })
+      if (r.status === 401) { window.location.reload(); return } // logged out (12 h): the page sends you to log in again
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      take(await r.json())
+      for (const k of Object.keys(patch)) if (!dirty.has(k) && same(local[k], patch[k])) delete local[k]
+      rebuild()
+    } catch {
+      for (const k of Object.keys(patch)) if (k in local && !same(server?.[k], local[k])) dirty.add(k)
+      sendTimer = setTimeout(send, 1000)
+    } finally {
+      sending = false
+      if (dirty.size && !sendTimer) sendTimer = setTimeout(send, 0)
+    }
   }
-  const emit = () => listeners.forEach(fn => fn(state, access()))
-  async function loop() {
+
+  async function poll() {
     while (!stopped) {
-      const t0 = Date.now()
       try {
-        const r = await fetch(`/api/state/${encodeURIComponent(gameId)}?v=${state?.updatedAt || 0}`, { cache: 'no-store' })
+        const r = await fetch(`${api}?v=${seq}`, { cache: 'no-store' })
         const m = await r.json()
-        const t1 = Date.now()
-        if (m.now && t1 - t0 < bestRtt) { bestRtt = t1 - t0; setTimeOffset(m.now + bestRtt / 2 - t1) }
-        if (m.state && (!state || m.state.updatedAt >= state.updatedAt)) { state = m.state; emit() }
+        if (m.state && m.seq > seq) { take(m); rebuild() }
       } catch {
         await new Promise(res => setTimeout(res, 2000))
       }
     }
   }
-  loop()
+
+  // clock offset: a few quick round trips now and every 30 s; the fastest of the last 5 minutes wins
+  let samples = []
+  async function syncTime(n) {
+    for (let i = 0; i < n && !stopped; i++) {
+      try {
+        const t0 = Date.now()
+        const m = await (await fetch('/api/time', { cache: 'no-store' })).json()
+        const t1 = Date.now()
+        if (typeof m.now === 'number') samples.push({ at: t1, rtt: t1 - t0, offset: m.now + (t1 - t0) / 2 - t1 })
+      } catch {}
+    }
+    samples = samples.filter(x => x.at > Date.now() - 5 * 60_000)
+    const best = samples.reduce((a, b) => (!a || b.rtt < a.rtt ? b : a), null)
+    if (best) setTimeOffset(best.offset)
+  }
+  syncTime(6)
+  poll()
+  const timeTimer = setInterval(() => syncTime(3), 30_000)
+  const onVisible = () => { if (document.visibilityState === 'visible') syncTime(3) }
+  document.addEventListener('visibilitychange', onVisible)
+
   return {
     get: () => state,
     getAccess: access,
     subscribe(fn) { listeners.add(fn); if (state) fn(state, access()); return () => listeners.delete(fn) },
-    // a controller opened through the link: send the change to the desktop app (coalesced like the cloud store)
+    // a controller opened through the link: show the change at once, send the changed parts (coalesced ~80 ms)
     set(next) {
+      const cur = state || {}
+      for (const k of new Set([...Object.keys(cur), ...Object.keys(next)])) {
+        if (k === 'updatedAt' || same(cur[k], next[k])) continue
+        local[k] = next[k]
+        dirty.add(k)
+      }
       state = next
       emit()
-      pending = next
-      if (!sendTimer) sendTimer = setTimeout(send, 80)
+      if (dirty.size && !sendTimer) sendTimer = setTimeout(send, 80)
     },
-    destroy() { stopped = true },
+    destroy() { stopped = true; clearInterval(timeTimer); document.removeEventListener('visibilitychange', onVisible) },
   }
 }
 
@@ -331,9 +393,12 @@ function localStore(gameId) {
   }
   // desktop app: hand every state to the online link (only the control window has this, see desktop/preload.cjs)
   const publish = () => { try { window.desktop?.publishState?.(gameId, state) } catch {} }
-  // ...and take changes made on controllers opened through the online link
-  const offRemote = window.desktop?.onRemoteState?.((id, next) => {
-    if (id === gameId && next && (!state || (next.updatedAt || 0) >= (state.updatedAt || 0))) api.set(next)
+  // ...and take changes made on controllers opened through the online link: the parts they changed,
+  // merged into this game (newest wins, whatever the phone's clock says)
+  const offRemote = window.desktop?.onRemoteState?.((id, patch) => {
+    if (id !== gameId || !patch || typeof patch !== 'object') return
+    const { updatedAt: _, ...parts } = patch
+    api.set({ ...state, ...parts, updatedAt: Math.max(Date.now(), (state?.updatedAt || 0) + 1) })
   })
   const emit = () => { listeners.forEach(fn => fn(state, 'ok')); publish() }
   publish()

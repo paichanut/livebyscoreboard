@@ -5,12 +5,15 @@
 // 1. A small web server on 127.0.0.1 serves the app read-only: the display pages and their files, and the
 //    live game state (pushed here by the control window, see preload.cjs) by long polling: a viewer asks
 //    for anything newer than what it has and the request waits until the game changes (quick tunnels
-//    don't carry Server-Sent Events).
+//    don't carry Server-Sent Events). Pictures (logos, background) leave the state: each becomes
+//    /api/img/<hash>, fetched once and cached, so a change only sends a few KB through the tunnel.
+//    GET /api/time answers at once with this computer's clock: viewers sync their game clock to it.
 //    Controllers (/c/main, ?rink=a|b) are served too. Through the tunnel the controller link carries this app's
 //    secret key (?key=…, only in the links the app shows and sends to Telegram): the first visit swaps it for
 //    a cookie on that phone and drops it from the address bar; after that the cookie is enough. Nothing goes
 //    through the Live by Scoreboard website. "New controller key" in the sheet makes old links useless.
-//    Their changes (POST /api/state/<id>) go to the control window, which stays the one place the game lives.
+//    Their changes (POST /api/state/<id>, only the parts of the game they changed) go to the control window,
+//    which stays the one place the game lives; the answer waits until the control window has the change.
 //    On this computer (127.0.0.1, no tunnel) no key is needed. Other pages are not served.
 // 2. cloudflared (Cloudflare's tunnel program, downloaded once into the app's data folder) opens a
 //    "quick tunnel" to that server. No Cloudflare account; a new address each time.
@@ -40,7 +43,12 @@ let settings = { enabled: false, controlKey: '', telegram: { botToken: '', chatI
 const newKey = () => require('node:crypto').randomBytes(12).toString('hex')
 let status = { state: 'off', url: '', telegram: '' }
 const games = new Map() // game id → latest state, from the control window
+const slim = new Map() // game id → { seq, json }: that state with pictures as /api/img/<hash>, ready to send
 const waiters = new Map() // game id → Set of long-poll requests waiting for a newer state
+const acks = new Map() // game id → Set of controller changes waiting for the control window's next state
+const imgs = new Map() // hash → { type, data, url } for /api/img/<hash>
+const imgHash = new Map() // data: URL → hash
+let seq = 0
 const POLL_MS = 25_000
 const SESSION_MS = 12 * 60 * 60_000
 const sessions = new Map() // cookie value → { expires } for controllers opened through the tunnel
@@ -95,18 +103,55 @@ const sameKey = k => {
   return a.length === b.length && require('node:crypto').timingSafeEqual(a, b)
 }
 
-// POST /api/state/<id> { state }: a controller's change → the control window (it saves, shows and publishes it)
+// ---------- pictures out of the state ----------
+const IMG_MIN = 2000 // shorter data: URLs stay inline
+const DATA_URL = /^data:([\w/+.-]+);base64,/
+function slimValue(v) {
+  if (typeof v === 'string') {
+    if (v.length < IMG_MIN || !DATA_URL.test(v)) return v
+    let h = imgHash.get(v)
+    if (!h) {
+      h = require('node:crypto').createHash('sha1').update(v).digest('hex')
+      imgHash.set(v, h)
+      imgs.set(h, { type: DATA_URL.exec(v)[1], data: Buffer.from(v.slice(v.indexOf(',') + 1), 'base64'), url: v })
+    }
+    return `/api/img/${h}`
+  }
+  if (Array.isArray(v)) return v.map(slimValue)
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, slimValue(x)]))
+  return v
+}
+// a controller's change back to the real pictures (the control window keeps data: URLs)
+const IMG_PATH = /^\/api\/img\/([0-9a-f]{40})$/
+function fatValue(v) {
+  if (typeof v === 'string') { const m = IMG_PATH.exec(v); return m && imgs.has(m[1]) ? imgs.get(m[1]).url : v }
+  if (Array.isArray(v)) return v.map(fatValue)
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fatValue(x)]))
+  return v
+}
+const stateMessage = id => `{"now":${Date.now()},"seq":${slim.get(id).seq},"state":${slim.get(id).json}}`
+function sendState(res, id) {
+  res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+  res.end(stateMessage(id))
+}
+
+// POST /api/state/<id> { patch }: the parts of the game a controller changed → the control window (it
+// merges, saves, shows and publishes them). Answers with the control window's new state.
 function receiveState(req, res, id) {
   if (!controllerAllowed(req)) { res.writeHead(401).end(); return }
   let size = 0
   const chunks = []
   req.on('data', c => { size += c.length; if (size > MAX_BODY) req.destroy(); else chunks.push(c) })
   req.on('end', () => {
-    let state
-    try { state = JSON.parse(Buffer.concat(chunks).toString('utf8')).state } catch {}
-    if (!state || typeof state !== 'object' || !state.clock) { res.writeHead(400).end(); return }
-    for (const w of BrowserWindow.getAllWindows()) w.webContents.send('share:remote', id, state)
-    sendJson(res, { ok: true })
+    let patch
+    try { patch = JSON.parse(Buffer.concat(chunks).toString('utf8')).patch } catch {}
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) { res.writeHead(400).end(); return }
+    delete patch.updatedAt
+    if (!acks.has(id)) acks.set(id, new Set())
+    const done = () => { clearTimeout(a.timer); acks.get(id)?.delete(a); if (slim.has(id)) sendState(res, id); else sendJson(res, { now: Date.now() }) }
+    const a = { done, timer: setTimeout(() => done(), 3000) }
+    acks.get(id).add(a)
+    for (const w of BrowserWindow.getAllWindows()) w.webContents.send('share:remote', id, fatValue(patch))
   })
 }
 
@@ -117,14 +162,23 @@ function serve(req, res) {
   if (req.method === 'POST' && post) return receiveState(req, res, post[1])
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return }
 
-  // GET /api/state/main?v=<updatedAt the viewer has>: answers at once with a newer state, else waits for
-  // one (up to POLL_MS) and then answers { now } only. `now` is this computer's clock (viewers sync to it).
+  // this computer's clock, answered at once (viewers measure their offset to it)
+  if (p === '/api/time') return sendJson(res, { now: Date.now() })
+  const img = /^\/api\/img\/([0-9a-f]{40})$/.exec(p)
+  if (img) {
+    const i = imgs.get(img[1])
+    if (!i) { res.writeHead(404).end(); return }
+    res.writeHead(200, { 'Content-Type': i.type, 'Cache-Control': 'public, max-age=31536000, immutable' })
+    res.end(req.method === 'HEAD' ? undefined : i.data)
+    return
+  }
+  // GET /api/state/main?v=<seq the viewer has>: answers at once with a newer state, else waits for
+  // one (up to POLL_MS) and then answers { now } only.
   const poll = /^\/api\/state\/([\w-]+)$/.exec(p)
   if (poll) {
     const id = poll[1]
     const v = Number(url.searchParams.get('v')) || 0
-    const cur = games.get(id)
-    if (cur && cur.updatedAt !== v) return sendJson(res, { now: Date.now(), state: cur })
+    if (slim.has(id) && slim.get(id).seq !== v) return sendState(res, id)
     if (!waiters.has(id)) waiters.set(id, new Set())
     const w = { res, timer: setTimeout(() => { waiters.get(id)?.delete(w); sendJson(res, { now: Date.now() }) }, POLL_MS) }
     waiters.get(id).add(w)
@@ -158,10 +212,12 @@ function serve(req, res) {
 function publish(id, state) {
   if (!/^[\w-]+$/.test(id) || !state) return
   games.set(id, state)
+  slim.set(id, { seq: ++seq, json: JSON.stringify(slimValue(state)) })
+  for (const a of [...(acks.get(id) || [])]) a.done()
   const ws = waiters.get(id)
   if (!ws) return
   waiters.delete(id)
-  for (const w of ws) { clearTimeout(w.timer); sendJson(w.res, { now: Date.now(), state }) }
+  for (const w of ws) { clearTimeout(w.timer); sendState(w.res, id) }
 }
 
 // A fixed port when free, so OBS on this computer can keep http://127.0.0.1:47615/o/main (works offline too)

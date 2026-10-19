@@ -8,6 +8,7 @@ const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
 const { initUpdates } = require('./updater.cjs')
 const { initShare, stopShare } = require('./share.cjs')
+const { isExpired, watchTime, expiredPage } = require('./license.cjs')
 
 const WEB = path.join(__dirname, 'web')
 const ORIGIN = 'app://scoreboard'
@@ -108,11 +109,24 @@ function openControl() {
   control.on('closed', () => { control = null; quitting = true; app.quit() })
 }
 
+// past the date in package.json "expires" (license.cjs): only the "Contact for license" page
+function openExpired() {
+  const wa = screen.getPrimaryDisplay().workArea
+  control = new BrowserWindow({ title: 'Live by Scoreboard', width: Math.min(900, wa.width), height: Math.min(640, wa.height), backgroundColor: '#0b0f14', autoHideMenuBar: true, webPreferences })
+  control.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(expiredPage())}`)
+  const outside = url => { if (/^(https:|tel:|mailto:)/.test(url)) shell.openExternal(url) }
+  control.webContents.on('will-navigate', (e, url) => { e.preventDefault(); outside(url) })
+  control.webContents.setWindowOpenHandler(({ url }) => { outside(url); return { action: 'deny' } })
+  control.on('closed', () => { control = null; app.quit() })
+}
+
 if (!app.requestSingleInstanceLock()) app.quit()
 else {
   app.on('second-instance', showControl)
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null)
+    if (isExpired()) { openExpired(); return }
+    watchTime()
     protocol.handle('app', serve)
     openControl()
     openDisplay()
@@ -122,6 +136,6 @@ else {
     screen.on('display-removed', placeDisplay)
     screen.on('display-metrics-changed', placeDisplay)
   })
-  app.on('before-quit', () => { quitting = true; stopShare() })
+  app.on('before-quit', () => { quitting = true; try { stopShare() } catch {} })
   app.on('window-all-closed', () => app.quit())
 }

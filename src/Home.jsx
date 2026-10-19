@@ -47,7 +47,7 @@ export default function Home() {
       )}
       <div className="mode">{ONLINE ? 'live sync on' : 'test build — local store, this browser only'}</div>
       <div className="contact">
-        <div className="who">Contact developer · <b>{DEV.name}</b></div>
+        <div className="who">Contact for license · <b>{DEV.name}</b></div>
         <ContactLinks />
       </div>
     </div>

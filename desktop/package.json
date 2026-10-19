@@ -5,6 +5,7 @@
   "description": "Live by Scoreboard — offline, one computer, display on HDMI",
   "author": "Pai Chanut",
   "main": "main.cjs",
+  "expires": "2026-12-31",
   "private": true,
   "scripts": {
     "start": "electron .",
@@ -25,6 +26,7 @@
       "updater.cjs",
       "preload.cjs",
       "share.cjs",
+      "license.cjs",
       "web/**/*"
     ],
     "icon": "icon.png",
