@@ -823,7 +823,7 @@ function foldAll(s, now = wallNow()) {
 
 // ---- shift (line change) timer: opts.shiftMs, 0 = off ----
 // Counts down with the game clock (it pauses when the clock stops) and starts over by itself; the control
-// page sounds the buzzer each time it reaches 0. Derived from the game clock, so every screen agrees.
+// every screen sounds its own buzzer the moment it shows 0 (useGameSounds). Derived from the game clock, so every screen agrees.
 // s.shift = { period, atMs }: where the current cycle started, as period time played; a new period starts at 0.
 export function shiftInfo(s, now = wallNow()) {
   const len = Number(s.opts?.shiftMs) || 0
@@ -838,13 +838,7 @@ export function shiftInfo(s, now = wallNow()) {
 
 // Start a new shift now (e.g. after a goal or a stoppage)
 export function resetShift(s, now = wallNow()) {
-  const played = Math.max(0, periodLength(s) - clockRemaining(s, now))
+  // on a whole second of the game clock, so the shift's seconds turn together with the clock's
+  const played = Math.max(0, periodLength(s) - Math.ceil(clockRemaining(s, now) / 1000) * 1000)
   return touch({ ...s, shift: { period: s.period, atMs: played } })
-}
-
-// The buzzer for shift number `count` of this period, once (two control pages open = still one buzz)
-export function shiftBuzzer(s, count) {
-  const key = `${s.period}:${s.shift?.period === s.period ? s.shift.atMs : 0}:${count}`
-  if (s.shiftBuzzed === key) return s
-  return touch({ ...s, shiftBuzzed: key, buzzer: (s.buzzer || 0) + 1 })
 }

@@ -565,7 +565,7 @@ test('small ice: Rink B has its own teams, score and penalties but shares the cl
   assert.equal(G.rinkView(s, 'b').home.score, 0)
 })
 
-test('shift timer counts down with the game clock, starts over, and buzzes once per shift', () => {
+test('shift timer counts down with the game clock and starts over', () => {
   let s = G.newGame()
   s = G.setOptions(s, { ...s.opts, shiftMs: 90_000 })
   assert.equal(G.shiftInfo(s).remainingMs, 90_000)
@@ -576,9 +576,6 @@ test('shift timer counts down with the game clock, starts over, and buzzes once 
   s = G.resetShift(s)
   assert.equal(G.shiftInfo(s).remainingMs, 90_000)
   assert.equal(G.shiftInfo(s).count, 0)
-  const b0 = s.buzzer
-  s = G.shiftBuzzer(G.shiftBuzzer(s, 1), 1)
-  assert.equal(s.buzzer, b0 + 1)
   // a new period starts a new shift
   s = G.nextPeriod(s)
   assert.equal(G.shiftInfo(s).remainingMs, 90_000)

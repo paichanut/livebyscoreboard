@@ -68,3 +68,33 @@ test('+ GOAL 📯 adds the goal and sounds the horn on the display', async ({ pa
   await board.waitForFunction(() => window.__played.length > 0)
   expect((await board.evaluate(() => window.__played))[0].dur).toBeGreaterThan(4)
 })
+
+test('shift buzzer sounds on the display the instant its shift clock shows 0', async ({ page, context }) => {
+  // record when a sound starts and when the shift digit turns 0, on the board's own clock
+  await context.addInitScript(() => {
+    window.__buzz = []
+    const B = AudioBufferSourceNode.prototype.start
+    AudioBufferSourceNode.prototype.start = function (...a) { window.__buzz.push(performance.now()); return B.apply(this, a) }
+    const O = OscillatorNode.prototype.start
+    OscillatorNode.prototype.start = function (...a) { window.__buzz.push(performance.now()); return O.apply(this, a) }
+    window.__zero = null
+    new MutationObserver(() => {
+      const el = document.querySelector('[aria-label="shift"]')
+      if (el && el.textContent === '0' && window.__zero == null) window.__zero = performance.now()
+    }).observe(document, { subtree: true, childList: true, characterData: true })
+  })
+  const code = uniqueCode('shiftbuzz')
+  await openControl(page, code)
+  await page.getByRole('button', { name: /Options/ }).click()
+  await page.locator('.opts').getByLabel('shift minutes').fill('0')
+  await page.locator('.opts').getByLabel('shift seconds').fill('3')
+  await page.locator('.opts').getByRole('button', { name: /^Save/ }).click()
+  const board = await openBoard(context, code)
+  await board.locator('.board').click({ position: { x: 5, y: 5 } }) // unlock audio
+  await board.waitForTimeout(800)
+  await page.getByRole('button', { name: 'START', exact: true }).click()
+  await board.waitForFunction(() => window.__zero != null && window.__buzz.length > 0, null, { timeout: 6000 })
+  const [zero, buzz] = await board.evaluate(() => [window.__zero, window.__buzz[0]])
+  console.log('shift 0 shown vs buzzer (ms):', Math.round(buzz - zero))
+  expect(Math.abs(buzz - zero)).toBeLessThan(60)
+})

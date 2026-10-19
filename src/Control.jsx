@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
+import { useGame, useGameId, useTick, useClockTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
 import { ShareSheet } from './DesktopShare.jsx'
@@ -41,7 +41,7 @@ export default function Control() {
   // the single-game link to share with a helper; fetched once the game exists on the server
   const [shareKey, setShareKey] = useState(usingSession ? '' : key)
   useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
-  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
+  useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
   const [sheet, setSheet] = useState(null)
   // small ice (two games on one rink): the team cards, goal light and penalty / team / goal sheets work on
   // the chosen half; the clock, period, whistle and shift are shared (game.js rinkView / onRink)
@@ -98,10 +98,6 @@ export default function Control() {
     u.searchParams.delete('mode')
     window.history.replaceState(null, '', u)
   }, [Boolean(s), access])
-  // line change: the buzzer each time the shift timer reaches 0 (once per shift, see G.shiftBuzzer)
-  useEffect(() => {
-    if (shift && s.clock.running && shift.count > 0) update(x => G.shiftBuzzer(x, G.shiftInfo(x)?.count ?? 0))
-  }, [shift?.count, s?.period])
 
   // Keyboard shortcuts — rebindable in Options → Keys
   useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useGame, useGameId, useTick } from './useGame.js'
+import { useGame, useGameId, useTick, useClockTick } from './useGame.js'
 import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, penaltyCallActive, periodLabel, clockRemaining, isSmallIce, rinkView, shiftInfo } from './game.js'
 import { ONLINE } from './sync.js'
 import { now as serverNow } from './clock.js'
@@ -66,7 +66,7 @@ export default function Board() {
     document.addEventListener('mousedown', down)
     return () => { document.removeEventListener('dblclick', on); document.removeEventListener('mousedown', down) }
   }, [])
-  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.penaltyCall || s?.showTimeOfDay || s?.penalties?.length))
+  useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.penaltyCall || s?.showTimeOfDay || s?.penalties?.length))
 
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
