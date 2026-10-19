@@ -31,9 +31,12 @@ export default function Board() {
     return () => document.documentElement.classList.remove('clearbg')
   }, [clear])
   useEffect(() => {
-    const on = e => { if (!e.target.closest?.('button')) toggleFullscreen() }
+    const on = e => { if (!e.target.closest?.('button')) { window.getSelection?.()?.removeAllRanges(); toggleFullscreen() } }
+    // a second click would start a word selection; stop it before it happens
+    const down = e => { if (e.detail > 1) e.preventDefault() }
     document.addEventListener('dblclick', on)
-    return () => document.removeEventListener('dblclick', on)
+    document.addEventListener('mousedown', down)
+    return () => { document.removeEventListener('dblclick', on); document.removeEventListener('mousedown', down) }
   }, [])
   useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.showTimeOfDay || s?.penalties?.length))
 

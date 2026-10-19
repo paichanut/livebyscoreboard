@@ -69,7 +69,10 @@ input, select { font-family: inherit; }
   --u: min(1vw, 1.75vh); /* every size on the display scales with the shorter side, so it always fits the window */
   gap: 2vw; padding: 4vh 3.5vw 6vh;
   font-family: var(--font-display);
+  user-select: none; -webkit-user-select: none; /* double-click = full screen, never a text/logo selection */
 }
+.board img, .bannerpage img { -webkit-user-drag: none; }
+.bannerpage { user-select: none; -webkit-user-select: none; }
 .board .team {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: var(--card); border-radius: 1.6vw; border-top: 0.8vw solid var(--c);

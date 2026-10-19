@@ -44,3 +44,13 @@ test('a display opened before the operator has no controls either', async ({ pag
   await expect(page.locator('.board button')).toHaveCount(2)
   await expect(page.locator('.board .clock')).toHaveText('15:00')
 })
+
+test('double-clicking the board selects nothing', async ({ page, context }) => {
+  const code = uniqueCode('dbl')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await boardHome(board).locator('.name').dblclick()
+  await board.locator('.board .clock').dblclick()
+  expect(await board.evaluate(() => String(window.getSelection()))).toBe('')
+  expect(await boardHome(board).locator('.name').evaluate(el => getComputedStyle(el).userSelect)).toBe('none')
+})
