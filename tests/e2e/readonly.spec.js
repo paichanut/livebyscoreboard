@@ -54,3 +54,13 @@ test('double-clicking the board selects nothing', async ({ page, context }) => {
   expect(await board.evaluate(() => String(window.getSelection()))).toBe('')
   expect(await boardHome(board).locator('.name').evaluate(el => getComputedStyle(el).userSelect)).toBe('none')
 })
+
+test('the board says "Double-click for full screen" for 4 s, then the hint goes away', async ({ page, context }) => {
+  const code = uniqueCode('hint')
+  await openControl(page, code)
+  // headless Chromium's screen is the viewport, which the board treats as "already full screen"
+  await context.addInitScript(() => Object.defineProperty(screen, 'height', { get: () => 4000 }))
+  const board = await openBoard(context, code)
+  await expect(board.getByText('Double-click for full screen')).toBeVisible()
+  await expect(board.getByText('Double-click for full screen')).toBeHidden({ timeout: 6000 })
+})

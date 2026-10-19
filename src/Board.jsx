@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
 import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, periodLabel, clockRemaining } from './game.js'
 import { ONLINE } from './sync.js'
@@ -15,6 +15,20 @@ function toggleFullscreen() {
 }
 function FullscreenButton() {
   return <button className="fsbtn" aria-label="full screen" title="Full screen (or double-click)" onClick={toggleFullscreen}>⛶</button>
+}
+
+// "Double-click for full screen" for 4 s when the page opens, then it fades out. Not in OBS (it would be on
+// the stream) and not when the window already fills the screen (desktop app on the HDMI screen).
+const HINT_MS = 4000
+function FullscreenHint() {
+  const [show, setShow] = useState(() => !window.obsstudio && !document.fullscreenElement
+    && !(window.innerWidth >= screen.width && window.innerHeight >= screen.height))
+  useEffect(() => {
+    if (!show) return
+    const id = setTimeout(() => setShow(false), HINT_MS)
+    return () => clearTimeout(id)
+  }, [show])
+  return show ? <div className="fshint" role="status">Double-click for full screen</div> : null
 }
 
 export default function Board() {
@@ -62,6 +76,7 @@ export default function Board() {
       <div className={`board compactb ${clear ? 'clear' : ''}`} style={clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
         <SoundToggle sound={sound} className="sound" />
         <FullscreenButton />
+        <FullscreenHint />
         <Compact s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
       </div>
     )
@@ -73,6 +88,7 @@ export default function Board() {
       {!clear && <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>}
       <SoundToggle sound={sound} className="sound" />
       <FullscreenButton />
+      <FullscreenHint />
 
       {!minimal && (o.bannerImg || o.title || o.topLeftImg || o.topRightImg) && (
         <div className="topbar">
