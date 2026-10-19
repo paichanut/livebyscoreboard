@@ -17,7 +17,7 @@
 //    On this computer (127.0.0.1, no tunnel) no key is needed. Other pages are not served.
 // 2. cloudflared (Cloudflare's tunnel program, downloaded once into the app's data folder) opens a
 //    "quick tunnel" to that server. No Cloudflare account; a new address each time.
-// 3. When the address is known, it is sent to the Telegram chat set up in the sheet.
+// 3. When the address works from the outside (checked, see verify), it is sent to the Telegram chat set up in the sheet.
 // No internet: nothing is downloaded or sent, it tries again every minute. The game itself never waits for any of this.
 const { app, ipcMain, net, shell, BrowserWindow } = require('electron')
 const http = require('node:http')
@@ -49,6 +49,7 @@ const acks = new Map() // game id → Set of controller changes waiting for the 
 const imgs = new Map() // hash → { type, data, url } for /api/img/<hash>
 const imgHash = new Map() // data: URL → hash
 let seq = 0
+const BOOT = require('node:crypto').randomBytes(4).toString('hex') // this start of the app: viewers reset when it changes
 let license = { unlicensed: false } // main.cjs / license.cjs: pages opened through the link show UNLICENSED too
 const POLL_MS = 25_000
 const SESSION_MS = 12 * 60 * 60_000
@@ -130,7 +131,7 @@ function fatValue(v) {
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fatValue(x)]))
   return v
 }
-const stateMessage = id => `{"now":${Date.now()},"seq":${slim.get(id).seq},"state":${slim.get(id).json}}`
+const stateMessage = id => `{"now":${Date.now()},"boot":"${BOOT}","seq":${slim.get(id).seq},"state":${slim.get(id).json}}`
 function sendState(res, id) {
   res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
   res.end(stateMessage(id))
@@ -180,7 +181,7 @@ function serve(req, res) {
   if (poll) {
     const id = poll[1]
     const v = Number(url.searchParams.get('v')) || 0
-    if (slim.has(id) && slim.get(id).seq !== v) return sendState(res, id)
+    if (slim.has(id) && (slim.get(id).seq !== v || url.searchParams.get('b') !== BOOT)) return sendState(res, id)
     if (!waiters.has(id)) waiters.set(id, new Set())
     const w = { res, timer: setTimeout(() => { waiters.get(id)?.delete(w); sendJson(res, { now: Date.now() }) }, POLL_MS) }
     waiters.get(id).add(w)
@@ -256,6 +257,55 @@ function retryLater() {
   if (settings.enabled) retryTimer = setTimeout(startTunnel, RETRY_MS)
 }
 
+// ---------- is the link really reachable? ----------
+// cloudflared can report "Registered tunnel connection" for an address Cloudflare never activates (no DNS
+// record, error 1016 at the edge): the app said "Online" and sent a dead link. So the link counts only
+// once it works from the outside: Cloudflare's DNS knows it (asked over DoH first, so this computer's DNS
+// doesn't cache a "no such name") and https://<link>/api/time answers. Not within VERIFY_MS → a new tunnel.
+const VERIFY_MS = 60_000
+const HEALTH_MS = 60_000
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+let badTunnels = 0 // in a row, for the back-off
+async function knownToCloudflare(host) {
+  try {
+    const r = await net.fetch(`https://cloudflare-dns.com/dns-query?name=${host}&type=A`, { headers: { accept: 'application/dns-json' }, signal: AbortSignal.timeout(8000) })
+    const j = await r.json()
+    return j.Status === 0 && (j.Answer || []).length > 0 ? 'yes' : 'no'
+  } catch { return 'offline' }
+}
+async function answers(url) {
+  try {
+    const r = await net.fetch(`${url}/api/time`, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
+    return r.ok && typeof (await r.json()).now === 'number'
+  } catch { return false }
+}
+async function verify(child, url) {
+  const until = Date.now() + VERIFY_MS
+  let dns = false
+  while (Date.now() < until && tunnel === child) {
+    if (!dns) dns = (await knownToCloudflare(new URL(url).hostname)) === 'yes'
+    if (dns && await answers(url)) return true
+    await sleep(3000)
+  }
+  return false
+}
+// while online: the link is checked every minute; 3 failures in a row while the internet works → a new tunnel
+// (and the new link goes to Telegram). No internet → just wait, cloudflared reconnects the same link.
+function watchHealth(child, url) {
+  let fails = 0
+  const tick = async () => {
+    if (tunnel !== child) return
+    if (await answers(url)) fails = 0
+    else if ((await knownToCloudflare(new URL(url).hostname)) !== 'offline' && ++fails >= 3) return restartTunnel(child)
+    child.health = setTimeout(tick, HEALTH_MS)
+  }
+  child.health = setTimeout(tick, HEALTH_MS)
+}
+function restartTunnel(child) {
+  child.restart = true
+  try { child.kill() } catch {}
+}
+
 async function startTunnel() {
   clearTimeout(retryTimer)
   if (!settings.enabled || tunnel) return
@@ -265,28 +315,46 @@ async function startTunnel() {
   set({ state: 'starting', url: '' })
   const child = spawn(bin, ['tunnel', '--no-autoupdate', '--url', `http://127.0.0.1:${port}`], { windowsHide: true })
   tunnel = child
-  // cloudflared prints the address before it has reached Cloudflare: the link only works (and is only
-  // shown and sent) once it reports "Registered tunnel connection". No connection within a minute → retry.
+  // cloudflared prints the address before it has reached Cloudflare: the link is checked (verify) once it
+  // reports "Registered tunnel connection", and only shown and sent when it works. No connection within a
+  // minute → retry.
   let addr = ''
-  const giveUp = setTimeout(() => { if (status.state !== 'online') try { child.kill() } catch {} }, RETRY_MS)
+  let checking = false
+  const giveUp = setTimeout(() => { if (!checking) try { child.kill() } catch {} }, RETRY_MS)
   const onData = buf => {
     const text = String(buf)
     const m = /https:\/\/[-a-z0-9]+\.trycloudflare\.com/.exec(text)
     if (m) addr = m[0]
-    if (addr && /Registered tunnel connection/i.test(text) && status.url !== addr) {
+    if (addr && /Registered tunnel connection/i.test(text) && !checking) {
+      checking = true
       clearTimeout(giveUp)
-      set({ state: 'online', url: addr })
-      announce(addr)
+      set({ state: 'verifying', url: '' })
+      const url = addr
+      verify(child, url).then(ok => {
+        if (tunnel !== child) return
+        if (!ok) return restartTunnel(child)
+        badTunnels = 0
+        set({ state: 'online', url })
+        announce(url)
+        watchHealth(child, url)
+      })
     }
   }
-  child.on('exit', () => clearTimeout(giveUp))
   child.stdout.on('data', onData)
   child.stderr.on('data', onData)
   child.on('error', () => {})
   child.on('exit', () => {
+    clearTimeout(giveUp)
+    clearTimeout(child.health)
     if (tunnel !== child) return
     tunnel = null
-    if (settings.enabled) { set({ state: 'offline', url: '' }); retryLater() } else set({ state: 'off', url: '' })
+    if (!settings.enabled) return set({ state: 'off', url: '' })
+    if (child.restart) {
+      // a link that never worked or stopped working: a new one soon (3 s, 6 s, 12 s … up to a minute)
+      set({ state: 'starting', url: '' })
+      clearTimeout(retryTimer)
+      retryTimer = setTimeout(startTunnel, Math.min(RETRY_MS, 3000 * 2 ** badTunnels++))
+    } else { set({ state: 'offline', url: '' }); retryLater() }
   })
 }
 

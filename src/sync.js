@@ -302,7 +302,10 @@ function viewerStore(gameId) {
       if (!preloaded.has(src)) { preloaded.add(src); new Image().src = src }
     }
   }
-  const take = m => { if (m?.state && m.seq > seq) { seq = m.seq; server = m.state; preload(server) } }
+  // newer = a higher number from the same start of the desktop app (`boot`); a restarted app counts from 1 again
+  let boot = ''
+  const newer = m => m?.state && (m.boot !== boot || m.seq > seq)
+  const take = m => { if (newer(m)) { boot = m.boot; seq = m.seq; server = m.state; preload(server) } }
 
   async function send() {
     sendTimer = null
@@ -330,9 +333,9 @@ function viewerStore(gameId) {
   async function poll() {
     while (!stopped) {
       try {
-        const r = await fetch(`${api}?v=${seq}`, { cache: 'no-store' })
+        const r = await fetch(`${api}?v=${seq}&b=${boot}`, { cache: 'no-store' })
         const m = await r.json()
-        if (m.state && m.seq > seq) { take(m); rebuild() }
+        if (newer(m)) { take(m); rebuild() }
       } catch {
         await new Promise(res => setTimeout(res, 2000))
       }
