@@ -300,7 +300,7 @@ function Compact({ shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, t
         <div className={`cclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
         <div className="clabel">{isNum ? L.period : ''}</div>
         <div className="cperiod">{periodLabel(s)}</div>
-        {shift && <div className="cshift"><span>{L.shift}</span><b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b></div>}
+        {shift && <div className="cshift"><span className="clabel">{L.shift}</span><b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b></div>}
         <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         <div className="evslot"><EventText s={s} flash={flash} /></div>
         {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}

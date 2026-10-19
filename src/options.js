@@ -125,7 +125,7 @@ export function defaultOptions() {
     sounds: { horn: 'horn-nhl', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn-nhl-short', timeoutWarn: 'horn-short', timeoutEnd: 'horn-nhl-short' },
     soundsV: 2, // 2 = NHL horn defaults; older games are moved over once in withDefaults
     // Text
-    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE', shift: 'SHIFT', rinkA: 'RINK A', rinkB: 'RINK B' },
+    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE', shift: 'SHIFT CLOCK', rinkA: 'RINK A', rinkB: 'RINK B' },
     font: 'Barlow Condensed',
     digits: 'normal', // 'normal' | 'segments'
     // Score banner (OBS overlay)
@@ -165,6 +165,8 @@ export function withDefaults(state) {
     const nhl = defaultOptions().sounds
     for (const [k, v] of Object.entries(old)) if (opts.sounds[k] === v) opts.sounds[k] = nhl[k]
   }
+  // the shift label was "SHIFT" for a few hours; it reads "SHIFT CLOCK" now (a label typed by the operator stays)
+  if (opts.labels.shift === 'SHIFT') opts.labels.shift = 'SHIFT CLOCK'
   // fields added after v2 games were first saved
   const events = Array.isArray(state.events) ? state.events : []
   const shootout = state.shootout && Array.isArray(state.shootout.home) ? state.shootout : { home: [], away: [] }
