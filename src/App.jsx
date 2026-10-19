@@ -8,6 +8,7 @@ import Setup from './Setup.jsx'
 import Login from './Login.jsx'
 import Teams from './Teams.jsx'
 import { CONFIGURED } from './sync.js'
+import { Watermark } from './License.jsx'
 
 function usePath() {
   const [path, setPath] = useState(window.location.pathname)
@@ -22,9 +23,9 @@ function usePath() {
 export default function App() {
   const path = usePath()
   if (!CONFIGURED) return <Setup />
-  if (path === '/board' || path.startsWith('/b/')) return <Board />
+  if (path === '/board' || path.startsWith('/b/')) return <><Board /><Watermark /></>
   if (path === '/control' || path.startsWith('/c/')) return <Control />
-  if (path === '/banner' || path.startsWith('/o/')) return <Banner />
+  if (path === '/banner' || path.startsWith('/o/')) return <><Banner /><Watermark /></>
   if (path === '/live' || path === '/games') return <Live />
   if (path === '/login') return <Login />
   if (path === '/teams') return <Teams />

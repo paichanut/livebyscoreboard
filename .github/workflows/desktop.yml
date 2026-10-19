@@ -29,6 +29,14 @@ jobs:
         working-directory: desktop
       - run: npx electron-builder --win msi nsis portable --x64 --publish never
         working-directory: desktop
+      # <year>.yml (the licence year in desktop/package.json "expires"): installed apps only take updates of their
+      # own licence year (desktop/updater.cjs); latest.yml stays for copies from before the licence (≤ 1.0.21)
+      - name: Update file for this licence year
+        working-directory: desktop
+        shell: bash
+        run: |
+          y=$(node -p "require('./package.json').expires.slice(0, 4)")
+          cp dist/latest.yml "dist/$y.yml"
       - uses: actions/upload-artifact@v4
         with:
           name: LiveByScoreboard-windows
@@ -50,5 +58,6 @@ jobs:
             desktop/dist/*.msi
             desktop/dist/*.exe
             desktop/dist/latest.yml
+            desktop/dist/20*.yml
             desktop/dist/*.blockmap
           make_latest: true

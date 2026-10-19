@@ -27,6 +27,7 @@
       "preload.cjs",
       "share.cjs",
       "license.cjs",
+      "display-preload.cjs",
       "web/**/*"
     ],
     "icon": "icon.png",

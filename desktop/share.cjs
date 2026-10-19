@@ -49,6 +49,7 @@ const acks = new Map() // game id → Set of controller changes waiting for the 
 const imgs = new Map() // hash → { type, data, url } for /api/img/<hash>
 const imgHash = new Map() // data: URL → hash
 let seq = 0
+let license = { unlicensed: false } // main.cjs / license.cjs: pages opened through the link show UNLICENSED too
 const POLL_MS = 25_000
 const SESSION_MS = 12 * 60 * 60_000
 const sessions = new Map() // cookie value → { expires } for controllers opened through the tunnel
@@ -164,6 +165,7 @@ function serve(req, res) {
 
   // this computer's clock, answered at once (viewers measure their offset to it)
   if (p === '/api/time') return sendJson(res, { now: Date.now() })
+  if (p === '/api/license') return sendJson(res, license)
   const img = /^\/api\/img\/([0-9a-f]{40})$/.exec(p)
   if (img) {
     const i = imgs.get(img[1])
@@ -361,8 +363,9 @@ async function findChatId(token) {
 }
 
 // ---------- setup ----------
-async function initShare({ webDir }) {
+async function initShare({ webDir, license: lic }) {
   WEB = webDir
+  license = lic || license
   settingsFile = path.join(app.getPath('userData'), 'share.json')
   loadSettings()
   await startServer()

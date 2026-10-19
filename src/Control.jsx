@@ -9,6 +9,7 @@ import { translator } from './i18n.js'
 import { saveTeam } from './teamLibrary.js'
 import TimeBadge from './TimeBadge.jsx'
 import { ContactLinks, DEV } from './Contact.jsx'
+import { useLicense } from './License.jsx'
 import Options, { SavedTeams, resizeImage } from './Options.jsx'
 import { RINK_COLOR } from './Board.jsx'
 import { KEY_GROUPS, KEY_LABELS, keyName } from './options.js'
@@ -43,6 +44,13 @@ export default function Control() {
   useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
   useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
   const [sheet, setSheet] = useState(null)
+  // desktop app past its licence date: "Contact for license" opens by itself 30 s after the screen is free
+  const lic = useLicense()
+  useEffect(() => {
+    if (!lic?.unlicensed || sheet) return
+    const id = setTimeout(() => setSheet('contact'), 30_000)
+    return () => clearTimeout(id)
+  }, [lic?.unlicensed, sheet])
   // small ice (two games on one rink): the team cards, goal light and penalty / team / goal sheets work on
   // the chosen half; the clock, period, whistle and shift are shared (game.js rinkView / onRink)
   const [rink, setRink] = useState('a')
@@ -353,7 +361,7 @@ export default function Control() {
           : <a className="who" href={`/login?next=/c/${encodeURIComponent(gameId)}`}>🔑 {t('keyOnly')} · {t('login')}</a>)}
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : DESKTOP ? t('offlineApp') : t('local')}<TimeBadge /></span>
         {DESKTOP && <DesktopUpdate t={t} />}
-        <button className="linkbtn who" onClick={() => setSheet('contact')}>💬 {t('contactDev')}</button>
+        <button className={`linkbtn who ${lic?.unlicensed ? 'unlic' : ''}`} onClick={() => setSheet('contact')}>💬 {t('contactDev')}</button>
       </div>
 
       {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={v} update={ur} close={() => setSheet(null)} t={t} />}
@@ -397,6 +405,7 @@ export default function Control() {
       {sheet === 'contact' && (
         <Sheet close={() => setSheet(null)}>
           <h3>{t('contactDev')} · {DEV.name}</h3>
+          {lic?.unlicensed && <p className="warn">{t('unlicensed', { date: new Date(`${lic.expires}T12:00`).toLocaleDateString(s.opts.uiLang === 'th' ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) })}</p>}
           <ContactLinks />
           <button className="btn ghost" onClick={() => setSheet(null)}>{t('close')}</button>
         </Sheet>

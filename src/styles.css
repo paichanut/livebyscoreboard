@@ -712,3 +712,12 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 /* shift countdown on the compact board: a red box under the period, like the clock's green one */
 .compactb .cshift { display: flex; flex-direction: column; align-items: center; gap: calc(.4 * var(--u)); margin-top: calc(.4 * var(--u)); }
 .compactb .cshift b { font-size: calc(6.5 * var(--u)); font-weight: 800; line-height: 1.05; color: #ff4d4d; background: rgba(4, 14, 36, .65); border: calc(.3 * var(--u)) solid var(--frame); border-radius: calc(1 * var(--u)); padding: 0 calc(1.6 * var(--u)); min-width: 2.4ch; text-align: center; }
+
+/* desktop app past its licence date (License.jsx): across the middle of every scoreboard and banner */
+.unlicensed {
+  position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; user-select: none; white-space: nowrap; transform: rotate(-14deg);
+  font: 900 min(15vw, 26vh) / 1 'Barlow Condensed', system-ui, sans-serif; letter-spacing: .06em;
+  color: rgba(255, 40, 40, .45); -webkit-text-stroke: max(2px, .25vw) rgba(255, 255, 255, .4);
+}
+.linkbtn.unlic { color: #ff6b6b; font-weight: 700; }

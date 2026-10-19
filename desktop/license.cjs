@@ -1,6 +1,6 @@
-// This copy works until the end of the day in package.json "expires" (this computer's local time).
-// After that the app opens only the "Contact for license" page: no game, no online link, no updates;
-// the operator installs a new version from Pai. The saved game stays on the computer.
+// This copy is licensed until the end of the day in package.json "expires" (this computer's local time).
+// After that it still works, but every scoreboard and banner shows UNLICENSED across the middle and the
+// control page opens "Contact for license" every 30 s (src/License.jsx); no more updates (updater.cjs).
 // Turning the computer's clock back doesn't help: the latest time the app has seen (this computer's clock,
 // or GitHub's when online) is kept in the data folder.
 const { app, net } = require('electron')
@@ -32,29 +32,4 @@ function watchTime() {
     .catch(() => {})
 }
 
-const DEV = { name: 'Pai Chanut', phone: '+66816351945', phoneShown: '+66 81 635 1945', whatsapp: 'https://wa.me/66816351945', line: 'https://line.me/ti/p/~paichanut', email: 'paichanut@gmail.com' }
-
-function expiredPage() {
-  const d = new Date(END)
-  const en = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-  const th = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
-  const btn = (href, text) => `<a href="${href}">${text}</a>`
-  return `<!doctype html><meta charset="utf-8"><title>Live by Scoreboard — Contact for license</title>
-<style>
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0f14;color:#e8edf2;font:18px system-ui,sans-serif;text-align:center}
-main{max-width:640px;padding:40px}h1{font-size:30px;margin:0 0 8px}p{color:#aab4bf;line-height:1.5}
-.who{margin:28px 0 12px;font-size:20px}.links{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-a{display:inline-block;padding:12px 18px;border-radius:10px;background:#1c2530;color:#e8edf2;text-decoration:none;font-weight:600}
-a:hover{background:#2a3644}.v{margin-top:28px;font-size:13px;color:#66717d}
-</style>
-<main>
-<h1>🏒 Live by Scoreboard</h1>
-<p>This version expired on <b>${en}</b>.<br>Please install a new version to keep using the app. Your saved game stays on this computer.</p>
-<p>เวอร์ชันนี้หมดอายุแล้วเมื่อ <b>${th}</b><br>กรุณาติดตั้งเวอร์ชันใหม่เพื่อใช้งานต่อ เกมที่บันทึกไว้ยังอยู่ในเครื่องนี้</p>
-<div class="who">Contact for license · ติดต่อขอ license · <b>${DEV.name}</b></div>
-<div class="links">${btn(`tel:${DEV.phone}`, `📞 ${DEV.phoneShown}`)}${btn(DEV.whatsapp, 'WhatsApp')}${btn(DEV.line, 'LINE')}${btn(`mailto:${DEV.email}`, `✉️ ${DEV.email}`)}</div>
-<div class="v">version ${app.getVersion()}</div>
-</main>`
-}
-
-module.exports = { isExpired, watchTime, expiredPage, EXPIRES }
+module.exports = { isExpired, watchTime, EXPIRES }

@@ -2,6 +2,8 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('desktop', {
+  // { unlicensed, expires } (license.cjs): past the date the app still works, with UNLICENSED and "Contact for license"
+  license: ipcRenderer.sendSync('license:get'),
   getUpdate: () => ipcRenderer.invoke('update:get'),
   onUpdate: cb => {
     const h = (_e, s) => cb(s)

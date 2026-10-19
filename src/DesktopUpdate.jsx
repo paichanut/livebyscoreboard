@@ -6,7 +6,7 @@ export default function DesktopUpdate({ t }) {
   const api = window.desktop
   const [u, setU] = useState(null)
   useEffect(() => {
-    if (!api) return
+    if (!api?.getUpdate || api.license?.unlicensed) return // no updates once the licence has ended
     api.getUpdate().then(setU)
     return api.onUpdate(setU)
   }, [api])
