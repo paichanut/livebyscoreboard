@@ -6,6 +6,10 @@ Both windows are one program, so there is always exactly one game; it is saved o
 is still there after a restart.
 
 - Display window: F11 or double-click = full screen on/off. Closing it only hides it; Control → Display brings it back.
+- The control window always opens in front and keeps the keyboard. **F2** switches: in Control it shows
+  the scoreboard, in the scoreboard it goes back to Control. With only one screen the scoreboard waits
+  behind the control window.
+- HDMI shows the same picture as the laptop? Windows is set to *Duplicate*: press **Win + P → Extend**.
 - Horn / buzzer play without tapping first (no browser autoplay block).
 - OBS on the same computer: use **Window Capture** on the Display window.
 - Not available offline: the public web links, /live, phone control, login.

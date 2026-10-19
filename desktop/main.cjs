@@ -52,17 +52,30 @@ function openDisplay() {
     autoHideMenuBar: true, show: false, webPreferences,
   })
   display.loadURL(`${ORIGIN}/b/${GAME}`)
-  display.once('ready-to-show', () => { placeDisplay(); display.show() })
-  // F11 / Esc: full screen on and off (double-click on the board does it too)
+  // the control window keeps the focus (and the keyboard): on one screen the scoreboard waits behind it
+  display.once('ready-to-show', () => {
+    placeDisplay()
+    display.showInactive()
+    if (!external() && control) control.focus()
+  })
+  // F11 / Esc: full screen on and off (double-click on the board does it too); F2: back to the control
   display.webContents.on('before-input-event', (e, input) => {
     if (input.type !== 'keyDown') return
     if (input.key === 'F11') { display.setFullScreen(!display.isFullScreen()); e.preventDefault() }
     if (input.key === 'Escape' && display.isFullScreen() && !external()) display.setFullScreen(false)
+    if (input.key === 'F2') { showControl(); e.preventDefault() }
   })
   // closing the scoreboard only hides it; the Display button brings it back
   display.on('close', e => { if (!quitting) { e.preventDefault(); display.hide() } })
   display.on('closed', () => { display = null })
   return display
+}
+
+function showControl() {
+  if (!control) return
+  if (display && display.isFullScreen() && !external()) display.setFullScreen(false)
+  if (control.isMinimized()) control.restore()
+  control.show(); control.focus()
 }
 
 function openControl() {
@@ -72,6 +85,10 @@ function openControl() {
   })
   control.maximize()
   control.loadURL(`${ORIGIN}/c/${GAME}`)
+  // F2: show the scoreboard window
+  control.webContents.on('before-input-event', (e, input) => {
+    if (input.type === 'keyDown' && input.key === 'F2') { openDisplay(); e.preventDefault() }
+  })
   control.webContents.setWindowOpenHandler(({ url }) => {
     // the Display button (and the OBS banner link) → the scoreboard window
     if (url.startsWith(`${ORIGIN}/b/`) || url.startsWith(`${ORIGIN}/board`)) { openDisplay(); return { action: 'deny' } }
@@ -88,7 +105,7 @@ function openControl() {
 
 if (!app.requestSingleInstanceLock()) app.quit()
 else {
-  app.on('second-instance', () => { if (control) { if (control.isMinimized()) control.restore(); control.focus() } })
+  app.on('second-instance', showControl)
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null)
     protocol.handle('app', serve)
