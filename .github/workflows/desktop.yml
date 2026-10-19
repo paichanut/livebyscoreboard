@@ -24,6 +24,9 @@ jobs:
       - run: npm run build:desktop
       - run: npm ci
         working-directory: desktop
+      # every build gets a higher version, so installed apps see it as an update (desktop/updater.cjs)
+      - run: npm version 1.0.${{ github.run_number }} --no-git-tag-version
+        working-directory: desktop
       - run: npx electron-builder --win msi nsis portable --x64 --publish never
         working-directory: desktop
       - uses: actions/upload-artifact@v4
@@ -34,15 +37,18 @@ jobs:
             desktop/dist/*.exe
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: desktop-build-${{ github.run_number }}
-          name: Live by Scoreboard desktop (build ${{ github.run_number }})
+          tag_name: v1.0.${{ github.run_number }}
+          name: Live by Scoreboard desktop 1.0.${{ github.run_number }}
           body: |
             Offline Windows app: one computer, control on the laptop, scoreboard full screen on the HDMI screen. No internet needed.
-            - LiveByScoreboard-*.msi: Windows Installer package (Start menu + desktop shortcut)
-            - LiveByScoreboard-Setup-*.exe: the same as an .exe installer
-            - LiveByScoreboard-Portable-*.exe: no install, just run
+            - LiveByScoreboard-Setup-*.exe (recommended): installer that updates itself — when the computer is online it downloads new versions in the background and installs them when the app closes (or Control → "Restart")
+            - LiveByScoreboard-*.msi: Windows Installer package; tells you when there is a new version, but you install it yourself
+            - LiveByScoreboard-Portable-*.exe: no install, just run; tells you when there is a new version
             Windows may warn the first time (unsigned app): More info → Run anyway.
+          # latest.yml + .blockmap: what the installed app reads to find and download an update
           files: |
             desktop/dist/*.msi
             desktop/dist/*.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
           make_latest: true

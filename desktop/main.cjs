@@ -6,6 +6,7 @@ const { app, BrowserWindow, protocol, net, screen, shell, Menu } = require('elec
 const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
+const { initUpdates } = require('./updater.cjs')
 
 const WEB = path.join(__dirname, 'web')
 const ORIGIN = 'app://scoreboard'
@@ -81,7 +82,8 @@ function showControl() {
 function openControl() {
   const wa = screen.getPrimaryDisplay().workArea
   control = new BrowserWindow({
-    title: 'Live by Scoreboard — Control', ...wa, backgroundColor: '#0b0f14', autoHideMenuBar: true, webPreferences,
+    title: 'Live by Scoreboard — Control', ...wa, backgroundColor: '#0b0f14', autoHideMenuBar: true,
+    webPreferences: { ...webPreferences, preload: path.join(__dirname, 'preload.cjs') },
   })
   control.maximize()
   control.loadURL(`${ORIGIN}/c/${GAME}`)
@@ -111,6 +113,7 @@ else {
     protocol.handle('app', serve)
     openControl()
     openDisplay()
+    initUpdates({ beforeInstall: () => { quitting = true } })
     screen.on('display-added', placeDisplay)
     screen.on('display-removed', placeDisplay)
     screen.on('display-metrics-changed', placeDisplay)

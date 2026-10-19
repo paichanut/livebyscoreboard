@@ -12,6 +12,10 @@ is still there after a restart.
 - HDMI shows the same picture as the laptop? Windows is set to *Duplicate*: press **Win + P → Extend**.
 - Horn / buzzer play without tapping first (no browser autoplay block).
 - OBS on the same computer: use **Window Capture** on the Display window.
+- **Updates:** install with the **Setup .exe** and the app updates itself: when the computer is online it
+  checks GitHub Releases ~5 s after start, downloads in the background and installs when the app closes, or
+  right away with Control → status line → "Update … ready · Restart" (the game is kept). Never mid-game on its
+  own. The .msi and portable copies only say "New version … · Download". Code: `updater.cjs`, `preload.cjs`.
 - Not available offline: the public web links, /live, phone control, login.
 
 ## Build

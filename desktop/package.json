@@ -2,7 +2,7 @@
   "name": "live-by-scoreboard-desktop",
   "productName": "Live by Scoreboard",
   "version": "1.0.0",
-  "description": "Live by Scoreboard \u2014 offline, one computer, display on HDMI",
+  "description": "Live by Scoreboard — offline, one computer, display on HDMI",
   "author": "Pai Chanut",
   "main": "main.cjs",
   "private": true,
@@ -22,6 +22,8 @@
     },
     "files": [
       "main.cjs",
+      "updater.cjs",
+      "preload.cjs",
       "web/**/*"
     ],
     "icon": "icon.png",
@@ -49,6 +51,16 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Live by Scoreboard",
       "artifactName": "LiveByScoreboard-${version}.msi"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "paichanut",
+        "repo": "livebyscoreboard"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9"
   }
 }

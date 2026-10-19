@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
+import DesktopUpdate from './DesktopUpdate.jsx'
 import { ONLINE, DESKTOP, NEEDS_LOGIN, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
@@ -289,6 +290,7 @@ export default function Control() {
           ? <span className="who">👤 {sessionUser()} · <button className="linkbtn" onClick={async () => { await logout(); window.location.reload() }}>{t('logout')}</button></span>
           : <a className="who" href={`/login?next=/c/${encodeURIComponent(gameId)}`}>🔑 {t('keyOnly')} · {t('login')}</a>)}
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : DESKTOP ? t('offlineApp') : t('local')}<TimeBadge /></span>
+        {DESKTOP && <DesktopUpdate t={t} />}
         <button className="linkbtn who" onClick={() => setSheet('contact')}>💬 {t('contactDev')}</button>
       </div>
 
