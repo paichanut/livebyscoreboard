@@ -6,14 +6,16 @@ import { ContactLinks, DEV } from './Contact.jsx'
 export default function Home() {
   const [code, setCode] = useState('')
   const [session, setSession] = useState(getSession())
+  const [mode, setMode] = useState('full') // 'full' rink | 'small' ice: two games on one rink, one clock
   const g = cleanCode(code)
   const canCreate = !NEEDS_LOGIN || Boolean(session)
   const newGame = () => {
     const id = g || `game-${randomKey(5)}`
-    if (NEEDS_LOGIN) { window.location.href = `/c/${id}`; return } // the session creates it
+    const m = mode === 'small' ? 'mode=small' : ''
+    if (NEEDS_LOGIN) { window.location.href = `/c/${id}${m ? `?${m}` : ''}`; return } // the session creates it
     const key = randomKey()
     rememberKey(id, key)
-    window.location.href = `/c/${id}?k=${key}`
+    window.location.href = `/c/${id}?k=${key}${m ? `&${m}` : ''}`
   }
   return (
     <div className="home">
@@ -22,6 +24,16 @@ export default function Home() {
       <div className="code">
         <input value={code} onChange={e => setCode(e.target.value)} placeholder="game code (optional, e.g. rink-a)" />
       </div>
+      {canCreate && (
+        <div className="rinkmode" role="radiogroup" aria-label="rink mode">
+          <button className={`btn ${mode === 'full' ? 'on' : ''}`} role="radio" aria-checked={mode === 'full'} onClick={() => setMode('full')}>
+            <b>Full rink</b><span>one game</span>
+          </button>
+          <button className={`btn ${mode === 'small' ? 'on' : ''}`} role="radio" aria-checked={mode === 'small'} onClick={() => setMode('small')}>
+            <b>Small ice</b><span>2 games, one clock, line-change buzzer</span>
+          </button>
+        </div>
+      )}
       <div className="links">
         {canCreate
           ? <button className="btn primary" onClick={newGame}>{g ? `Run game "${g}"` : 'Create new game'}</button>

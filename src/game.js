@@ -252,13 +252,13 @@ export function startClock(s, { penalties = true } = {}) {
   if (clockRemaining(s) <= 0) return s
   const now = wallNow()
   const playLive = penalties ? true : s.playLive !== false
-  return touch({ ...foldPenalties(s, now), timeout: null, playLive, clock: { ...s.clock, running: true, since: now } })
+  return touch({ ...foldAll(s, now), timeout: null, playLive, clock: { ...s.clock, running: true, since: now } })
 }
 
 export function stopClock(s) {
   if (!s.clock.running) return s
   const now = wallNow()
-  return touch({ ...foldPenalties(s, now), clock: { remainingMs: clockRemaining(s, now), running: false, since: null } })
+  return touch({ ...foldAll(s, now), clock: { remainingMs: clockRemaining(s, now), running: false, since: null } })
 }
 
 // The whistle: pause or resume penalty clocks without touching the game clock
@@ -268,7 +268,7 @@ export function toggleWhistle(s) {
 
 export function setPlayLive(s, live) {
   if ((s.playLive !== false) === live) return s
-  return touch({ ...foldPenalties(s), playLive: live })
+  return touch({ ...foldAll(s), playLive: live })
 }
 
 export function removeLastPenalty(s) {
@@ -541,7 +541,7 @@ export function setSettings(s, patch) {
 }
 
 export function setOptions(s, opts) {
-  return touch({ ...s, opts })
+  return touch({ ...s, opts, ...(opts.smallIce && !s.rinkB ? { rinkB: newRinkB() } : {}) })
 }
 
 export function resetGame(s) {
@@ -553,6 +553,7 @@ export function resetGame(s) {
     theme: s.theme,
     opts: s.opts,
     clock: { remainingMs: s.periodLengthMs, running: false, since: null },
+    ...(s.rinkB ? { rinkB: newRinkB(s.rinkB) } : {}),
   })
 }
 
@@ -757,4 +758,75 @@ ${['home', 'away'].map(t => { const x = g.totals[t]; return `<tr><th>${esc(g[t].
 ${g.timeline.length ? g.timeline.map(x => { const c = `<b>${esc(x.kind)}</b> ${esc(x.text)}`; return `<tr class="k-${esc(x.kind.toLowerCase().replace(' ', '-'))}"><td>${esc(x.time)}</td><td>${x.team === 'home' ? c : ''}</td><td>${x.team === 'away' ? c : ''}</td></tr>` }).join('') : '<tr><td colspan="3">—</td></tr>'}</table>
 <div class="legend">Times are game time from the start of the game. Sit.: EQ even strength · PP1/PP2 power play · SH1/SH2 short-handed · PS penalty shot · EN empty net. PIM = penalty minutes, PPG/SHG = power-play / short-handed goals.</div>
 </body></html>`
+}
+
+// ---- small ice: two games on one rink (opts.smallIce) ----
+// The rink is split in two halves that share ONE clock, period, whistle and shift timer; each half has its
+// own teams, score, penalties and game log. Rink A is the normal state (s.home, s.away, s.penalties …),
+// Rink B lives in s.rinkB with the same fields. rinkView() turns Rink B into an ordinary state, so every
+// rule above (penalties, strength, goal release, game sheet) works for it unchanged; onRink() applies a
+// mutation to one rink and puts the result back.
+const RINK_FIELDS = ['home', 'away', 'penalties', 'penFoldAt', 'events', 'goalFlash', 'offside', 'penaltyCall', 'shootout']
+const pickRink = x => Object.fromEntries(RINK_FIELDS.map(k => [k, x[k]]))
+
+export function newRinkB(old) {
+  return {
+    home: { name: old?.home?.name || 'HOME B', score: 0, shots: 0, offsides: 0, color: old?.home?.color || '#f4a261' },
+    away: { name: old?.away?.name || 'AWAY B', score: 0, shots: 0, offsides: 0, color: old?.away?.color || '#2a9d8f' },
+    penalties: [], penFoldAt: null, events: [], goalFlash: null, offside: null, penaltyCall: null,
+    shootout: { home: [], away: [] },
+    homeLogo: old?.homeLogo || '', awayLogo: old?.awayLogo || '',
+  }
+}
+
+export const isSmallIce = s => Boolean(s?.opts?.smallIce && s.rinkB)
+
+export function rinkView(s, rink) {
+  if (rink !== 'b' || !s.rinkB) return s
+  const b = s.rinkB
+  return { ...s, ...pickRink(b), rinkB: undefined, opts: { ...s.opts, homeLogo: b.homeLogo || '', awayLogo: b.awayLogo || '' } }
+}
+
+// Apply fn to one rink. For Rink B, Rink A's penalties are first brought up to date, so a shared change
+// made through fn (clock, whistle) is correct for both halves.
+export function onRink(s, rink, fn) {
+  if (rink !== 'b' || !s.rinkB) return fn(s) ?? s
+  const now = wallNow()
+  const a = foldPenalties(s, now)
+  const out = fn(rinkView(a, 'b'))
+  if (!out) return s
+  const rinkB = { ...s.rinkB, ...pickRink(out), homeLogo: out.opts.homeLogo, awayLogo: out.opts.awayLogo }
+  return { ...out, ...pickRink(a), rinkB, opts: { ...out.opts, homeLogo: s.opts.homeLogo, awayLogo: s.opts.awayLogo } }
+}
+
+// Penalties of both rinks up to `now`: before the clock or the whistle changes whether play is live
+function foldAll(s, now = wallNow()) {
+  const a = foldPenalties(s, now)
+  return a.rinkB ? { ...a, rinkB: { ...a.rinkB, ...pickRink(foldPenalties(rinkView(a, 'b'), now)) } } : a
+}
+
+// ---- shift (line change) timer: opts.shiftMs, 0 = off ----
+// Counts down with the game clock (it pauses when the clock stops) and starts over by itself; the control
+// page sounds the buzzer each time it reaches 0. Derived from the game clock, so every screen agrees.
+// s.shift = { period, atMs }: where the current cycle started, as period time played; a new period starts at 0.
+export function shiftInfo(s, now = wallNow()) {
+  const len = Number(s.opts?.shiftMs) || 0
+  if (len <= 0 || s.period === 'SO') return null
+  const played = Math.max(0, periodLength(s) - clockRemaining(s, now))
+  const anchor = s.shift?.period === s.period ? Math.min(s.shift.atMs, played) : 0
+  const d = played - anchor
+  return { remainingMs: len - (d % len), count: Math.floor(d / len), lengthMs: len }
+}
+
+// Start a new shift now (e.g. after a goal or a stoppage)
+export function resetShift(s, now = wallNow()) {
+  const played = Math.max(0, periodLength(s) - clockRemaining(s, now))
+  return touch({ ...s, shift: { period: s.period, atMs: played } })
+}
+
+// The buzzer for shift number `count` of this period, once (two control pages open = still one buzz)
+export function shiftBuzzer(s, count) {
+  const key = `${s.period}:${s.shift?.period === s.period ? s.shift.atMs : 0}:${count}`
+  if (s.shiftBuzzed === key) return s
+  return touch({ ...s, shiftBuzzed: key, buzzer: (s.buzzer || 0) + 1 })
 }

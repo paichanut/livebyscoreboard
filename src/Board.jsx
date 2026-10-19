@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
-import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, penaltyCallActive, periodLabel, clockRemaining } from './game.js'
+import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, penaltyCallActive, periodLabel, clockRemaining, isSmallIce, rinkView, shiftInfo } from './game.js'
 import { ONLINE } from './sync.js'
 import { now as serverNow } from './clock.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
@@ -31,9 +31,15 @@ function FullscreenHint() {
   return show ? <div className="fshint" role="status">Double-click for full screen</div> : null
 }
 
+// Small ice (two games on one rink): /b/CODE is the center board (both games, the shared clock and the
+// shift countdown), /b/CODE?rink=a and ?rink=b are the side boards: one game each, same clock.
+const RINK = (() => { const q = new URLSearchParams(window.location.search).get('rink'); return q === 'a' || q === 'b' ? q : null })()
+
 export default function Board() {
   const gameId = useGameId()
-  const [s, , access] = useGame(gameId)
+  const [raw, , access] = useGame(gameId)
+  const small = isSmallIce(raw)
+  const s = raw && small && RINK ? rinkView(raw, RINK) : raw
   useAppearance(s)
   const sound = useSound('rinkboard:sound:board', true)
   useGameSounds(s, sound.playing)
@@ -57,9 +63,13 @@ export default function Board() {
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
 
+  if (small && !RINK) return <DualBoard s={s} sound={sound} clear={clear} bgOpacity={bgOpacity} />
+
   const o = s.opts
   const L = o.labels
   const minimal = o.layout === 'minimal'
+  // the line-change countdown; in small ice only on the center board
+  const shift = small ? null : shiftInfo(s)
   const arena = o.layout === 'arena'
   const strength = strengthLabel(s)
   const hOn = skatersOnIce(s, 'home'), aOn = skatersOnIce(s, 'away')
@@ -110,6 +120,7 @@ export default function Board() {
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
         <div className={`clock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
+        {shift && <div className="shiftchip">{L.shift} <b className="tnum">{Math.ceil(shift.remainingMs / 1000)}</b></div>}
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         {/* reserved slot: always the same height, so GOAL! appearing moves nothing and covers nothing */}
         <div className="evslot"><EventText s={s} flash={flash} withName /></div>
@@ -151,6 +162,75 @@ function EventText({ s, flash, withName }) {
   )
   if (off) return <div className="goalflash offside" style={{ '--c': s[off].color }}>{L.offside || 'OFFSIDE'}{withName && <span>{s[off].name}</span>}</div>
   return null
+}
+
+// Small ice center board: Rink A | clock, period, shift countdown | Rink B (PC Scoreboards' two-game board)
+function DualBoard({ s, sound, clear, bgOpacity }) {
+  const o = s.opts
+  const L = o.labels
+  const shift = shiftInfo(s)
+  const final = clockRemaining(s) <= 0 && s.period !== 'SO'
+  const isNum = !['OT', 'SO'].includes(s.period)
+  const toRem = timeoutRemaining(s)
+  return (
+    <div className={`board dual ${clear ? 'clear' : ''}`} style={clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
+      <SoundToggle sound={sound} className="sound" />
+      <FullscreenButton />
+      <FullscreenHint />
+      {(o.bannerImg || o.title || o.topLeftImg || o.topRightImg) && (
+        <div className="dtop">
+          <div className="side">{o.topLeftImg && <img src={o.topLeftImg} alt="" />}</div>
+          <div className="title">{o.bannerImg ? <img src={o.bannerImg} alt="" /> : o.title}</div>
+          <div className="side">{o.topRightImg && <img src={o.topRightImg} alt="" />}</div>
+        </div>
+      )}
+      <DualGame s={rinkView(s, 'a')} label={L.rinkA} />
+      <div className="dmid">
+        {o.logoImg && <img className="dlogo" src={o.logoImg} alt="" />}
+        <div className={`dclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
+        <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
+        {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
+        {toRem > 0 && <div className="timeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
+        {shift && (
+          <div className="dshift">
+            <span>{L.shift}</span>
+            <b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b>
+          </div>
+        )}
+      </div>
+      <DualGame s={rinkView(s, 'b')} label={L.rinkB} />
+    </div>
+  )
+}
+
+function DualGame({ s, label }) {
+  const flash = goalFlashActive(s)
+  const strength = strengthLabel(s)
+  return (
+    <div className="dgame">
+      <div className="dlabel">{label}{strength && <span className="dstr">{strength}</span>}</div>
+      <div className="dteams">
+        {['home', 'away'].map(team => {
+          const run = activePenalties(s, team)
+          const more = run.length - Math.min(run.length, 2) + waitingPenalties(s, team).length
+          return (
+            <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`dteam ${flash === team ? 'flash' : ''}`} style={{ '--c': s[team].color }}>
+              {s.opts[`${team}Logo`] && <img className="dtlogo" src={s.opts[`${team}Logo`]} alt="" />}
+              <div className="dname">{s[team].name}</div>
+              <div className="dscore tnum">{s[team].score}</div>
+              <div className="dpens">
+                {run.slice(0, 2).map(p => (
+                  <div className="dpen" key={p.id}><span>{p.player ? `#${p.player}` : s.opts.labels.penalty}</span><b className="tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</b></div>
+                ))}
+                {more > 0 && <div className="dpen more">+{more}</div>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="evslot"><EventText s={s} flash={flash} withName /></div>
+    </div>
+  )
 }
 
 // Compact layout: one broadcast-style panel (the operator's earlier OBS design). Home | clock box,

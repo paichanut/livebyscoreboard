@@ -1,13 +1,16 @@
 // Score banner — compact strip for OBS / stream overlays. Chroma-key background by default.
 import React from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
-import { clockShown, fmtClock, fmtTimeOfDay, periodLabel, activePenalties, waitingPenalties, penaltyRemaining, strengthLabel } from './game.js'
+import { clockShown, fmtClock, fmtTimeOfDay, periodLabel, activePenalties, waitingPenalties, penaltyRemaining, strengthLabel, isSmallIce, rinkView } from './game.js'
 import { useAppearance } from './useOptions.jsx'
 import { Shootout } from './Board.jsx'
 
 export default function Banner() {
   const gameId = useGameId()
-  const [s] = useGame(gameId)
+  const [raw] = useGame(gameId)
+  // small ice: /o/CODE?rink=b is Rink B's banner (default Rink A)
+  const rink = new URLSearchParams(window.location.search).get('rink') === 'b' ? 'b' : 'a'
+  const s = raw && isSmallIce(raw) ? rinkView(raw, rink) : raw
   useAppearance(s)
   useTick(100, Boolean(s?.clock.running || s?.showTimeOfDay))
   if (!s) return null

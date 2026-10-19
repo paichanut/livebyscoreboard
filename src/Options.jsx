@@ -71,10 +71,37 @@ const Num = ({ label, path, get, set, min = 0, max = 999, suffix }) => (
   <Row label={label}><span className="inline"><input type="number" min={min} max={max} value={get(path)} onChange={e => set(path, Number(e.target.value))} />{suffix}</span></Row>
 )
 
+// Line-change buzzer: every mm:ss of game time (0:00 = off). The display counts the shift down in seconds.
+function ShiftRow({ o, set }) {
+  const total = Math.round((Number(o.shiftMs) || 0) / 1000)
+  const put = (m, sec) => set('shiftMs', Math.max(0, (Math.max(0, Number(m) || 0) * 60 + Math.max(0, Math.min(59, Number(sec) || 0))) * 1000))
+  return (
+    <Row label="Line change buzzer every (mm:ss, 0:00 = off)" as="div">
+      <span className="inline mmss">
+        <input type="number" min={0} max={20} aria-label="shift minutes" value={Math.floor(total / 60)} onChange={e => put(e.target.value, total % 60)} />
+        :
+        <input type="number" min={0} max={59} aria-label="shift seconds" value={String(total % 60).padStart(2, '0')} onChange={e => put(Math.floor(total / 60), e.target.value)} />
+      </span>
+    </Row>
+  )
+}
+
 function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters }) {
   const [newLen, setNewLen] = useState('')
   return (
     <>
+      <h4>Rink</h4>
+      <div className="chips">
+        <button className={`btn ${!o.smallIce ? 'on' : ''}`} onClick={() => set('smallIce', false)}>Full rink — one game</button>
+        <button className={`btn ${o.smallIce ? 'on' : ''}`} onClick={() => { set('smallIce', true); if (!o.shiftMs) set('shiftMs', 90_000) }}>Small ice — 2 games, one clock</button>
+      </div>
+      {o.smallIce && <p className="hint">Rink A and Rink B share the clock, period and shift; each has its own teams, score and penalties.
+        Boards: center = /b/CODE, sides = /b/CODE?rink=a and ?rink=b. Controllers: center = this page, sides = /c/CODE?rink=a and ?rink=b (QR → links).</p>}
+      {o.smallIce && <>
+        <Row label="Rink A name"><input type="text" value={o.labels.rinkA} onChange={e => set('labels.rinkA', e.target.value.slice(0, 16))} style={{ width: 160 }} /></Row>
+        <Row label="Rink B name"><input type="text" value={o.labels.rinkB} onChange={e => set('labels.rinkB', e.target.value.slice(0, 16))} style={{ width: 160 }} /></Row>
+      </>}
+      <ShiftRow o={o} set={set} />
       <h4>Scoreboard layout</h4>
       <div className="chips">
         <button className={`btn ${o.layout === 'arena' ? 'on' : ''}`} onClick={() => set('layout', 'arena')}>Arena — logos on top, penalty boxes, photo</button>

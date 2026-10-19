@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
@@ -11,6 +11,10 @@ import TimeBadge from './TimeBadge.jsx'
 import { ContactLinks, DEV } from './Contact.jsx'
 import Options, { SavedTeams, resizeImage } from './Options.jsx'
 import { KEY_GROUPS, KEY_LABELS, keyName } from './options.js'
+
+// keys a rink controller (A / B) may use: its own score, shots, penalties and goal light, not the shared clock
+const RINK_KEYS = ['homeGoal', 'homeGoalMinus', 'homeShot', 'homeShotMinus', 'awayGoal', 'awayGoalMinus', 'awayShot', 'awayShotMinus',
+  'removePenalty', 'goalLightHome', 'goalLightAway', 'goalLightOff']
 
 export default function Control() {
   const gameId = useGameId()
@@ -38,6 +42,21 @@ export default function Control() {
   useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
   useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
   const [sheet, setSheet] = useState(null)
+  // small ice (two games on one rink): the team cards, goal light and penalty / team / goal sheets work on
+  // the chosen half; the clock, period, whistle and shift are shared (game.js rinkView / onRink)
+  const [rink, setRink] = useState('a')
+  const rinkRef = useRef('a')
+  const small = G.isSmallIce(s)
+  // controller A / B (/c/CODE?rink=a|b): only that half's score and penalties; the clock is the center's
+  const [lock] = useState(() => { const q = new URLSearchParams(window.location.search).get('rink'); return q === 'a' || q === 'b' ? q : null })
+  const locked = small ? lock : null
+  const r = small ? (locked || rink) : 'a'
+  rinkRef.current = r
+  const lockRef = useRef(null)
+  lockRef.current = locked
+  const v = s && r === 'b' ? G.rinkView(s, 'b') : s
+  const ur = fn => update(x => G.onRink(x, rinkRef.current, fn))
+  const shift = s ? G.shiftInfo(s) : null
   const [openPen, setOpenPen] = useState(null) // penalty row showing its ±1/±5 s buttons
   // optional: play horn/buzzer on this device too (phone speaker / laptop plugged into the PA)
   // horn / buzzer play here too, not only on the display (new key so everyone starts with sound on)
@@ -55,11 +74,27 @@ export default function Control() {
   useEffect(() => {
     const id = setInterval(() => update(x => {
       let n = G.pruneExpiredPenalties(x)
+      if (G.isSmallIce(n)) { const b = G.rinkView(n, 'b'); if (G.pruneExpiredPenalties(b) !== b) n = G.onRink(n, 'b', G.pruneExpiredPenalties) }
       if (n.timeout && G.timeoutRemaining(n) <= 0) n = G.clearTimeout_(n)
       return n
     }), 1000)
     return () => clearInterval(id)
   }, [])
+  // Home → "Small ice" opens /c/CODE?mode=small: turn the new game into two rinks once, then drop the flag
+  useEffect(() => {
+    if (!s || access !== 'ok') return
+    const u = new URL(window.location.href)
+    const mode = u.searchParams.get('mode')
+    if (!mode) return
+    if (mode === 'small' && !s.opts.smallIce) update(x => G.setOptions(x, { ...x.opts, smallIce: true, shiftMs: x.opts.shiftMs || 90_000 }))
+    if (mode === 'full' && s.opts.smallIce) update(x => G.setOptions(x, { ...x.opts, smallIce: false }))
+    u.searchParams.delete('mode')
+    window.history.replaceState(null, '', u)
+  }, [Boolean(s), access])
+  // line change: the buzzer each time the shift timer reaches 0 (once per shift, see G.shiftBuzzer)
+  useEffect(() => {
+    if (shift && s.clock.running && shift.count > 0) update(x => G.shiftBuzzer(x, G.shiftInfo(x)?.count ?? 0))
+  }, [shift?.count, s?.period])
 
   // Keyboard shortcuts — rebindable in Options → Keys
   useEffect(() => {
@@ -94,8 +129,8 @@ export default function Control() {
         correction: () => { setSheet('setclock'); return null },
         newGame: x => (ask('newGame', t('confirmNewGame')) ? G.resetGame(x) : x),
       }
-      const fn = map[act]
-      if (fn) update(x => fn(x) ?? x)
+      const fn = lockRef.current && !RINK_KEYS.includes(act) ? null : map[act]
+      if (fn) update(x => G.onRink(x, rinkRef.current, y => fn(y) ?? y))
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
@@ -107,7 +142,7 @@ export default function Control() {
   const o = s.opts
   const remaining = G.clockRemaining(s)
   const running = s.clock.running
-  const strength = G.strengthLabel(s)
+  const strength = G.strengthLabel(v)
   const origin = window.location.origin
   const boardUrl = `${origin}/b/${encodeURIComponent(gameId)}`
   const bannerUrl = `${origin}/o/${encodeURIComponent(gameId)}`
@@ -119,6 +154,17 @@ export default function Control() {
     <div className="control">
 
       <div className="card clockcard">
+        {locked && <div className="rinkctl">🎮 {t('rinkController', { rink: o.labels[locked === 'a' ? 'rinkA' : 'rinkB'] })}</div>}
+        {small && !locked && (
+          <div className="rinktabs">
+            {['a', 'b'].map(k => {
+              const x = G.rinkView(s, k)
+              return <button key={k} className={`btn sm ${r === k ? 'on' : ''}`} aria-label={`rink ${k}`} onClick={() => setRink(k)}>
+                {o.labels[k === 'a' ? 'rinkA' : 'rinkB']} · <span className="tnum">{x.home.score}–{x.away.score}</span>
+              </button>
+            })}
+          </div>
+        )}
         <div className="p">
           <span className={`run ${running ? 'on' : ''}`}>{running ? t('running') : t('paused')}</span>
           <span>{isNum ? <>{o.labels.period} <b>{G.periodLabel(s)}</b></> : <b>{G.periodLabel(s)}</b>}</span>
@@ -127,14 +173,22 @@ export default function Control() {
           {s.showTimeOfDay && <span className="tod">{t('todOnDisplay')}</span>}
         </div>
         <div className="clockline">
-          <div className="adj">
+          {!locked && <div className="adj">
             {[-5, -1].map(d => <button key={d} className="btn sm minus" aria-label={`clock ${d} s`} onClick={() => update(x => G.adjustClock(x, d * 1000))}>−{-d}</button>)}
-          </div>
+          </div>}
           <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s))}</div>
-          <div className="adj">
+          {!locked && <div className="adj">
             {[1, 5].map(d => <button key={d} className="btn sm plus" aria-label={`clock +${d} s`} onClick={() => update(x => G.adjustClock(x, d * 1000))}>+{d}</button>)}
-          </div>
+          </div>}
         </div>
+        {shift && (
+          <div className="shiftrow">
+            <span className="gl">{o.labels.shift}</span>
+            <b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b>
+            {!locked && <button className="btn sm" aria-label="reset shift" onClick={() => update(G.resetShift)}>↺ {t('shiftReset')}</button>}
+          </div>
+        )}
+        {!locked && <>
         <div className="row">
           <button className={`btn big ${running ? 'danger' : 'primary'}`} onClick={() => update(G.toggleClock)} disabled={!running && remaining <= 0}>
             {running ? t('stop') : t('start')}
@@ -191,12 +245,13 @@ export default function Control() {
             </>
           )}
         </div>
+        </>}
         <div className="goallight">
           <span className="gl">{t('goalLight')}</span>
           <div className="row">
-            <button className={`btn sm ${G.goalFlashActive(s) === 'home' ? 'lit' : ''}`} aria-label="goal light home" onClick={() => update(x => G.setGoalLight(x, 'home'))}>◁ {s.home.name}</button>
-            <button className="btn sm" aria-label="goal light off" onClick={() => update(x => G.setGoalLight(x, null))}>{t('none')}</button>
-            <button className={`btn sm ${G.goalFlashActive(s) === 'away' ? 'lit' : ''}`} aria-label="goal light away" onClick={() => update(x => G.setGoalLight(x, 'away'))}>{s.away.name} ▷</button>
+            <button className={`btn sm ${G.goalFlashActive(v) === 'home' ? 'lit' : ''}`} aria-label="goal light home" onClick={() => ur(x => G.setGoalLight(x, 'home'))}>◁ {v.home.name}</button>
+            <button className="btn sm" aria-label="goal light off" onClick={() => ur(x => G.setGoalLight(x, null))}>{t('none')}</button>
+            <button className={`btn sm ${G.goalFlashActive(v) === 'away' ? 'lit' : ''}`} aria-label="goal light away" onClick={() => ur(x => G.setGoalLight(x, 'away'))}>{v.away.name} ▷</button>
           </div>
         </div>
         {isSO && <div className="hint sohint">{t('soHint')}</div>}
@@ -204,51 +259,52 @@ export default function Control() {
 
       <div className="teams">
         {['home', 'away'].map(team => {
-          const tm = s[team]
-          const so = s.shootout?.[team] || []
+          const tm = v[team]
+          const so = v.shootout?.[team] || []
           return (
             // the scoring team's card blinks on the control page too, for as long as the goal light is on
-            <div className={`tc ${G.goalFlashActive(s) === team ? 'flash' : ''}`} key={`${team}-${G.goalFlashActive(s) === team ? s.goalFlash.at : 0}`} style={{ '--c': tm.color }}>
+            <div className={`tc ${G.goalFlashActive(v) === team ? 'flash' : ''}`} key={`${team}-${G.goalFlashActive(v) === team ? v.goalFlash.at : 0}`} style={{ '--c': tm.color }}>
+              {small && <span className="rinkbadge">{o.labels[r === 'a' ? 'rinkA' : 'rinkB']}</span>}
               <button className="n" aria-label={`rename ${team}`} title={t('editTeam')} onClick={() => setSheet(`team-${team}`)}>{tm.name}</button>
               <div className="s tnum">{tm.score}</div>
               <div className="goalrow">
-                <button className="goal" onClick={() => update(x => G.addScore(x, team, 1))}>{t('goal')}</button>
-                <button className="goal horn" aria-label={`goal and horn ${team}`} onClick={() => update(x => G.fireHorn(G.addScore(x, team, 1)))}>{t('goalHorn')}</button>
+                <button className="goal" onClick={() => ur(x => G.addScore(x, team, 1))}>{t('goal')}</button>
+                <button className="goal horn" aria-label={`goal and horn ${team}`} onClick={() => ur(x => G.fireHorn(G.addScore(x, team, 1)))}>{t('goalHorn')}</button>
               </div>
               {(() => {
-                const g = G.goalNeedingScorer(s, team)
-                return g && <button className="btn sm scorerbtn" aria-label={`goal details ${team}`} onClick={() => setSheet(`goal-${g.id}`)}>✎ {t('addScorer')} · {G.fmtGameTime(G.eventGameTimeMs(s, g))}</button>
+                const g = G.goalNeedingScorer(v, team)
+                return g && <button className="btn sm scorerbtn" aria-label={`goal details ${team}`} onClick={() => setSheet(`goal-${g.id}`)}>✎ {t('addScorer')} · {G.fmtGameTime(G.eventGameTimeMs(v, g))}</button>
               })()}
               {isSO && (
                 <div className="so">
                   <div className="marks" aria-label={`shootout ${team}`}>{so.length ? so.map((a, i) => <span key={i} className={`so-${a}`}>{a === 'goal' ? '●' : '○'}</span>) : <span className="none">—</span>}</div>
                   <div className="mini">
-                    <button className="btn on" onClick={() => update(x => G.soAttempt(x, team, true))}>{t('soGoal')}</button>
-                    <button className="btn" onClick={() => update(x => G.soAttempt(x, team, false))}>{t('soMiss')}</button>
-                    <button className="btn" onClick={() => update(x => G.soUndo(x, team))} disabled={!so.length}>↶</button>
+                    <button className="btn on" onClick={() => ur(x => G.soAttempt(x, team, true))}>{t('soGoal')}</button>
+                    <button className="btn" onClick={() => ur(x => G.soAttempt(x, team, false))}>{t('soMiss')}</button>
+                    <button className="btn" onClick={() => ur(x => G.soUndo(x, team))} disabled={!so.length}>↶</button>
                   </div>
                 </div>
               )}
               <div className="mini">
                 <span className="ml">{t('scoreLbl')}</span>
-                <button className="btn minus" onClick={() => update(x => G.addScore(x, team, -1))}>{t('minus1')}</button>
-                <button className="btn plus" aria-label="score +1" onClick={() => update(x => G.addScore(x, team, 1))}>+1</button>
+                <button className="btn minus" onClick={() => ur(x => G.addScore(x, team, -1))}>{t('minus1')}</button>
+                <button className="btn plus" aria-label="score +1" onClick={() => ur(x => G.addScore(x, team, 1))}>+1</button>
               </div>
               <div className="mini">
                 <span className="ml">{o.labels.shots} <b className="tnum">{tm.shots}</b></span>
-                <button className="btn minus" aria-label="shot −1" onClick={() => update(x => G.addShot(x, team, -1))}>−1</button>
-                <button className="btn plus" aria-label="Shot +" onClick={() => update(x => G.addShot(x, team, 1))}>+1</button>
+                <button className="btn minus" aria-label="shot −1" onClick={() => ur(x => G.addShot(x, team, -1))}>−1</button>
+                <button className="btn plus" aria-label="Shot +" onClick={() => ur(x => G.addShot(x, team, 1))}>+1</button>
               </div>
               <div className="mini">
                 <span className="ml">{t('offside')} <b className="tnum">{tm.offsides || 0}</b></span>
-                <button className="btn minus" aria-label={`offside −1 ${team}`} onClick={() => update(x => G.addOffside(x, team, -1))}>−1</button>
-                <button className="btn plus" aria-label={`offside +1 ${team}`} onClick={() => update(x => G.addOffside(x, team, 1))}>+1</button>
+                <button className="btn minus" aria-label={`offside −1 ${team}`} onClick={() => ur(x => G.addOffside(x, team, -1))}>−1</button>
+                <button className="btn plus" aria-label={`offside +1 ${team}`} onClick={() => ur(x => G.addOffside(x, team, 1))}>+1</button>
               </div>
               <div className="penhead">
                 <span>{o.labels.player} · {o.labels.penalty}</span>
                 <button className="btn addpen" aria-label="add penalty" onClick={() => setSheet(`pen-${team}`)}>+</button>
               </div>
-              {G.teamPenalties(s, team).map(p => (
+              {G.teamPenalties(v, team).map(p => (
                 <div className={`pen ${p.status}`} key={p.id} data-status={p.status}>
                   <div className="who">{p.player ? `#${p.player}` : t('pen')} <small>{p.infraction || t('kind_' + p.kind)}{p.coincidental ? ` · ${t('coincShort')}` : ''}{!G.onPenaltyClock(p) && p.kind !== 'game' ? ` · ${t('notOnDisplay')}` : ''}</small></div>
                   <span className="pt tnum">{p.status === 'game'
@@ -256,19 +312,19 @@ export default function Control() {
                     : `${p.status === 'waiting' ? t('waiting') + ' · ' : ''}${G.fmtClock(p.remainingMs, { tenths: false })}`}</span>
                   <div className="acts">
                     <button aria-label="edit penalty" onClick={() => setSheet(`edit-${team}-${p.id}`)}>✎</button>
-                    <button aria-label="remove penalty" onClick={() => { if (ask('removePenalty', t('confirmRemovePenalty'))) update(x => G.removePenalty(x, p.id)) }}>✕</button>
+                    <button aria-label="remove penalty" onClick={() => { if (ask('removePenalty', t('confirmRemovePenalty'))) ur(x => G.removePenalty(x, p.id)) }}>✕</button>
                     {p.status !== 'game' && <button aria-label="more" className={openPen === p.id ? 'on' : ''} onClick={() => setOpenPen(openPen === p.id ? null : p.id)}>•••</button>}
                   </div>
                   {openPen === p.id && (
                     <div className="nudge">
                       {[-5, -1, 1, 5].map(d => (
-                        <button key={d} onClick={() => update(x => G.nudgePenalty(x, p.id, d * 1000))}>{d > 0 ? `+${d}` : `−${-d}`}</button>
+                        <button key={d} onClick={() => ur(x => G.nudgePenalty(x, p.id, d * 1000))}>{d > 0 ? `+${d}` : `−${-d}`}</button>
                       ))}
                     </div>
                   )}
                 </div>
               ))}
-              <button className="btn psgoal" aria-label={`penalty shot goal ${team}`} onClick={() => update(x => G.addScore(x, team, 1, { penaltyShot: true }))}>{t('psGoal')}</button>
+              <button className="btn psgoal" aria-label={`penalty shot goal ${team}`} onClick={() => ur(x => G.addScore(x, team, 1, { penaltyShot: true }))}>{t('psGoal')}</button>
             </div>
           )
         })}
@@ -276,13 +332,13 @@ export default function Control() {
 
       <div className="bottom">
         {!DESKTOP && <button className="btn" aria-label="home" onClick={() => { if (confirm(t('confirmHome'))) window.location.href = '/' }}>🏠 {t('home')}</button>}
-        <button className="btn" onClick={() => setSheet('options')}>{t('options')}</button>
-        <a className="btn" href={boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>
+        {!locked && <button className="btn" onClick={() => setSheet('options')}>{t('options')}</button>}
+        <a className="btn" href={locked ? `${boardUrl}?rink=${locked}` : boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>
         <button className="btn" onClick={() => setSheet('summary')}>{t('summary')}</button>
         {!DESKTOP && <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>}
         {DESKTOP && window.desktop?.getShare && <button className="btn" onClick={() => setSheet('share')}>🌐 {t('shareBtn')}</button>}
-        <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>
-        <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>
+        {!locked && <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>}
+        {!locked && <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>}
         <SoundToggle sound={sound} className="btn csound" />
         <button className="btn keysbtn" onClick={() => setSheet('keys')} aria-label="keyboard shortcuts">⌨ {t('help')}</button>
       </div>
@@ -296,13 +352,13 @@ export default function Control() {
         <button className="linkbtn who" onClick={() => setSheet('contact')}>💬 {t('contactDev')}</button>
       </div>
 
-      {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={s} update={update} close={() => setSheet(null)} t={t} />}
+      {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={v} update={ur} close={() => setSheet(null)} t={t} />}
       {sheet?.startsWith('edit-') && (() => {
         const [, team, id] = sheet.split('-')
-        const pen = s.penalties.find(p => p.id === id)
-        return pen ? <PenaltySheet team={team} s={s} update={update} close={() => setSheet(null)} t={t} edit={pen} /> : null
+        const pen = v.penalties.find(p => p.id === id)
+        return pen ? <PenaltySheet team={team} s={v} update={ur} close={() => setSheet(null)} t={t} edit={pen} /> : null
       })()}
-      {sheet?.startsWith('team-') && <TeamSheet team={sheet.slice(5)} s={s} update={update} close={() => setSheet(null)} t={t} />}
+      {sheet?.startsWith('team-') && <TeamSheet team={sheet.slice(5)} s={v} update={ur} close={() => setSheet(null)} t={t} />}
       {sheet === 'setclock' && <SetClockSheet s={s} update={update} close={() => setSheet(null)} t={t} />}
       {sheet?.startsWith('timeout-') && (
         <Sheet close={() => setSheet(null)}>
@@ -333,7 +389,7 @@ export default function Control() {
         </Sheet>
       )}
       {sheet === 'options' && <Options s={s} update={update} close={() => setSheet(null)} />}
-      {sheet === 'summary' && <SummarySheet s={s} gameId={gameId} close={() => setSheet(null)} t={t} editGoal={id => setSheet(`goal-${id}`)} />}
+      {sheet === 'summary' && <SummarySheet s={v} gameId={gameId} close={() => setSheet(null)} t={t} editGoal={id => setSheet(`goal-${id}`)} />}
       {sheet === 'contact' && (
         <Sheet close={() => setSheet(null)}>
           <h3>{t('contactDev')} · {DEV.name}</h3>
@@ -341,9 +397,9 @@ export default function Control() {
           <button className="btn ghost" onClick={() => setSheet(null)}>{t('close')}</button>
         </Sheet>
       )}
-      {sheet?.startsWith('goal-') && <GoalSheet s={s} id={sheet.slice(5)} update={update} close={() => setSheet(null)} t={t} />}
+      {sheet?.startsWith('goal-') && <GoalSheet s={v} id={sheet.slice(5)} update={ur} close={() => setSheet(null)} t={t} />}
       {sheet === 'share' && <ShareSheet t={t} close={() => setSheet(null)} Sheet={Sheet} />}
-      {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} t={t} />}
+      {sheet === 'qr' && <QrSheet small={small && !locked} labels={o.labels} boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} t={t} />}
     </div>
   )
 }
@@ -551,7 +607,7 @@ function GoalSheet({ s, id, update, close, t }) {
   )
 }
 
-function QrSheet({ boardUrl, bannerUrl, controlUrl, close, t }) {
+function QrSheet({ boardUrl, bannerUrl, controlUrl, close, t, small, labels }) {
   const src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=0&data=${encodeURIComponent(boardUrl)}`
   const share = () => navigator.share?.({ title: 'Live scoreboard', url: boardUrl }).catch(() => {})
   return (
@@ -565,6 +621,13 @@ function QrSheet({ boardUrl, bannerUrl, controlUrl, close, t }) {
           {navigator.share && <button className="btn sm" onClick={share}>{t('share')}</button>}
         </div>
         <div className="hint" style={{ textAlign: 'center' }}>{t('publicHint')}</div>
+        {small && ['a', 'b'].map(k => (
+          <div key={k} className="url" style={{ marginTop: 8 }}>
+            {labels[k === 'a' ? 'rinkA' : 'rinkB']}: {boardUrl}?rink={k}{' '}
+            <button className="btn sm" onClick={() => navigator.clipboard?.writeText(`${boardUrl}?rink=${k}`)}>{t('copyLink')}</button>
+            <button className="btn sm accent" onClick={() => { const u = new URL(controlUrl); u.searchParams.set('rink', k); navigator.clipboard?.writeText(u.toString()) }}>{t('copyRinkController')}</button>
+          </div>
+        ))}
         <div className="url" style={{ marginTop: 8 }}>{t('obsOverlay')} {bannerUrl}</div>
         <button className="btn sm" onClick={() => navigator.clipboard?.writeText(bannerUrl)}>{t('copyBanner')}</button>
         <div className="url" style={{ marginTop: 8 }}>{t('operatorLink')}</div>

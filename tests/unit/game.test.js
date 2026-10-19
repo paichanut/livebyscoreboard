@@ -528,3 +528,61 @@ test('a new penalty is announced on the display for 5 s: number, infraction, min
   assert.equal(G.penaltyCallActive(G.addPenalty(game(), 'home', '', 2, 'Too many players')).text, 'TOO MANY PLAYERS 2:00')
   assert.equal(G.penaltyCallActive(G.addPenalty(game(), 'home', '4', 10)).text, '#4 MISCONDUCT 10:00')
 })
+
+test('small ice: Rink B has its own teams, score and penalties but shares the clock', () => {
+  let s = G.newGame()
+  s = G.setOptions(s, { ...s.opts, smallIce: true })
+  assert.ok(G.isSmallIce(s))
+  s = G.onRink(s, 'b', x => G.setTeam(x, 'home', { name: 'Vikings 2' }))
+  s = G.onRink(s, 'b', x => G.addScore(x, 'home', 1))
+  s = G.onRink(s, 'b', x => G.addPenalty(x, 'away', '76', 2, 'Tripping'))
+  assert.equal(s.home.score, 0)
+  assert.equal(s.penalties.length, 0)
+  const b = G.rinkView(s, 'b')
+  assert.equal(b.home.name, 'Vikings 2')
+  assert.equal(b.home.score, 1)
+  assert.equal(b.penalties.length, 1)
+  assert.equal(G.strengthLabel(b), '5v4')
+  assert.equal(G.strengthLabel(s), '')
+  // the shared clock runs both rinks' penalties
+  s = G.addPenalty(s, 'home', '32', 2, 'Hooking')
+  s = G.startClock(s)
+  assert.equal(G.rinkView(s, 'b').clock.running, true)
+  const t0 = s.clock.since
+  const later = t0 + 30_000
+  assert.equal(G.penaltyRemaining(G.rinkView(s, 'b'), G.rinkView(s, 'b').penalties[0], later), 90_000)
+  assert.equal(G.penaltyRemaining(s, s.penalties[0], later), 90_000)
+  // a goal on Rink B goes in Rink B's log only
+  assert.equal(G.rinkView(s, 'b').events.filter(e => e.type === 'goal').length, 1)
+  assert.equal(s.events.filter(e => e.type === 'goal').length, 0)
+  // logos per rink
+  s = G.onRink(s, 'b', x => G.setOptions(x, { ...x.opts, homeLogo: 'data:b' }))
+  assert.equal(s.opts.homeLogo, defaultOptions().homeLogo)
+  assert.equal(G.rinkView(s, 'b').opts.homeLogo, 'data:b')
+  // new game keeps Rink B's team names, clears the score
+  s = G.resetGame(s)
+  assert.equal(G.rinkView(s, 'b').home.name, 'Vikings 2')
+  assert.equal(G.rinkView(s, 'b').home.score, 0)
+})
+
+test('shift timer counts down with the game clock, starts over, and buzzes once per shift', () => {
+  let s = G.newGame()
+  s = G.setOptions(s, { ...s.opts, shiftMs: 90_000 })
+  assert.equal(G.shiftInfo(s).remainingMs, 90_000)
+  s = G.setClock(s, 15 * MIN - 100_000) // 1:40 played
+  let info = G.shiftInfo(s)
+  assert.equal(info.count, 1)
+  assert.equal(info.remainingMs, 80_000)
+  s = G.resetShift(s)
+  assert.equal(G.shiftInfo(s).remainingMs, 90_000)
+  assert.equal(G.shiftInfo(s).count, 0)
+  const b0 = s.buzzer
+  s = G.shiftBuzzer(G.shiftBuzzer(s, 1), 1)
+  assert.equal(s.buzzer, b0 + 1)
+  // a new period starts a new shift
+  s = G.nextPeriod(s)
+  assert.equal(G.shiftInfo(s).remainingMs, 90_000)
+  // off
+  s = G.setOptions(s, { ...s.opts, shiftMs: 0 })
+  assert.equal(G.shiftInfo(s), null)
+})

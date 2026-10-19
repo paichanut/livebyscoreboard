@@ -80,6 +80,8 @@ export function defaultOptions() {
     // Game setup
     periods: 3,
     otLabel: 'OT',
+    smallIce: false, // two games on one rink (Rink A / Rink B) sharing the clock, see game.js rinkView
+    shiftMs: 0, // line-change buzzer every … ms (0 = off), counted with the game clock
     otMinutes: 5, // overtime length; IIHF: 5:00 preliminary round, 10:00 playoffs (RB 84)
     clockDir: 'down', // 'down' | 'up'
     timeout1Sec: 30,
@@ -121,7 +123,7 @@ export function defaultOptions() {
     sounds: { horn: 'horn-nhl', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn-nhl-short', timeoutWarn: 'horn-short', timeoutEnd: 'horn-nhl-short' },
     soundsV: 2, // 2 = NHL horn defaults; older games are moved over once in withDefaults
     // Text
-    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE' },
+    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE', shift: 'SHIFT', rinkA: 'RINK A', rinkB: 'RINK B' },
     font: 'Barlow Condensed',
     digits: 'normal', // 'normal' | 'segments'
     // Score banner (OBS overlay)
