@@ -14,6 +14,9 @@ export const SAMPLES = {
   'horn-nhl-short': '/sounds/horn-nhl-short.mp3', // 1.3 s blast of the same horn
 }
 export const LONG_HORN_SEC = 3
+// Goal horns fade out over their last second instead of stopping dead (horns shorter than 2 s play as they are)
+export const HORN_FADE_SEC = 1
+const fadeFor = dur => (dur >= 2 ? HORN_FADE_SEC : 0)
 
 export function unlockAudio() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
@@ -57,8 +60,9 @@ export function ready(kind) {
   return buffers.has(name) ? Promise.resolve() : load(name)
 }
 
-// Play a decoded sample. loopSec > 0 repeats it for that long (long horn).
-function playSample(name, { loopSec = 0, gain = 1 } = {}) {
+// Play a decoded sample. loopSec > 0 repeats it for that long (long horn). fade: fade out over the last
+// HORN_FADE_SEC (goal horns), else just a click-free 80 ms at the end of a loop.
+function playSample(name, { loopSec = 0, gain = 1, fade = false } = {}) {
   const buf = buffers.get(name)
   if (!buf) return false
   const t = ctx.currentTime
@@ -67,25 +71,25 @@ function playSample(name, { loopSec = 0, gain = 1 } = {}) {
   const g = ctx.createGain()
   g.gain.value = gain
   src.connect(g).connect(ctx.destination)
-  if (loopSec > 0) {
-    src.loop = true
-    // short fade so the loop does not click when it is cut
-    g.gain.setValueAtTime(gain, t + loopSec - 0.08)
-    g.gain.linearRampToValueAtTime(0.0001, t + loopSec)
-    src.start(t)
-    src.stop(t + loopSec)
-  } else {
-    src.start(t)
+  const dur = loopSec > 0 ? loopSec : buf.duration
+  const f = fade ? fadeFor(dur) : loopSec > 0 ? 0.08 : 0
+  if (f > 0) {
+    g.gain.setValueAtTime(gain, t + dur - f)
+    // exponential: sounds like an even fade to the ear (a straight line drops off too late)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
   }
+  if (loopSec > 0) src.loop = true
+  src.start(t)
+  src.stop(t + dur)
   return true
 }
 
-function env(dur, peak = 0.9) {
+function env(dur, peak = 0.9, release = 0.1) {
   const t = ctx.currentTime
   const g = ctx.createGain()
   g.gain.setValueAtTime(0.0001, t)
   g.gain.exponentialRampToValueAtTime(peak, t + 0.03)
-  g.gain.setValueAtTime(peak, t + dur - 0.1)
+  g.gain.setValueAtTime(peak, t + dur - release)
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
   g.connect(ctx.destination)
   return g
@@ -94,7 +98,7 @@ function env(dur, peak = 0.9) {
 export function playHorn(dur = 2.2) {
   if (!ctx) return false
   const t = ctx.currentTime
-  const master = env(dur)
+  const master = env(dur, 0.9, fadeFor(dur) || 0.1)
   for (const [type, freq, gain] of [['sawtooth', 220, 0.5], ['sawtooth', 221.5, 0.5], ['square', 110, 0.35]]) {
     const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq
     const g = ctx.createGain(); g.gain.value = gain
@@ -134,10 +138,10 @@ export function playBeep(n = 3) {
 export function playSound(kind) {
   if (!ctx || kind === 'none' || !kind) return false
   if (kind === 'beep') return playBeep()
-  if (kind === 'horn-loop') return playSample('horn-loop', { loopSec: LONG_HORN_SEC }) || playHorn(LONG_HORN_SEC)
+  if (kind === 'horn-loop') return playSample('horn-loop', { loopSec: LONG_HORN_SEC, fade: true }) || playHorn(LONG_HORN_SEC)
   if (kind === 'horn-short') return playSample('horn-short') || playHorn(1)
-  if (kind === 'horn') return playSample('horn') || playHorn()
-  if (kind === 'horn-nhl') return playSample('horn-nhl') || playHorn(4)
+  if (kind === 'horn') return playSample('horn', { fade: true }) || playHorn(2.7)
+  if (kind === 'horn-nhl') return playSample('horn-nhl', { fade: true }) || playHorn(4)
   if (kind === 'horn-nhl-short') return playSample('horn-nhl-short') || playHorn(1.3)
   if (kind === 'buzzer') return playSample('buzzer') || playBuzzer()
   if (kind === 'synth-horn') return playHorn()
