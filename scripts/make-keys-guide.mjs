@@ -89,7 +89,7 @@ h2 .th { font-family: Sarabun, sans-serif; text-transform: none; font-size: 9.5p
 <header>
   <h1>Keyboard shortcuts<span class="th">คีย์ลัด</span></h1>
   <div class="sub">Live by Scoreboard · control page / หน้าคอนโทรล<br>
-  <span>Default keys (same layout as PC Scoreboards).</span> <span class="th">ค่าตั้งต้นของแอป</span></div>
+  <span>Default keys</span> · <span class="th">คีย์ตั้งต้นของแอป</span></div>
 </header>
 <div class="kb">${keyboard}</div>
 <div class="legend">${KEY_GROUPS.map(([g]) => `<span style="--g:${COLOR[g]}"><i></i>${esc(g)}<span class="th">${GROUP_TH[g]}</span></span>`).join('')}</div>
@@ -101,8 +101,8 @@ h2 .th { font-family: Sarabun, sans-serif; text-transform: none; font-size: 9.5p
   <div class="th"><b>เปลี่ยนคีย์ได้:</b> Options → Keys · คีย์ที่ใช้อยู่จริงดูได้ที่ คอนโทรล → ⌨ Help</div>
   <div><b>Keys don’t work</b> while typing in a box or while a window (sheet) is open on the control page.</div>
   <div class="th"><b>คีย์ไม่ทำงาน</b> ตอนพิมพ์ในช่องข้อความ หรือตอนมีหน้าต่างเปิดค้างบนหน้าคอนโทรล</div>
-  <div><b>Rink A / B controllers</b> (small ice): only score and shot keys. <b>Desktop app:</b> F2 switches control ↔ scoreboard, F11 full screen on the scoreboard.</div>
-  <div class="th"><b>คอนโทรล Rink A / B</b> (small ice): ใช้ได้แค่คีย์สกอร์และยิงเข้ากรอบ · <b>แอป desktop:</b> F2 สลับหน้าคอนโทรล ↔ สกอร์บอร์ด, F11 เต็มจอบนสกอร์บอร์ด</div>
+  <div><b>Rink A / B controllers</b> (small ice): only score and shot keys. <b>Desktop app:</b> F4 switches control ↔ scoreboard, F11 full screen on the scoreboard.</div>
+  <div class="th"><b>คอนโทรล Rink A / B</b> (small ice): ใช้ได้แค่คีย์สกอร์และยิงเข้ากรอบ · <b>แอป desktop:</b> F4 สลับหน้าคอนโทรล ↔ สกอร์บอร์ด, F11 เต็มจอบนสกอร์บอร์ด</div>
 </div>
 </body></html>`
 

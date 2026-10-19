@@ -67,12 +67,12 @@ function openDisplay() {
     display.showInactive()
     if (!external() && control) control.focus()
   })
-  // F11 / Esc: full screen on and off (double-click on the board does it too); F2: back to the control
+  // F11 / Esc: full screen on and off (double-click on the board does it too); F4: back to the control (F2 is the correction key)
   display.webContents.on('before-input-event', (e, input) => {
     if (input.type !== 'keyDown') return
     if (input.key === 'F11') { display.setFullScreen(!display.isFullScreen()); e.preventDefault() }
     if (input.key === 'Escape' && display.isFullScreen() && !external()) display.setFullScreen(false)
-    if (input.key === 'F2') { showControl(); e.preventDefault() }
+    if (input.key === 'F4' && !input.alt) { showControl(); e.preventDefault() }
   })
   // closing the scoreboard only hides it; the Display button brings it back
   display.on('close', e => { if (!quitting) { e.preventDefault(); display.hide() } })
@@ -96,9 +96,9 @@ function openControl() {
   control.maximize()
   control.loadURL(`${ORIGIN}/c/${GAME}`)
   control.on('page-title-updated', e => e.preventDefault())
-  // F2: show the scoreboard window
+  // F4: show the scoreboard window (F2 opens the correction screen on the control page)
   control.webContents.on('before-input-event', (e, input) => {
-    if (input.type === 'keyDown' && input.key === 'F2') { openDisplay(); e.preventDefault() }
+    if (input.type === 'keyDown' && input.key === 'F4' && !input.alt) { openDisplay(); e.preventDefault() }
   })
   control.webContents.setWindowOpenHandler(({ url }) => {
     // the Display button (and the OBS banner link) → the scoreboard window

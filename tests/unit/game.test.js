@@ -630,3 +630,9 @@ test('banner: transparent by default; games saved when it was green by default s
   const chosen = withDefaults({ ...G.newGame(), opts: { bannerV: 2, banner: { useChroma: true } } })
   assert.equal(chosen.opts.banner.useChroma, true)
 })
+
+test('correction key: F2 by default; games still on ` move to F2 once, another key chosen later stays', () => {
+  assert.equal(defaultOptions().keys.correction, 'F2')
+  assert.equal(withDefaults({ ...G.newGame(), opts: { keys: { correction: 'Backquote' } } }).opts.keys.correction, 'F2')
+  assert.equal(withDefaults({ ...G.newGame(), opts: { keysV: 2, keys: { correction: 'Backquote' } } }).opts.keys.correction, 'Backquote')
+})
