@@ -29,5 +29,6 @@ contextBridge.exposeInMainWorld('desktop', {
   setTelegram: t => ipcRenderer.invoke('share:telegram', t),
   findTelegramChat: token => ipcRenderer.invoke('share:findChat', token),
   testTelegram: () => ipcRenderer.invoke('share:test'),
+  newControlKey: () => ipcRenderer.invoke('share:newKey'),
   openLink: url => ipcRenderer.invoke('share:open', url),
 })

@@ -58,6 +58,8 @@ export function ShareSheet({ t, close, Sheet }) {
         </React.Fragment>
       ))}
 
+      {sh.links && <button className="btn sm ghost" onClick={() => { if (confirm(t('newKeyConfirm'))) api.newControlKey() }}>🔑 {t('newKey')}</button>}
+
       {sh.local && <div className="sharelink">
         <span>{t('shareLocal')}</span>
         <code>{sh.local}/o/main</code>

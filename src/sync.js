@@ -70,15 +70,6 @@ export async function helperKey(gameId) {
 }
 
 // Delete a game for good (logged-in operators; the test build just drops it from this browser)
-// One-time code (60 s) for the desktop app's online link: proves "logged in here" without putting the
-// session token in a URL (see Handoff.jsx, api/handoff.js). null = the session is no longer valid.
-export async function createHandoff() {
-  const { data, error } = await supabase.rpc('handoff_create', { p_token: getSession() })
-  if (error) throw new Error(error.message)
-  if (!data) { try { localStorage.removeItem(SESSION); localStorage.removeItem(SESSION_USER) } catch {} }
-  return data || null
-}
-
 export async function deleteGame(gameId) {
   if (!ONLINE) {
     try { localStorage.removeItem(`rinkboard:${gameId}`); localStorage.removeItem(`rinkboard:key:${gameId}`) } catch {}

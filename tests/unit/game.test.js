@@ -607,3 +607,11 @@ test('power-play goal: release or keep the minor, and the goal records which', (
 test('the display layout defaults to compact', () => {
   assert.equal(defaultOptions().layout, 'compact')
 })
+
+test('shift seconds tick with the game clock seconds', () => {
+  let s = G.newGame()
+  s = G.setOptions(s, { ...s.opts, shiftMs: 60_000 })
+  s = G.setClock(s, 15 * MIN - 4_400) // the clock shows 14:55 (14:55.6 left)
+  assert.equal(G.fmtClock(G.clockRemaining(s)), '14:55')
+  assert.equal(G.shiftInfo(s).seconds, 55)
+})

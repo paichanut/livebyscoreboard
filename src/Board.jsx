@@ -132,7 +132,7 @@ export default function Board() {
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
         <div className={`clock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
-        {shift && <div className="shiftbox"><span>{L.shift}</span><b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b></div>}
+        {shift && <div className="shiftbox"><span>{L.shift}</span><b className="tnum" aria-label="shift">{shift.seconds}</b></div>}
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         {/* reserved slot: always the same height, so GOAL! appearing moves nothing and covers nothing */}
         <div className="evslot"><EventText s={s} flash={flash} withName /></div>
@@ -185,7 +185,7 @@ function ShiftBoard({ s, sound }) {
       <FullscreenButton />
       <FullscreenHint />
       <div className="slabel">{L.shift}</div>
-      <div className="sbig tnum" aria-label="shift">{sh ? Math.ceil(sh.remainingMs / 1000) : '—'}</div>
+      <div className="sbig tnum" aria-label="shift">{sh ? sh.seconds : '—'}</div>
       <div className="sclock tnum">{L.period} {periodLabel(s)} · {fmtClock(clockShown(s))}</div>
       {!sh && <div className="soff">Shift clock is off · Control → Options → Game → Line change buzzer</div>}
     </div>
@@ -222,7 +222,7 @@ function DualBoard({ s, sound, clear, bgOpacity }) {
         {shift && (
           <div className="dshift">
             <span>{L.shift}</span>
-            <b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b>
+            <b className="tnum" aria-label="shift">{shift.seconds}</b>
           </div>
         )}
       </div>
@@ -300,7 +300,7 @@ function Compact({ shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, t
         <div className={`cclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
         <div className="clabel">{isNum ? L.period : ''}</div>
         <div className="cperiod">{periodLabel(s)}</div>
-        {shift && <div className="cshift"><span className="clabel">{L.shift}</span><b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b></div>}
+        {shift && <div className="cshift"><span className="clabel">{L.shift}</span><b className="tnum" aria-label="shift">{shift.seconds}</b></div>}
         <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         <div className="evslot"><EventText s={s} flash={flash} /></div>
         {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}

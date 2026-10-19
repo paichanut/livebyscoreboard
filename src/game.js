@@ -831,7 +831,9 @@ export function shiftInfo(s, now = wallNow()) {
   const played = Math.max(0, periodLength(s) - clockRemaining(s, now))
   const anchor = s.shift?.period === s.period ? Math.min(s.shift.atMs, played) : 0
   const d = played - anchor
-  return { remainingMs: len - (d % len), count: Math.floor(d / len), lengthMs: len }
+  const remainingMs = len - (d % len)
+  // seconds shown: cut like the game clock's (14:55.6 shows 14:55), so both tick on the same beat
+  return { remainingMs, seconds: Math.floor(remainingMs / 1000), count: Math.floor(d / len), lengthMs: len }
 }
 
 // Start a new shift now (e.g. after a goal or a stoppage)

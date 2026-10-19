@@ -192,7 +192,7 @@ export default function Control() {
         {shift && (
           <div className="shiftrow">
             <span className="gl">{o.labels.shift}</span>
-            <b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b>
+            <b className="tnum" aria-label="shift">{shift.seconds}</b>
             {!locked && <button className="btn sm" aria-label="reset shift" onClick={() => update(G.resetShift)}>↺ {t('shiftReset')}</button>}
           </div>
         )}

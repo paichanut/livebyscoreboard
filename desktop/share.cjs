@@ -6,11 +6,12 @@
 //    live game state (pushed here by the control window, see preload.cjs) by long polling: a viewer asks
 //    for anything newer than what it has and the request waits until the game changes (quick tunnels
 //    don't carry Server-Sent Events).
-//    Controllers (/c/main, ?rink=a|b) are served too: through the tunnel only after logging in with a Live by
-//    Scoreboard operator account (a browser already logged in to the web app goes straight through:
-//    livebyscoreboard.vercel.app/handoff gives a one-time code, /auth redeems it via /api/handoff). Their
-//    changes (POST /api/state/<id>) go to the control window, which stays the one place the game lives.
-//    On this computer (127.0.0.1, no tunnel) no login is needed. Other pages are not served.
+//    Controllers (/c/main, ?rink=a|b) are served too. Through the tunnel the controller link carries this app's
+//    secret key (?key=…, only in the links the app shows and sends to Telegram): the first visit swaps it for
+//    a cookie on that phone and drops it from the address bar; after that the cookie is enough. Nothing goes
+//    through the Live by Scoreboard website. "New controller key" in the sheet makes old links useless.
+//    Their changes (POST /api/state/<id>) go to the control window, which stays the one place the game lives.
+//    On this computer (127.0.0.1, no tunnel) no key is needed. Other pages are not served.
 // 2. cloudflared (Cloudflare's tunnel program, downloaded once into the app's data folder) opens a
 //    "quick tunnel" to that server. No Cloudflare account; a new address each time.
 // 3. When the address is known, it is sent to the Telegram chat set up in the sheet.
@@ -35,14 +36,14 @@ const CLOUDFLARED = {
 
 let WEB = ''
 let settingsFile = ''
-let settings = { enabled: false, telegram: { botToken: '', chatId: '' } }
+let settings = { enabled: false, controlKey: '', telegram: { botToken: '', chatId: '' } }
+const newKey = () => require('node:crypto').randomBytes(12).toString('hex')
 let status = { state: 'off', url: '', telegram: '' }
 const games = new Map() // game id → latest state, from the control window
 const waiters = new Map() // game id → Set of long-poll requests waiting for a newer state
 const POLL_MS = 25_000
-const WEB_APP = 'https://livebyscoreboard.vercel.app'
 const SESSION_MS = 12 * 60 * 60_000
-const sessions = new Map() // cookie value → { username, expires } for controllers opened through the tunnel
+const sessions = new Map() // cookie value → { expires } for controllers opened through the tunnel
 const MAX_BODY = 20 * 1024 * 1024
 let port = 0
 let tunnel = null
@@ -53,6 +54,7 @@ let sentUrl = ''
 function loadSettings() {
   try { settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsFile, 'utf8')) } } catch {}
   settings.telegram = { botToken: '', chatId: '', ...settings.telegram }
+  if (!/^[0-9a-f]{24}$/.test(settings.controlKey || '')) { settings.controlKey = newKey(); saveSettings() }
 }
 function saveSettings() {
   try { fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2)) } catch {}
@@ -83,32 +85,14 @@ function controllerAllowed(req) {
   const sess = sessions.get(cookie(req, 'lbs_sid') || '')
   return Boolean(sess && sess.expires > Date.now())
 }
-const tunnelOrigin = req => {
-  const host = String(req.headers.host || '')
-  return /^[a-z0-9-]+\.trycloudflare\.com$/.test(host) ? `https://${host}` : ''
-}
-const safeNext = n => (/^\/c\/[\w-]+(\?[\w=&-]*)?$/.test(n || '') ? n : '/c/main')
 function page(res, status, title, text) {
   res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
   res.end(`<!doctype html><meta name="viewport" content="width=device-width"><title>${title}</title><body style="font:16px system-ui;background:#0b0f14;color:#e8edf2;padding:40px;text-align:center"><h2>${title}</h2><p>${text}</p></body>`)
 }
-
-// /auth?code=…&next=/c/main: the one-time code from the web app's /handoff → a session cookie for this link
-async function auth(req, res, url) {
-  const next = safeNext(url.searchParams.get('next'))
-  try {
-    const r = await net.fetch(`${WEB_APP}/api/handoff`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: url.searchParams.get('code') || '' }),
-    })
-    const j = await r.json().catch(() => ({}))
-    if (!r.ok || !j.username) return page(res, 403, 'Login failed', 'Open the controller link again (codes last 60 seconds).')
-    const sid = require('node:crypto').randomBytes(24).toString('hex')
-    sessions.set(sid, { username: j.username, expires: Date.now() + SESSION_MS })
-    res.writeHead(302, { 'Set-Cookie': `lbs_sid=${sid}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_MS / 1000}`, Location: next })
-    res.end()
-  } catch {
-    page(res, 502, 'No internet', 'Logging in needs the internet. Try again in a moment.')
-  }
+// equal-time compare, so the key can't be guessed letter by letter
+const sameKey = k => {
+  const a = Buffer.from(String(k || '')), b = Buffer.from(settings.controlKey)
+  return a.length === b.length && require('node:crypto').timingSafeEqual(a, b)
 }
 
 // POST /api/state/<id> { state }: a controller's change → the control window (it saves, shows and publishes it)
@@ -132,7 +116,6 @@ function serve(req, res) {
   const post = /^\/api\/state\/([\w-]+)$/.exec(p)
   if (req.method === 'POST' && post) return receiveState(req, res, post[1])
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return }
-  if (p === '/auth') return auth(req, res, url)
 
   // GET /api/state/main?v=<updatedAt the viewer has>: answers at once with a newer state, else waits for
   // one (up to POLL_MS) and then answers { now } only. `now` is this computer's clock (viewers sync to it).
@@ -149,16 +132,18 @@ function serve(req, res) {
     return
   }
 
-  // controllers: log in through the web app first when this comes through the tunnel
+  // controllers through the tunnel: the key in the link → a cookie (and the key leaves the address bar)
   const control = /^\/c\/[\w-]+$/.test(p)
-  if (control && !controllerAllowed(req)) {
-    const origin = tunnelOrigin(req)
-    if (!origin) return page(res, 403, 'Not available', 'Open the controller from the link the app sent.')
-    const next = p + url.search
-    res.writeHead(302, { Location: `${WEB_APP}/handoff?to=${encodeURIComponent(origin)}&next=${encodeURIComponent(next)}`, 'Cache-Control': 'no-store' })
+  if (control && viaTunnel(req) && url.searchParams.has('key')) {
+    if (!sameKey(url.searchParams.get('key'))) return page(res, 403, 'Old link', 'This controller link is no longer valid. Ask for the new one.')
+    const sid = require('node:crypto').randomBytes(24).toString('hex')
+    sessions.set(sid, { expires: Date.now() + SESSION_MS })
+    url.searchParams.delete('key')
+    res.writeHead(302, { 'Set-Cookie': `lbs_sid=${sid}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_MS / 1000}`, Location: p + url.search, 'Cache-Control': 'no-store' })
     res.end()
     return
   }
+  if (control && !controllerAllowed(req)) return page(res, 403, 'Controller', 'Open the controller from the link the app sent (Telegram).')
   // the watching pages and the controllers; everything else goes to the scoreboard
   const isPage = control || /^\/(b|o)\/[\w-]+$/.test(p) || p === '/board' || p === '/banner'
   let file = path.normalize(path.join(WEB, p))
@@ -276,9 +261,10 @@ function links(url) {
     : [['Scoreboard', `${url}/b/main`]]
   if (Number(s?.opts?.shiftMs) > 0) watch.push(['Shift clock', `${url}/b/main?view=shift`])
   watch.push(...(small ? [[`OBS banner ${rA}`, `${url}/o/main?rink=a`], [`OBS banner ${rB}`, `${url}/o/main?rink=b`]] : [['OBS banner', `${url}/o/main`]]))
+  const k = settings.controlKey
   const run = small
-    ? [['Center controller (clock + both rinks)', `${url}/c/main`], [`Controller ${rA}`, `${url}/c/main?rink=a`], [`Controller ${rB}`, `${url}/c/main?rink=b`]]
-    : [['Controller', `${url}/c/main`]]
+    ? [['Center controller (clock + both rinks)', `${url}/c/main?key=${k}`], [`Controller ${rA}`, `${url}/c/main?rink=a&key=${k}`], [`Controller ${rB}`, `${url}/c/main?rink=b&key=${k}`]]
+    : [['Controller', `${url}/c/main?key=${k}`]]
   return { watch, run, s }
 }
 
@@ -286,7 +272,7 @@ const message = url => {
   const { watch, run, s } = links(url)
   const match = s ? `${s.home?.name || 'HOME'} vs ${s.away?.name || 'AWAY'}${s.rinkB && s.opts?.smallIce ? ` · ${s.rinkB.home?.name} vs ${s.rinkB.away?.name}` : ''}\n` : ''
   const list = rows => rows.map(([label, link]) => `${label}: ${link}`).join('\n')
-  return `🏒 Live by Scoreboard is online\n${match}\nWatch:\n${list(watch)}\n\nRun the game (log in with your Live by Scoreboard account):\n${list(run)}`
+  return `🏒 Live by Scoreboard is online\n${match}\nWatch:\n${list(watch)}\n\nRun the game (keep these links private):\n${list(run)}`
 }
 
 async function sendTelegram(url) {
@@ -348,6 +334,16 @@ async function initShare({ webDir }) {
     const r = await sendTelegram(status.url || '(no link yet: turn on the online link)')
     set({ telegram: r === 'sent' ? `test sent ${new Date().toLocaleTimeString()}` : r })
     return r
+  })
+  // new controller key: links sent before stop working, and phones that already opened one are logged out
+  ipcMain.handle('share:newKey', () => {
+    settings.controlKey = newKey()
+    saveSettings()
+    sessions.clear()
+    sentUrl = ''
+    set({})
+    if (status.url) announce(status.url)
+    return publicState()
   })
   ipcMain.handle('share:open', (_e, url) => { if (/^https:\/\/[-a-z0-9]+\.trycloudflare\.com\//.test(url)) shell.openExternal(url) })
 
