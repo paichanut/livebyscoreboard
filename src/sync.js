@@ -367,7 +367,8 @@ function viewerStore(gameId) {
     get: () => state,
     getAccess: access,
     subscribe(fn) { listeners.add(fn); if (state) fn(state, access()); return () => listeners.delete(fn) },
-    // a controller opened through the link: show the change at once, send the changed parts (coalesced ~80 ms)
+    // a controller opened through the link: show the change at once and send the changed parts right away
+    // (a STOP must reach every screen within half a second); taps made while a send is on its way go together next
     set(next) {
       const cur = state || {}
       for (const k of new Set([...Object.keys(cur), ...Object.keys(next)])) {
@@ -377,7 +378,7 @@ function viewerStore(gameId) {
       }
       state = next
       emit()
-      if (dirty.size && !sendTimer) sendTimer = setTimeout(send, 80)
+      if (dirty.size && !sendTimer && !sending) send()
     },
     destroy() { stopped = true; clearInterval(timeTimer); document.removeEventListener('visibilitychange', onVisible) },
   }
@@ -419,9 +420,9 @@ function localStore(gameId) {
     subscribe(fn) { listeners.add(fn); fn(state, 'ok'); return () => listeners.delete(fn) },
     set(next) {
       state = next
+      bc?.postMessage(next) // the other windows (the HDMI scoreboard) first: a STOP shows there at once
       emit()
       try { localStorage.setItem(key, JSON.stringify(next)) } catch {}
-      bc?.postMessage(next)
     },
     destroy() { bc?.close(); window.removeEventListener('storage', onStorage); offRemote?.() },
   }
