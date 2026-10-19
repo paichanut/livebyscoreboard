@@ -25,7 +25,9 @@ function serve(req) {
   return net.fetch(pathToFileURL(file).toString())
 }
 
-const webPreferences = { autoplayPolicy: 'no-user-gesture-required', plugins: true, contextIsolation: true, sandbox: true }
+// backgroundThrottling off: a scoreboard behind the control window (one screen) or covered by another
+// window must keep its clock, shift buzzer and horn on time; Chromium would slow its timers to ~1/s
+const webPreferences = { autoplayPolicy: 'no-user-gesture-required', plugins: true, contextIsolation: true, sandbox: true, backgroundThrottling: false }
 let control = null
 let display = null
 let quitting = false
