@@ -104,7 +104,7 @@ npm test                   # both
 E2E tests open the control page and the board in the same browser context (test build's local store = localStorage + BroadcastChannel), each with a unique game code. `PW_CHROMIUM_PATH=/path/to/chrome` uses a system Chromium instead of the downloaded one. Helpers live in `tests/e2e/helpers.js`. Keep game-rule tests in the unit file; keep e2e tests to flows a user would do.
 
 ## Ideas / backlog (not started)
-- **Desktop (when Pai un-pauses it):** the online link (Cloudflare + Telegram) must also carry the controllers, not only the display: center controller + controller A/B (small ice) and the boards (center, A, B, shift clock). Controller links need a secret key in the link (like `?k=`) so a stranger with the board link can't run the game; today `share.cjs` serves watch-only pages.
+- **Desktop (when Pai un-pauses it):** the online link (Cloudflare + Telegram) must also carry the controllers, not only the display: center controller + controller A/B (small ice) and the boards (center, A, B, shift clock). Controllers through the link need a light login: the same operator account as the web app (Live by Scoreboard login, `operator_login` / session token checked against Supabase — the tunnel only works online anyway); boards stay public. Today `share.cjs` serves watch-only pages.
 - Thai for the Options body (tabs/Save/Cancel are done; field labels still English)
 - Penalty queue beyond 2 shown on display (stacking rule)
 - Per-team name colors and "goal off" color (PC Scoreboards has them; we have one `teamName` color)
