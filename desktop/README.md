@@ -16,6 +16,14 @@ is still there after a restart.
   checks GitHub Releases ~5 s after start, downloads in the background and installs when the app closes, or
   right away with Control → status line → "Update … ready · Restart" (the game is kept). Never mid-game on its
   own. The .msi and portable copies only say "New version … · Download". Code: `updater.cjs`, `preload.cjs`.
+- **Online link + Telegram** (Control → 🌐 Online link, off by default): `share.cjs` serves the scoreboard
+  (`/b/main`) and OBS banner (`/o/main`) read-only on `http://127.0.0.1:47615` (OBS on this computer can use
+  that, no internet needed) and, when turned on, opens a Cloudflare quick tunnel (`cloudflared`, downloaded
+  once into the app's data folder) → `https://….trycloudflare.com`. Viewers get the live state by long polling
+  (`/api/state/main?v=…`; quick tunnels don't carry Server-Sent Events). The link is shown and sent to Telegram
+  (bot token + chat ID, kept in `share.json` in the data folder, never in the game) only after cloudflared reports
+  "Registered tunnel connection". No internet: retries every minute; nothing is sent. The control page and
+  every other path are never served through the link.
 - Not available offline: the public web links, /live, phone control, login.
 
 ## Build

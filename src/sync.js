@@ -145,8 +145,13 @@ export function storedKey(gameId) { try { return localStorage.getItem(`rinkboard
  *   locked  = game exists but key is wrong/missing
  *   missing = game doesn't exist and we can't create it (viewer)
  */
+// The desktop app's online link (desktop/share.cjs): the desktop build served over http(s) from the
+// computer running the game, through a Cloudflare tunnel. Watch-only; the state streams from that computer.
+export const VIEWER = DESKTOP && typeof location !== 'undefined' && location.protocol.startsWith('http')
+
 export function createStore(gameId, opts = {}) {
   if (ONLINE) { startTimeSync(); return supabaseStore(gameId, opts) }
+  if (VIEWER) return viewerStore(gameId)
   if (ALLOW_LOCAL) return localStore(gameId, opts)
   throw new Error('Live by Scoreboard is not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
 }
@@ -263,6 +268,41 @@ function supabaseStore(gameId, { key = '', canWrite = false } = {}) {
   }
 }
 
+// ---------- Online link viewer (desktop app shared through a tunnel) ----------
+// Long polling desktop/share.cjs: GET /api/state/<id>?v=<updatedAt> answers when the game changes (or after
+// ~25 s with no state). Each answer carries the desktop computer's clock; the fastest round trip so far gives
+// the offset, so this phone's game clock matches the rink's.
+function viewerStore(gameId) {
+  let state = null
+  let bestRtt = Infinity
+  let stopped = false
+  const listeners = new Set()
+  const access = () => (state ? 'ok' : 'reading')
+  const emit = () => listeners.forEach(fn => fn(state, access()))
+  async function loop() {
+    while (!stopped) {
+      const t0 = Date.now()
+      try {
+        const r = await fetch(`/api/state/${encodeURIComponent(gameId)}?v=${state?.updatedAt || 0}`, { cache: 'no-store' })
+        const m = await r.json()
+        const t1 = Date.now()
+        if (m.now && t1 - t0 < bestRtt) { bestRtt = t1 - t0; setTimeOffset(m.now + bestRtt / 2 - t1) }
+        if (m.state && (!state || m.state.updatedAt >= state.updatedAt)) { state = m.state; emit() }
+      } catch {
+        await new Promise(res => setTimeout(res, 2000))
+      }
+    }
+  }
+  loop()
+  return {
+    get: () => state,
+    getAccess: access,
+    subscribe(fn) { listeners.add(fn); if (state) fn(state, access()); return () => listeners.delete(fn) },
+    set() {},
+    destroy() { stopped = true },
+  }
+}
+
 // ---------- Local (same browser) ----------
 function localStore(gameId) {
   const key = `rinkboard:${gameId}`
@@ -274,7 +314,10 @@ function localStore(gameId) {
     state = newGame()
     try { localStorage.setItem(key, JSON.stringify(state)) } catch {}
   }
-  const emit = () => listeners.forEach(fn => fn(state, 'ok'))
+  // desktop app: hand every state to the online link (only the control window has this, see desktop/preload.cjs)
+  const publish = () => { try { window.desktop?.publishState?.(gameId, state) } catch {} }
+  const emit = () => { listeners.forEach(fn => fn(state, 'ok')); publish() }
+  publish()
 
   const onMsg = e => {
     if (e.data && (!state || e.data.updatedAt >= state.updatedAt)) { state = e.data; emit() }

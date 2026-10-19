@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
+import { ShareSheet } from './DesktopShare.jsx'
 import { ONLINE, DESKTOP, NEEDS_LOGIN, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
@@ -279,6 +280,7 @@ export default function Control() {
         <a className="btn" href={boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>
         <button className="btn" onClick={() => setSheet('summary')}>{t('summary')}</button>
         {!DESKTOP && <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>}
+        {DESKTOP && window.desktop?.getShare && <button className="btn" onClick={() => setSheet('share')}>🌐 {t('shareBtn')}</button>}
         <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>
         <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>
         <SoundToggle sound={sound} className="btn csound" />
@@ -340,6 +342,7 @@ export default function Control() {
         </Sheet>
       )}
       {sheet?.startsWith('goal-') && <GoalSheet s={s} id={sheet.slice(5)} update={update} close={() => setSheet(null)} t={t} />}
+      {sheet === 'share' && <ShareSheet t={t} close={() => setSheet(null)} Sheet={Sheet} />}
       {sheet === 'qr' && <QrSheet boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} t={t} />}
     </div>
   )

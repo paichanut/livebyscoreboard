@@ -24,6 +24,7 @@
       "main.cjs",
       "updater.cjs",
       "preload.cjs",
+      "share.cjs",
       "web/**/*"
     ],
     "icon": "icon.png",

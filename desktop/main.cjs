@@ -7,6 +7,7 @@ const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
 const { initUpdates } = require('./updater.cjs')
+const { initShare, stopShare } = require('./share.cjs')
 
 const WEB = path.join(__dirname, 'web')
 const ORIGIN = 'app://scoreboard'
@@ -114,10 +115,11 @@ else {
     openControl()
     openDisplay()
     initUpdates({ beforeInstall: () => { quitting = true } })
+    initShare({ webDir: WEB })
     screen.on('display-added', placeDisplay)
     screen.on('display-removed', placeDisplay)
     screen.on('display-metrics-changed', placeDisplay)
   })
-  app.on('before-quit', () => { quitting = true })
+  app.on('before-quit', () => { quitting = true; stopShare() })
   app.on('window-all-closed', () => app.quit())
 }
