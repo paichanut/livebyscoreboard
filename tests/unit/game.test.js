@@ -622,3 +622,11 @@ test('STOP keeps the time of the press, even when it is handled later', () => {
   assert.equal(s.clock.remainingMs, s.periodLengthMs - 12_345)
   assert.equal(G.clockRemaining(s, pressed + 5_000), s.periodLengthMs - 12_345)
 })
+
+test('banner: transparent by default; games saved when it was green by default switch once, a later choice stays', () => {
+  assert.equal(defaultOptions().banner.useChroma, false)
+  const old = withDefaults({ ...G.newGame(), opts: { banner: { useChroma: true } } })
+  assert.equal(old.opts.banner.useChroma, false)
+  const chosen = withDefaults({ ...G.newGame(), opts: { bannerV: 2, banner: { useChroma: true } } })
+  assert.equal(chosen.opts.banner.useChroma, true)
+})

@@ -1,5 +1,6 @@
-// Score banner — compact strip for OBS / stream overlays. Chroma-key background by default.
-import React from 'react'
+// Score banner — compact strip for OBS / stream overlays. Transparent background (green screen optional).
+// It is made for a 1920 px wide OBS canvas; on anything narrower (a phone) it shrinks to fit, so both teams show.
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useGame, useGameId, useTick, useClockTick } from './useGame.js'
 import { clockShown, fmtClock, fmtTimeOfDay, periodLabel, activePenalties, waitingPenalties, penaltyRemaining, strengthLabel, isSmallIce, rinkView } from './game.js'
 import { useAppearance } from './useOptions.jsx'
@@ -13,6 +14,19 @@ export default function Banner() {
   const s = raw && isSmallIce(raw) ? rinkView(raw, rink) : raw
   useAppearance(s)
   useClockTick(s, Boolean(s?.clock.running || s?.showTimeOfDay))
+  const chroma = Boolean(s?.opts.banner.useChroma)
+  useEffect(() => {
+    document.documentElement.classList.toggle('clearbg', !chroma)
+    return () => document.documentElement.classList.remove('clearbg')
+  }, [chroma])
+  const ref = useRef(null)
+  const [scale, setScale] = useState(1)
+  useLayoutEffect(() => {
+    const fit = () => { const w = ref.current?.scrollWidth; if (w) setScale(Math.min(1, (window.innerWidth - 16) / w)) }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  })
   if (!s) return null
 
   const b = s.opts.banner
@@ -22,18 +36,18 @@ export default function Banner() {
   const strength = strengthLabel(s)
 
   return (
-    <div className="bannerpage" style={{ background: b.useChroma ? b.chroma : 'transparent' }}>
-      <div className="banner" style={{ '--bbg': b.bg, '--bfg': b.fg, '--bclockbg': b.clockBg, '--bclockfg': b.clockFg }}>
+    <div className="bannerpage" style={{ background: chroma ? b.chroma : 'transparent' }}>
+      <div className="banner" ref={ref} style={{ '--bbg': b.bg, '--bfg': b.fg, '--bclockbg': b.clockBg, '--bclockfg': b.clockFg, transform: scale < 1 ? `scale(${scale})` : undefined }}>
         {raw && isSmallIce(raw) && <RinkTag rink={rink} label={s.opts.labels[rink === 'a' ? 'rinkA' : 'rinkB']} className="brink" />}
         {sh.logo && s.opts.logoImg && <img className="blogo" src={s.opts.logoImg} alt="" />}
         {sh.title && s.opts.title && <div className="btitle">{s.opts.title}</div>}
-        {teams.map(team => {
+        {teams.map((team, i) => {
           const t = s[team]
           const run = sh.penalties ? activePenalties(s, team) : []
           const pens = run.slice(0, 2)
           const more = sh.penalties ? run.length - pens.length + waitingPenalties(s, team).length : 0
           return (
-            <div className="bteam" key={team} style={{ '--c': t.color }}>
+            <div className="bteam" key={team} style={{ '--c': t.color, order: i === 0 ? 0 : 2 }}>
               {sh.teamLogo && s.opts[team + 'Logo'] && <img className="btlogo" src={s.opts[team + 'Logo']} alt="" />}
               {sh.teamName && <div className="btname">{t.name}</div>}
               {sh.score && <div className="btscore tnum">{t.score}</div>}

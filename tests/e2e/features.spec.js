@@ -293,6 +293,30 @@ test('Options shows a live preview: theme and font change it before Save, the bo
   expect(await board.evaluate(() => document.fonts.check('40px "LCD Digital"', '12:34'))).toBe(true)
 })
 
+test('OBS banner: transparent by default, and on a narrow screen it shrinks so both teams show', async ({ page, context }) => {
+  const code = uniqueCode('ban')
+  await openControl(page, code)
+  await page.getByRole('button', { name: 'rename away' }).click()
+  await page.locator('.sheet input').first().fill('NAKARAJ JR. ICE HOCKEY CLUB')
+  await page.locator('.sheet').getByRole('button', { name: 'Save' }).click()
+  const banner = await context.newPage()
+  await banner.setViewportSize({ width: 600, height: 400 })
+  await banner.goto(`/o/${code}`)
+  await expect(banner.locator('.banner')).toBeVisible()
+  expect(await banner.evaluate(() => [getComputedStyle(document.documentElement).backgroundColor, getComputedStyle(document.body).backgroundColor, getComputedStyle(document.querySelector('.bannerpage')).backgroundColor]))
+    .toEqual(['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)'])
+  // the away score (last on the right) is inside the screen, and the name stays on one line
+  const away = await banner.locator('.btscore').nth(1).boundingBox()
+  expect(away.x + away.width).toBeLessThanOrEqual(600)
+  const name = banner.locator('.btname').nth(1)
+  expect(await name.evaluate(e => e.getClientRects().length)).toBe(1)
+  // the green screen is still there for software without transparency
+  await openOptions(page, 'Banner')
+  await page.getByText('Green screen background').click()
+  await saveOptions(page)
+  await expect.poll(() => banner.evaluate(() => getComputedStyle(document.querySelector('.bannerpage')).backgroundColor)).toBe('rgb(0, 255, 0)')
+})
+
 test('developer contact on Home and the control page', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.home .contact')).toContainText('Pai Chanut')

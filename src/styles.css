@@ -261,21 +261,19 @@ input, select { font-family: inherit; }
 .board.segments .clock, .board.segments .team .score, .board.segments .pen .pt { font-family: 'Share Tech Mono', monospace; letter-spacing: .02em; }
 
 /* ---------- Score banner (OBS overlay) ---------- */
-.bannerpage { width: 100vw; height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding-top: 2vh; }
-.banner { display: flex; align-items: stretch; background: var(--bbg); color: var(--bfg); border-radius: 12px; overflow: hidden; font-family: var(--font-display); height: 72px; box-shadow: 0 4px 20px rgba(0,0,0,.35); }
+.bannerpage { width: 100vw; height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding-top: 2vh; overflow: hidden; }
+.banner { flex-shrink: 0; transform-origin: top center; display: flex; align-items: stretch; background: var(--bbg); color: var(--bfg); border-radius: 12px; overflow: hidden; font-family: var(--font-display); height: 72px; box-shadow: 0 4px 20px rgba(0,0,0,.35); }
 .banner > * { display: flex; align-items: center; }
 .banner .blogo { height: 100%; padding: 8px 12px; object-fit: contain; }
 .banner .btitle { padding: 0 18px; font-size: 22px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .8; }
 .banner .bteam { gap: 12px; padding: 0 18px; border-left: 8px solid var(--c); }
 .banner .btlogo { height: 56px; width: 56px; object-fit: contain; }
-.banner .btname { font-size: 30px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.banner .btname { font-size: 30px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
 .banner .btscore { font-size: 48px; font-weight: 800; min-width: 48px; text-align: center; }
 .banner .btshots { font-size: 20px; font-weight: 700; opacity: .9; letter-spacing: .08em; }
 .banner .btshots b { font-size: 26px; }
 .banner .btpen { font-size: 18px; background: rgba(255,255,255,.12); padding: 4px 10px; border-radius: 6px; }
 .banner .bclock { flex-direction: column; justify-content: center; background: var(--bclockbg); color: var(--bclockfg); padding: 0 22px; min-width: 150px; order: 1; }
-.banner .bteam:nth-of-type(1) { order: 0; }
-.banner .bteam:nth-of-type(2) { order: 2; }
 .banner .bperiod { font-size: 14px; letter-spacing: .15em; font-weight: 700; }
 .banner .btime { font-size: 40px; font-weight: 800; line-height: 1; }
 

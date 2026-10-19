@@ -22,7 +22,7 @@ npm run build            # dist/ (Vercel builds this automatically)
 |---|---|---|
 | `/` | Home.jsx | create a game → operator link |
 | `/b/CODE` (`/board?g=`) | Board.jsx | public TV display, read-only |
-| `/o/CODE` (`/banner?g=`) | Banner.jsx | OBS overlay strip, chroma-key bg, read-only |
+| `/o/CODE` (`/banner?g=`) | Banner.jsx | OBS overlay strip, read-only. **Transparent background** (html `clearbg`; Pai 2026-10-19: OBS shows it over the video), green screen optional (`banner.useChroma`, Options → Banner; `bannerV: 2` moved older games to transparent once). Made for a 1920 px canvas; narrower windows scale it down to fit (`scale` in Banner.jsx) so both teams always show; names stay on one line |
 | `/c/CODE?k=KEY` (`/control?g=`) | Control.jsx | operator panel (phone or laptop) |
 | `/live` (`/games`) | Live.jsx | tournament page: every game, newest/running first, links to `/b/CODE` |
 | `/login` | Login.jsx | operator login (username + password) |

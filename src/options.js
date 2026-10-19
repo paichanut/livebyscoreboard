@@ -126,6 +126,7 @@ export function defaultOptions() {
     // same defaults as PC Scoreboards: horn button loops, timeout warning is the short blast
     sounds: { horn: 'horn-nhl', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn-nhl-short', timeoutWarn: 'horn-short', timeoutEnd: 'horn-nhl-short' },
     soundsV: 2, // 2 = NHL horn defaults; older games are moved over once in withDefaults
+    bannerV: 2, // 2 = transparent banner by default; older games (green by default then) are moved over once
     // Text
     labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE', shift: 'SHIFT CLOCK', rinkA: 'RINK A', rinkB: 'RINK B' },
     font: 'Barlow Condensed',
@@ -133,7 +134,7 @@ export function defaultOptions() {
     // Score banner (OBS overlay)
     banner: {
       chroma: '#00ff00',
-      useChroma: true,
+      useChroma: false, // transparent: OBS shows it over the video as it is; the green screen is optional
       show: { logo: true, title: false, teamLogo: true, teamName: true, score: true, period: true, clock: true, shots: false, penalties: true },
       bg: '#111111', fg: '#ffffff', clockBg: '#ffffff', clockFg: '#000000',
       mirror: false,
@@ -167,6 +168,8 @@ export function withDefaults(state) {
     const nhl = defaultOptions().sounds
     for (const [k, v] of Object.entries(old)) if (opts.sounds[k] === v) opts.sounds[k] = nhl[k]
   }
+  // games saved when the banner was green by default: transparent now (Pai 2026-10-19)
+  if (!state.opts?.bannerV) opts.banner.useChroma = false
   // the shift label was "SHIFT" for a few hours; it reads "SHIFT CLOCK" now (a label typed by the operator stays)
   if (opts.labels.shift === 'SHIFT') opts.labels.shift = 'SHIFT CLOCK'
   // fields added after v2 games were first saved

@@ -388,12 +388,12 @@ function BannerTab({ o, set, get }) {
   const SHOW = [['logo', 'Scoreboard logo'], ['title', 'Scoreboard title'], ['teamLogo', 'Team logos'], ['teamName', 'Team names'], ['score', 'Scores'], ['period', 'Period'], ['clock', 'Main clock'], ['shots', 'Shots on goal'], ['penalties', 'Penalties']]
   return (
     <>
-      <div className="hint">The score banner is a compact strip at <b>/banner?g=…</b> for OBS Browser Source (1920×1080). Use the chroma key color with a Chroma Key filter, or turn it off for a transparent background.</div>
+      <div className="hint">The score banner is a compact strip at <b>/banner?g=…</b> for OBS Browser Source (1920×1080). The background is transparent: OBS shows the banner over the video as it is. Only if your software can’t do that, turn on the green screen and use a Chroma Key filter.</div>
       <h4>Show fields</h4>
       {SHOW.map(([k, l]) => <Check key={k} label={l} path={`banner.show.${k}`} get={get} set={set} />)}
       <Check label="Mirror team order" path="banner.mirror" get={get} set={set} />
       <h4>Colors</h4>
-      <Check label="Chroma key background" path="banner.useChroma" get={get} set={set} />
+      <Check label="Green screen background (chroma key) instead of transparent" path="banner.useChroma" get={get} set={set} />
       {[['chroma', 'Chroma key color'], ['bg', 'Banner background'], ['fg', 'Banner text'], ['clockBg', 'Clock background'], ['clockFg', 'Clock text']].map(([k, l]) => (
         <div className="colorrow" key={k}><span>{l}</span><input type="color" value={o.banner[k]} onChange={e => set(`banner.${k}`, e.target.value)} /></div>
       ))}
