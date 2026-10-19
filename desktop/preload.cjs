@@ -13,6 +13,12 @@ contextBridge.exposeInMainWorld('desktop', {
   openDownload: () => ipcRenderer.invoke('update:download'),
   // the game state, for the online link's viewers (sent on every change by the local store, sync.js)
   publishState: (id, state) => ipcRenderer.send('share:publish', id, state),
+  // a change made on a controller opened through the online link (share.cjs → here → the local store)
+  onRemoteState: cb => {
+    const h = (_e, id, state) => cb(id, state)
+    ipcRenderer.on('share:remote', h)
+    return () => ipcRenderer.removeListener('share:remote', h)
+  },
   getShare: () => ipcRenderer.invoke('share:get'),
   onShare: cb => {
     const h = (_e, s) => cb(s)

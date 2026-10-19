@@ -285,8 +285,17 @@ function viewerStore(gameId) {
   let state = null
   let bestRtt = Infinity
   let stopped = false
+  let pending = null
+  let sendTimer = null
   const listeners = new Set()
   const access = () => (state ? 'ok' : 'reading')
+  async function send() {
+    sendTimer = null
+    const body = JSON.stringify({ state: pending })
+    pending = null
+    const r = await fetch(`/api/state/${encodeURIComponent(gameId)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).catch(() => null)
+    if (r?.status === 401) window.location.reload() // logged out (12 h): the page sends you to log in again
+  }
   const emit = () => listeners.forEach(fn => fn(state, access()))
   async function loop() {
     while (!stopped) {
@@ -307,7 +316,13 @@ function viewerStore(gameId) {
     get: () => state,
     getAccess: access,
     subscribe(fn) { listeners.add(fn); if (state) fn(state, access()); return () => listeners.delete(fn) },
-    set() {},
+    // a controller opened through the link: send the change to the desktop app (coalesced like the cloud store)
+    set(next) {
+      state = next
+      emit()
+      pending = next
+      if (!sendTimer) sendTimer = setTimeout(send, 80)
+    },
     destroy() { stopped = true },
   }
 }
@@ -325,6 +340,10 @@ function localStore(gameId) {
   }
   // desktop app: hand every state to the online link (only the control window has this, see desktop/preload.cjs)
   const publish = () => { try { window.desktop?.publishState?.(gameId, state) } catch {} }
+  // ...and take changes made on controllers opened through the online link
+  const offRemote = window.desktop?.onRemoteState?.((id, next) => {
+    if (id === gameId && next && (!state || (next.updatedAt || 0) >= (state.updatedAt || 0))) api.set(next)
+  })
   const emit = () => { listeners.forEach(fn => fn(state, 'ok')); publish() }
   publish()
 
@@ -335,7 +354,7 @@ function localStore(gameId) {
   const onStorage = e => { if (e.key === key && e.newValue) { try { onMsg({ data: JSON.parse(e.newValue) }) } catch {} } }
   window.addEventListener('storage', onStorage)
 
-  return {
+  const api = {
     get: () => state,
     getAccess: () => 'ok',
     subscribe(fn) { listeners.add(fn); fn(state, 'ok'); return () => listeners.delete(fn) },
@@ -345,8 +364,9 @@ function localStore(gameId) {
       try { localStorage.setItem(key, JSON.stringify(next)) } catch {}
       bc?.postMessage(next)
     },
-    destroy() { bc?.close(); window.removeEventListener('storage', onStorage) },
+    destroy() { bc?.close(); window.removeEventListener('storage', onStorage); offRemote?.() },
   }
+  return api
 }
 
 // ---------- List of games (tournament / live page) ----------

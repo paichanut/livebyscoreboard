@@ -1,6 +1,6 @@
 // Desktop app only (window.desktop from desktop/preload.cjs): Control → 🌐 Online link.
 // Turns the Cloudflare link on/off, shows it, and sets up the Telegram chat that gets it (desktop/share.cjs).
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 export function useShare() {
   const api = window.desktop
@@ -22,7 +22,8 @@ export function ShareSheet({ t, close, Sheet }) {
   const [copied, setCopied] = useState('')
   if (!sh) return null
   const chat = chatId ?? sh.telegram.chatId
-  const links = sh.url ? [[t('shareBoard'), `${sh.url}/b/main`], [t('shareBanner'), `${sh.url}/o/main`]] : []
+  // every board and controller (share.cjs links()); the controllers ask for a Live by Scoreboard login
+  const groups = sh.links ? [[t('linksWatch'), sh.links.watch], [t('shareRun'), sh.links.run]] : []
   const copy = async url => { try { await navigator.clipboard.writeText(url); setCopied(url) } catch {} }
   const saveTelegram = async () => { await api.setTelegram({ botToken: token, chatId: chat }); setToken(''); setNote(t('saved')) }
   const find = async () => {
@@ -41,15 +42,20 @@ export function ShareSheet({ t, close, Sheet }) {
         </button>
       </div>
       {sh.enabled && <div className="sharestatus">{t(`share_${sh.state}`)}</div>}
-      {links.map(([label, url]) => (
-        <div className="sharelink" key={url}>
-          <span>{label}</span>
-          <code>{url}</code>
-          <div className="row">
-            <button className="btn sm" onClick={() => copy(url)}>{copied === url ? t('copied') : t('copy')}</button>
-            <button className="btn sm ghost" onClick={() => api.openLink(url)}>{t('open')}</button>
-          </div>
-        </div>
+      {groups.map(([title, rows]) => (
+        <React.Fragment key={title}>
+          <h4>{title}</h4>
+          {rows.map(([label, url]) => (
+            <div className="sharelink" key={url}>
+              <span>{label}</span>
+              <code>{url}</code>
+              <div className="row">
+                <button className="btn sm" onClick={() => copy(url)}>{copied === url ? t('copied') : t('copy')}</button>
+                <button className="btn sm ghost" onClick={() => api.openLink(url)}>{t('open')}</button>
+              </div>
+            </div>
+          ))}
+        </React.Fragment>
       ))}
 
       {sh.local && <div className="sharelink">
