@@ -1,0 +1,45 @@
+{
+  "name": "live-by-scoreboard-desktop",
+  "productName": "Live by Scoreboard",
+  "version": "1.0.0",
+  "description": "Live by Scoreboard \u2014 offline, one computer, display on HDMI",
+  "author": "Pai Chanut",
+  "main": "main.cjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "app.livebyscoreboard.desktop",
+    "productName": "Live by Scoreboard",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "web/**/*"
+    ],
+    "icon": "icon.png",
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Live by Scoreboard",
+      "artifactName": "LiveByScoreboard-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "LiveByScoreboard-Portable-${version}.exe"
+    }
+  }
+}

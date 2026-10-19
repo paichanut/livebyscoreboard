@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:test": "vite build --mode test",
+    "build:desktop": "vite build --mode desktop --outDir desktop/web --emptyOutDir",
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test tests/unit/*.test.js",
@@ -19,6 +20,9 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/share-tech-mono": "^5.3.0",
     "@playwright/test": "^1.63.0",
     "@vitejs/plugin-react": "^4.3.1",
     "vite": "^5.4.0"

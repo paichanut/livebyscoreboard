@@ -8,7 +8,9 @@ import { setTimeOffset } from './clock.js'
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-export const ONLINE = Boolean(URL && KEY)
+// Desktop app (desktop/, `vite build --mode desktop`): one computer, no internet, control + display windows
+export const DESKTOP = import.meta.env.VITE_DESKTOP === '1'
+export const ONLINE = !DESKTOP && Boolean(URL && KEY)
 // The local (same-browser) store exists only for the test build (`vite build --mode test`, see .env.test).
 // Production is cloud-only: without Supabase keys the app shows the setup screen instead of a board
 // that silently cannot reach other devices.

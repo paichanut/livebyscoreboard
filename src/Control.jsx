@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
-import { ONLINE, NEEDS_LOGIN, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
+import { ONLINE, DESKTOP, NEEDS_LOGIN, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
 import { saveTeam } from './teamLibrary.js'
@@ -273,11 +273,11 @@ export default function Control() {
       </div>
 
       <div className="bottom">
-        <button className="btn" aria-label="home" onClick={() => { if (confirm(t('confirmHome'))) window.location.href = '/' }}>🏠 {t('home')}</button>
+        {!DESKTOP && <button className="btn" aria-label="home" onClick={() => { if (confirm(t('confirmHome'))) window.location.href = '/' }}>🏠 {t('home')}</button>}
         <button className="btn" onClick={() => setSheet('options')}>{t('options')}</button>
         <a className="btn" href={boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>
         <button className="btn" onClick={() => setSheet('summary')}>{t('summary')}</button>
-        <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>
+        {!DESKTOP && <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>}
         <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>
         <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>
         <SoundToggle sound={sound} className="btn csound" />
@@ -288,7 +288,7 @@ export default function Control() {
         {NEEDS_LOGIN && (usingSession
           ? <span className="who">👤 {sessionUser()} · <button className="linkbtn" onClick={async () => { await logout(); window.location.reload() }}>{t('logout')}</button></span>
           : <a className="who" href={`/login?next=/c/${encodeURIComponent(gameId)}`}>🔑 {t('keyOnly')} · {t('login')}</a>)}
-        <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : t('local')}<TimeBadge /></span>
+        <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : DESKTOP ? t('offlineApp') : t('local')}<TimeBadge /></span>
         <button className="linkbtn who" onClick={() => setSheet('contact')}>💬 {t('contactDev')}</button>
       </div>
 
