@@ -141,7 +141,7 @@ export function defaultOptions() {
     bannerImg: '', // replaces title
     logoImg: '',
     topLeftImg: '', topRightImg: '',
-    confirm: { newGame: true, period: true, removePenalty: true, releaseOnGoal: true },
+    confirm: { newGame: true, period: true, removePenalty: true, releaseOnGoal: true, newShift: true },
   }
 }
 

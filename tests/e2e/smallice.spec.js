@@ -110,3 +110,16 @@ test('compact layout shows the shift countdown too', async ({ page, context }) =
   await expect(board.locator('.compactb .cshift b')).not.toHaveText('90', { timeout: 4000 })
   await board.screenshot({ path: test.info().outputPath('compact-shift.png') })
 })
+
+test('New shift asks first', async ({ page }) => {
+  const code = uniqueCode('newshift')
+  await page.goto(`/c/${code}?k=testkey&mode=small`)
+  await page.getByRole('button', { name: 'START', exact: true }).click()
+  await expect(page.getByLabel('shift', { exact: true })).not.toHaveText('90', { timeout: 4000 })
+  page.once('dialog', d => d.dismiss())
+  await page.getByRole('button', { name: 'reset shift' }).click()
+  await expect(page.getByLabel('shift', { exact: true })).not.toHaveText('90')
+  page.once('dialog', d => d.accept())
+  await page.getByRole('button', { name: 'reset shift' }).click()
+  await expect(page.getByLabel('shift', { exact: true })).toHaveText(/^(90|89)$/)
+})
