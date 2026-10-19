@@ -11,6 +11,9 @@ const { initShare, stopShare } = require('./share.cjs')
 const { isExpired, watchTime, EXPIRES } = require('./license.cjs')
 
 const WEB = path.join(__dirname, 'web')
+// Each licence year is its own edition ("Live by Scoreboard 2026", package.json), but they all keep their data
+// (the saved game, teams, online-link settings, controller key) in one folder, so a new edition carries it over.
+app.setPath('userData', path.join(app.getPath('appData'), 'Live by Scoreboard'))
 const ORIGIN = 'app://scoreboard'
 const GAME = 'main'
 
@@ -53,10 +56,11 @@ function placeDisplay() {
 function openDisplay() {
   if (display) { display.show(); display.focus(); return display }
   display = new BrowserWindow({
-    title: 'Live by Scoreboard — Display', width: 1280, height: 720, backgroundColor: '#0b0f14',
+    title: `${app.getName()} — Display`, width: 1280, height: 720, backgroundColor: '#0b0f14',
     autoHideMenuBar: true, show: false, webPreferences: { ...webPreferences, preload: path.join(__dirname, 'display-preload.cjs') },
   })
   display.loadURL(`${ORIGIN}/b/${GAME}`)
+  display.on('page-title-updated', e => e.preventDefault()) // keep "Live by Scoreboard 2026 — Display"
   // the control window keeps the focus (and the keyboard): on one screen the scoreboard waits behind it
   display.once('ready-to-show', () => {
     placeDisplay()
@@ -86,11 +90,12 @@ function showControl() {
 function openControl() {
   const wa = screen.getPrimaryDisplay().workArea
   control = new BrowserWindow({
-    title: 'Live by Scoreboard — Control', ...wa, backgroundColor: '#0b0f14', autoHideMenuBar: true,
+    title: `${app.getName()} — Control`, ...wa, backgroundColor: '#0b0f14', autoHideMenuBar: true,
     webPreferences: { ...webPreferences, preload: path.join(__dirname, 'preload.cjs') },
   })
   control.maximize()
   control.loadURL(`${ORIGIN}/c/${GAME}`)
+  control.on('page-title-updated', e => e.preventDefault())
   // F2: show the scoreboard window
   control.webContents.on('before-input-event', (e, input) => {
     if (input.type === 'keyDown' && input.key === 'F2') { openDisplay(); e.preventDefault() }

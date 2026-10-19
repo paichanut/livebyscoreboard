@@ -27,6 +27,11 @@ jobs:
       # every build gets a higher version, so installed apps see it as an update (desktop/updater.cjs)
       - run: npm version 1.0.${{ github.run_number }} --no-git-tag-version
         working-directory: desktop
+      # the edition's name carries the licence year ("Live by Scoreboard 2026" ↔ "expires": "2026-12-31")
+      - name: Edition name matches the licence year
+        working-directory: desktop
+        shell: bash
+        run: node -e "const p=require('./package.json'); const y=p.expires.slice(0,4); if (!p.productName.endsWith(y) || !p.build.productName.endsWith(y) || !p.build.nsis.artifactName.includes(y)) { console.error('productName / artifact names must carry the licence year ' + y); process.exit(1) }"
       - run: npx electron-builder --win msi nsis portable --x64 --publish never
         working-directory: desktop
       # <year>.yml (the licence year in desktop/package.json "expires"): installed apps only take updates of their
@@ -46,12 +51,12 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Live by Scoreboard desktop 1.0.${{ github.run_number }}
+          name: Live by Scoreboard 2026 desktop 1.0.${{ github.run_number }}
           body: |
-            Offline Windows app: one computer, control on the laptop, scoreboard full screen on the HDMI screen. No internet needed.
-            - LiveByScoreboard-Setup-*.exe (recommended): installer that updates itself — when the computer is online it downloads new versions in the background and installs them when the app closes (or Control → "Restart")
-            - LiveByScoreboard-*.msi: Windows Installer package; tells you when there is a new version, but you install it yourself
-            - LiveByScoreboard-Portable-*.exe: no install, just run; tells you when there is a new version
+            Live by Scoreboard 2026: offline Windows app, licensed until 31 December 2026 (after that it still runs, with UNLICENSED on the scoreboards). One computer, control on the laptop, scoreboard full screen on the HDMI screen. No internet needed.
+            - LiveByScoreboard-2026-Setup-*.exe (recommended): installer that updates itself to newer 2026 builds — when the computer is online it downloads them in the background and installs them when the app closes (or Control → "Restart")
+            - LiveByScoreboard-2026-*.msi: Windows Installer package; tells you when there is a new version, but you install it yourself
+            - LiveByScoreboard-2026-Portable-*.exe: no install, just run; tells you when there is a new version
             Windows may warn the first time (unsigned app): More info → Run anyway.
           # latest.yml + .blockmap: what the installed app reads to find and download an update
           files: |
