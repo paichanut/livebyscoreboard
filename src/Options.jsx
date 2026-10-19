@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_KEYS, KEY_LABELS, KEY_GROUPS, SOUND_CHOICES, FONT_CHOICES, COLOR_FIELDS, defaultOptions, keyName } from './options.js'
 import { unlockAudio, playSound, ready } from './horn.js'
 import * as G from './game.js'
 import { LANGS, translator } from './i18n.js'
 import { listTeams, saveTeam, removeTeam } from './teamLibrary.js'
 import { SHARED_TEAMS, listSharedTeams, shareTeamIfNew } from './sync.js'
+import { useGameId } from './useGame.js'
 
 const TABS = ['Game', 'Teams', 'Keys', 'Colors', 'Sounds', 'Text', 'Banner', 'Other']
 
@@ -40,7 +41,15 @@ export default function Options({ s, update, close }) {
     close()
   }
 
-  const P = { o, set, get }
+  // the game as it would look with these options, for the live preview (nothing is saved until Save)
+  const draft = useMemo(() => ({
+    ...s, theme, skaters: Number(skaters) || s.skaters, opts: o,
+    home: { ...s.home, name: home.name.trim() || 'HOME', color: home.color },
+    away: { ...s.away, name: away.name.trim() || 'AWAY', color: away.color },
+  }), [s, o, theme, home, away, skaters])
+  const gameId = useGameId()
+  const preview = sticky => <LivePreview state={draft} gameId={gameId} sticky={sticky} />
+  const P = { o, set, get, preview }
   const t = translator(o.uiLang)
   const tabName = name => t('tabs')[name] || name
   return (
@@ -86,7 +95,7 @@ function ShiftRow({ o, set }) {
   )
 }
 
-function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters }) {
+function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters, preview }) {
   const [newLen, setNewLen] = useState('')
   return (
     <>
@@ -109,6 +118,7 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters }) 
         <button className={`btn ${o.layout === 'full' ? 'on' : ''}`} onClick={() => set('layout', 'full')}>Full — shots, logos, title</button>
         <button className={`btn ${o.layout === 'minimal' ? 'on' : ''}`} onClick={() => set('layout', 'minimal')}>Minimal — bigger numbers</button>
       </div>
+      {preview(false)}
       <h4>Clock</h4>
       <Row label="Period length (min)"><input type="number" min={1} max={60} value={periodMin} onChange={e => setPeriodMin(e.target.value)} style={{ width: 80 }} /></Row>
       <Num label="Number of regular periods" path="periods" get={get} set={set} min={1} max={9} />
@@ -297,17 +307,23 @@ function KeysTab({ o, set }) {
   )
 }
 
-function ColorsTab({ o, set, theme, setTheme }) {
+function ColorsTab({ o, set, theme, setTheme, preview }) {
   const THEMES = [['dark', 'Dark arena'], ['light', 'Light'], ['led', 'LED classic'], ['ice', 'Ice']]
   return (
     <>
+      {preview(true)}
       <h4>Display background</h4>
       <div className="colorrow">
         <span>Background opacity: <b>{o.bgOpacity ?? 50}%</b> (100 = solid for a TV · lower = video shows through in OBS)</span>
         <span className="r"><input type="range" min={0} max={100} step={5} value={o.bgOpacity ?? 50} onChange={e => set('bgOpacity', Number(e.target.value))} aria-label="background opacity" /></span>
       </div>
       <h4>Theme preset</h4>
-      <div className="chips">{THEMES.map(([id, l]) => <button key={id} className={`btn ${theme === id ? 'on' : ''}`} onClick={() => setTheme(id)}>{l}</button>)}</div>
+      {/* each preset shows a small sample in its own colors and font */}
+      <div className="chips">{THEMES.map(([id, l]) => (
+        <button key={id} className={`btn themechip ${theme === id ? 'on' : ''}`} onClick={() => setTheme(id)} aria-label={`theme ${l}`}>
+          <span className="tsample" data-theme={id}><b>3</b><b className="acc">12:34</b><b>1</b></span>{l}
+        </button>
+      ))}</div>
       <h4>Element colors (override theme)</h4>
       {COLOR_FIELDS.map(([k, label]) => (
         <div className="colorrow" key={k}>
@@ -341,11 +357,12 @@ function SoundsTab({ o, set }) {
   )
 }
 
-function TextTab({ o, set }) {
+function TextTab({ o, set, preview }) {
   const FIELDS = [['period', 'Period'], ['shots', 'Shots on goal'], ['player', 'Penalty player'], ['penalty', 'Penalty'], ['goal', 'Goal indicator'], ['timeout', 'Timeout'], ['pp', 'Power play'], ['offside', 'Offside']]
   const t = translator(o.uiLang)
   return (
     <>
+      {preview(true)}
       <h4>{t('language')}</h4>
       <Row label={t('language')}>
         <select value={o.uiLang || 'en'} onChange={e => set('uiLang', e.target.value)} style={{ width: 160 }}>{LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
@@ -355,7 +372,13 @@ function TextTab({ o, set }) {
       {FIELDS.map(([k, l]) => <Row key={k} label={l}><input type="text" value={o.labels[k]} onChange={e => set(`labels.${k}`, e.target.value)} style={{ width: 160 }} /></Row>)}
       <button className="btn ghost" onClick={() => set('labels', defaultOptions().labels)}>Reset all text</button>
       <h4>Fonts</h4>
-      <Row label="Scoreboard font"><select value={o.font} onChange={e => set('font', e.target.value)} style={{ width: 220 }}>{FONT_CHOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Row>
+      {/* every font written in itself: pick by how it looks */}
+      <div className="fontchips">{FONT_CHOICES.map(([v, l]) => (
+        <button key={v} className={`btn fontchip ${o.font === v ? 'on' : ''}`} onClick={() => set('font', v)} aria-label={`font ${l}`}>
+          <span className="fsample" style={{ fontFamily: `'${v}', 'Barlow Condensed', sans-serif` }}>12:34<em>HOME</em></span><small>{l}</small>
+        </button>
+      ))}</div>
+      {o.digits === 'segments' && <div className="hint">“7-segment style” below replaces the font for the numbers.</div>}
       <Row label="Digit type"><select value={o.digits} onChange={e => set('digits', e.target.value)} style={{ width: 160 }}><option value="normal">Normal</option><option value="segments">7-segment style</option></select></Row>
     </>
   )
@@ -397,4 +420,18 @@ function OtherTab({ o, set, get, update, close, resetAll }) {
       <button className="btn ghost" onClick={() => { if (confirm('Reset ALL options to defaults?')) resetAll() }}>Reset all options</button>
     </>
   )
+}
+
+// The real scoreboard (/b/CODE?preview=1, Board.jsx PreviewBoard) in a frame, showing the unsaved options as they
+// change: layout, theme, colors, font, labels. It plays no sound and changes nothing.
+function LivePreview({ state, gameId, sticky }) {
+  const ref = useRef(null)
+  const send = () => { try { ref.current?.contentWindow?.postMessage({ type: 'lbs-preview', state }, '*') } catch {} }
+  useEffect(send, [state])
+  useEffect(() => {
+    const on = e => { if (e.source === ref.current?.contentWindow && e.data?.type === 'lbs-preview-ready') send() }
+    window.addEventListener('message', on)
+    return () => window.removeEventListener('message', on)
+  })
+  return <iframe ref={ref} className="optpreview" style={sticky ? undefined : { position: 'static' }} title="scoreboard preview" src={`/b/${encodeURIComponent(gameId)}?preview=1`} />
 }

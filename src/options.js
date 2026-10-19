@@ -59,6 +59,8 @@ export const FONT_CHOICES = [
   ['Oswald', 'Oswald'],
   ['Anton', 'Anton (heavy)'],
   ['Arial', 'Arial'],
+  ['LCD Digital', 'LCD digital'],
+  ['LCD Digital Italic', 'LCD digital italic'],
 ]
 
 export const COLOR_FIELDS = [

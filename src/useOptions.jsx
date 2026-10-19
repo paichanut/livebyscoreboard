@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { unlockAudio, playSound, audioReady } from './horn.js'
 import { timeoutRemaining, clockRemaining, shiftInfo } from './game.js'
 
+// fonts that come with the app (index.html / fonts-offline.js / styles.css); any other name is fetched from Google Fonts
+const BUILT_IN_FONTS = ['Barlow Condensed', 'Share Tech Mono', 'Arial', 'Oswald', 'Anton', 'LCD Digital', 'LCD Digital Italic']
+
 // Apply theme + custom colors + font to <html>
 export function useAppearance(s) {
   useEffect(() => {
@@ -17,7 +20,9 @@ export function useAppearance(s) {
     for (const [k, v] of Object.entries(vars)) v ? root.style.setProperty(k, v) : root.style.removeProperty(k)
     const font = o?.digits === 'segments' ? 'Share Tech Mono' : o?.font
     font ? root.style.setProperty('--font-display', `'${font}', 'Barlow Condensed', sans-serif`) : root.style.removeProperty('--font-display')
-    if (o?.font && o.font !== 'Barlow Condensed' && o.font !== 'Share Tech Mono' && o.font !== 'Arial') {
+    // the LCD font has capitals only: names and labels are shown in capitals with it
+    root.dataset.font = /^LCD Digital/.test(font || '') ? 'lcd' : ''
+    if (o?.font && !BUILT_IN_FONTS.includes(o.font)) {
       const id = 'gf-' + o.font.replace(/\s/g, '')
       if (!document.getElementById(id)) {
         const l = document.createElement('link'); l.id = id; l.rel = 'stylesheet'

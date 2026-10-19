@@ -273,6 +273,26 @@ test('✂ Trim empty borders: logos saved before the trim get it too', async ({ 
   await expect.poll(() => img.evaluate(i => [i.naturalWidth, i.naturalHeight])).toEqual([22, 42])
 })
 
+test('Options shows a live preview: theme and font change it before Save, the board only after', async ({ page, context }) => {
+  const code = uniqueCode('prev')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await openOptions(page, 'Colors')
+  const frame = page.frameLocator('iframe.optpreview')
+  await expect(frame.locator('.board')).toBeVisible()
+  await page.getByRole('button', { name: 'theme LED classic' }).click()
+  await expect(frame.locator('html')).toHaveAttribute('data-theme', 'led')
+  await page.locator('.opts .tabs').getByRole('button', { name: 'Text', exact: true }).click()
+  await page.getByRole('button', { name: 'font LCD digital', exact: true }).click()
+  await expect(frame.locator('html')).toHaveAttribute('data-font', 'lcd')
+  // nothing saved yet
+  await expect(board.locator('html')).not.toHaveAttribute('data-theme', 'led')
+  await saveOptions(page)
+  await expect(board.locator('html')).toHaveAttribute('data-theme', 'led')
+  await expect(board.locator('html')).toHaveAttribute('data-font', 'lcd')
+  expect(await board.evaluate(() => document.fonts.check('40px "LCD Digital"', '12:34'))).toBe(true)
+})
+
 test('developer contact on Home and the control page', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.home .contact')).toContainText('Pai Chanut')

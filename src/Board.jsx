@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useClockTick } from './useGame.js'
 import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, penaltyCallActive, periodLabel, clockRemaining, isSmallIce, rinkView, shiftInfo } from './game.js'
 import { ONLINE } from './sync.js'
+import { withDefaults } from './options.js'
 import { now as serverNow } from './clock.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import TimeBadge from './TimeBadge.jsx'
@@ -43,14 +44,38 @@ export function RinkTag({ rink, label, className = 'rinkpill' }) {
 // /b/CODE?view=shift: the shift (line change) countdown alone, full screen (bench / extra screen)
 const VIEW = new URLSearchParams(window.location.search).get('view')
 
+// /b/CODE?preview=1 is the live preview inside Options (Options.jsx LivePreview): it shows the unsaved game the
+// options page posts to it, never the stored one, and plays no sound.
+const PREVIEW = new URLSearchParams(window.location.search).has('preview')
+
 export default function Board() {
+  return PREVIEW ? <PreviewBoard /> : <LiveBoard />
+}
+
+function LiveBoard() {
   const gameId = useGameId()
   const [raw, , access] = useGame(gameId)
+  return <BoardView raw={raw} access={access} gameId={gameId} />
+}
+
+function PreviewBoard() {
+  const [raw, setRaw] = useState(null)
+  useEffect(() => {
+    document.documentElement.classList.add('preview')
+    const on = e => { if (e.source === window.parent && e.data?.type === 'lbs-preview') setRaw(withDefaults(e.data.state)) }
+    window.addEventListener('message', on)
+    window.parent.postMessage({ type: 'lbs-preview-ready' }, '*')
+    return () => window.removeEventListener('message', on)
+  }, [])
+  return raw ? <BoardView raw={raw} access="ok" gameId="preview" preview /> : null
+}
+
+function BoardView({ raw, access, gameId, preview = false }) {
   const small = isSmallIce(raw)
   const s = raw && small && RINK ? rinkView(raw, RINK) : raw
   useAppearance(s)
   const sound = useSound('rinkboard:sound:board', true)
-  useGameSounds(s, sound.playing)
+  useGameSounds(s, sound.playing && !preview)
   // see-through page: the board sits on top of video (OBS, camera apps); cards stay solid
   const bgOpacity = Math.min(100, Math.max(0, Number(s?.opts.bgOpacity ?? 50)))
   const clear = Boolean(s) && bgOpacity < 100 && !(s.opts.layout === 'arena' && s.opts.bgImg)

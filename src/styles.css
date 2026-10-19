@@ -13,7 +13,18 @@
   --font-display: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif;
   --font-ui: 'Barlow', system-ui, sans-serif;
 }
+/* LCD digital (FONT_CHOICES): DSEG by keshikan, SIL Open Font License 1.1 (public/fonts/DSEG-LICENSE.txt).
+   Numbers, colon and point from the 7-segment face (a clean 0, no slash), everything else from the 14-segment one. */
+@font-face { font-family: 'LCD Digital'; src: url('/fonts/DSEG7Modern-Bold.woff2') format('woff2'); unicode-range: U+0020, U+002D-003A; }
+@font-face { font-family: 'LCD Digital'; src: url('/fonts/DSEG14Modern-Bold.woff2') format('woff2'); unicode-range: U+0021-002C, U+003B-007E; }
+@font-face { font-family: 'LCD Digital Italic'; src: url('/fonts/DSEG7Modern-BoldItalic.woff2') format('woff2'); unicode-range: U+0020, U+002D-003A; }
+@font-face { font-family: 'LCD Digital Italic'; src: url('/fonts/DSEG14Modern-BoldItalic.woff2') format('woff2'); unicode-range: U+0021-002C, U+003B-007E; }
 /* ---------- Themes (data-theme on <html>) ---------- */
+/* dark = the :root colors, repeated so a theme sample (Options → Colors) can show it inside another theme */
+[data-theme="dark"] {
+  --bg: #0b0f14; --card: #121922; --card2: #1a2330; --btn: #1f2a38; --text: #f3f5f7; --muted: #8a97a6; --dim: #3c4a59;
+  --accent: #ffd166; --go: #2ec4b6; --stop: #e63946; --frame: #3d74d6;
+}
 [data-theme="light"] {
   --bg: #f4f6f8; --card: #ffffff; --card2: #e9edf2; --btn: #e1e6ec; --text: #0e141b; --muted: #5b6876; --dim: #b8c2cc;
   --accent: #d98c00; --go: #0f9d8a; --stop: #d62839; --frame: #8fa6c4;
@@ -725,3 +736,22 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 
 /* offside / penalty call: the arrow points at the side that committed it (Board.jsx Pointed) */
 .board .ptr { font-size: .8em; margin: 0 .35em; vertical-align: .05em; }
+
+/* LCD digital font: capitals only */
+html[data-font="lcd"] .board, html[data-font="lcd"] .bannerpage { text-transform: uppercase; }
+/* its capitals fill the whole height (Barlow's are 70 %): scaled to the same capital height, so every layout still fits */
+html[data-font="lcd"] .board, html[data-font="lcd"] .bannerpage, .fontchip .fsample { font-size-adjust: cap-height 0.7; }
+
+/* Options → live preview: the real scoreboard (/b/CODE?preview=1) in a frame, fed the unsaved options */
+html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .board .status { display: none !important; }
+.optpreview { position: sticky; top: 0; z-index: 2; display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 34vh; border: 2px solid var(--dim); border-radius: 10px; margin-bottom: 10px;
+  background: repeating-conic-gradient(#2a3442 0% 25%, #1c242f 0% 50%) 50% / 20px 20px; }
+.themechip { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; }
+.themechip .tsample { display: flex; gap: 4px; padding: 6px; border-radius: 8px; background: var(--bg); border: 2px solid var(--frame); }
+.themechip .tsample b { font-family: var(--font-display); font-size: 22px; line-height: 1; padding: 4px 8px; border-radius: 6px; background: var(--card); color: var(--text); }
+.themechip .tsample b.acc { color: var(--accent); }
+.fontchips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.fontchip { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; }
+.fontchip .fsample { display: flex; flex-direction: column; align-items: center; font-size: 26px; line-height: 1.15; white-space: nowrap; max-width: 100%; overflow: hidden; }
+.fontchip .fsample em { font-style: inherit; font-size: .6em; }
+.fontchip small { font-family: var(--font-ui); font-size: 12px; color: var(--muted); }
