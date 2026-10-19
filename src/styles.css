@@ -679,3 +679,22 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .home .rinkmode .btn { flex: 1; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; }
 .home .rinkmode .btn span { font-size: 13px; font-weight: 500; color: var(--muted); }
 .opts .mmss input { width: 70px; }
+
+/* ---------- Shift clock alone: /b/CODE?view=shift ---------- */
+.board.shiftb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(1.5 * var(--u)); }
+.board.shiftb .slabel { font-size: calc(5 * var(--u)); font-weight: 800; letter-spacing: .3em; color: var(--muted); }
+.board.shiftb .sbig { font-size: calc(42 * var(--u)); font-weight: 800; line-height: .9; color: var(--stop); }
+.board.shiftb .sclock { font-size: calc(4 * var(--u)); font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+.board.shiftb .soff { font-family: var(--font-ui); font-size: calc(1.8 * var(--u)); color: var(--dim); }
+.qr .links { display: flex; flex-direction: column; gap: 8px; width: 100%; text-align: left; }
+.qr .links h4 { margin-top: 8px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.qr .lk { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; background: var(--card2); border-radius: 10px; padding: 8px 10px; }
+.qr .lk span { font-size: 13px; color: var(--muted); }
+.qr .lk code { grid-column: 1; font-size: 13px; color: var(--text); word-break: break-all; }
+.qr .lk .btn { grid-column: 2; grid-row: 1 / span 2; }
+
+/* rink A / B tag: same color on every screen (Board.jsx RINK_COLOR) */
+.board .rinkpill { font-size: calc(3.6 * var(--u)); font-weight: 800; letter-spacing: .18em; line-height: 1; color: #10141a; background: var(--rk); border-radius: 999px; padding: calc(.7 * var(--u)) calc(2.6 * var(--u)); white-space: nowrap; }
+.board.dual .dgame { border-color: var(--rk); border-top-width: calc(.8 * var(--u)); }
+.board.dual .dlabel .rinkpill { font-size: calc(3 * var(--u)); padding: calc(.5 * var(--u)) calc(2 * var(--u)); }
+.banner .brink { align-self: stretch; display: flex; align-items: center; padding: 0 14px; font-weight: 800; letter-spacing: .12em; color: #10141a; background: var(--rk); }

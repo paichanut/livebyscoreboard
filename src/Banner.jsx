@@ -3,7 +3,7 @@ import React from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
 import { clockShown, fmtClock, fmtTimeOfDay, periodLabel, activePenalties, waitingPenalties, penaltyRemaining, strengthLabel, isSmallIce, rinkView } from './game.js'
 import { useAppearance } from './useOptions.jsx'
-import { Shootout } from './Board.jsx'
+import { Shootout, RinkTag } from './Board.jsx'
 
 export default function Banner() {
   const gameId = useGameId()
@@ -24,6 +24,7 @@ export default function Banner() {
   return (
     <div className="bannerpage" style={{ background: b.useChroma ? b.chroma : 'transparent' }}>
       <div className="banner" style={{ '--bbg': b.bg, '--bfg': b.fg, '--bclockbg': b.clockBg, '--bclockfg': b.clockFg }}>
+        {raw && isSmallIce(raw) && <RinkTag rink={rink} label={s.opts.labels[rink === 'a' ? 'rinkA' : 'rinkB']} className="brink" />}
         {sh.logo && s.opts.logoImg && <img className="blogo" src={s.opts.logoImg} alt="" />}
         {sh.title && s.opts.title && <div className="btitle">{s.opts.title}</div>}
         {teams.map(team => {

@@ -37,6 +37,10 @@ test('small ice: two games share the clock; center / A / B controllers and board
   await sideB.goto(`/b/${code}?rink=b`)
   await expect(sideB.locator('.board .team .score').first()).toHaveText('2')
   await expect(sideB.locator('.board.dual')).toHaveCount(0)
+  // every screen says which half it is
+  await expect(sideB.locator('.rinkpill')).toHaveText('RINK B')
+  await expect(center.locator('.dgame .rinkpill')).toHaveText(['RINK A', 'RINK B'])
+  await sideB.screenshot({ path: test.info().outputPath('sideB.png') })
 
   // the clock runs from the center controller only; every board follows
   await page.getByRole('button', { name: 'START', exact: true }).click()
@@ -70,4 +74,22 @@ test('shift buzzer length is set as mm:ss in Options; 0:00 turns it off', async 
   await page.locator('.opts').getByLabel('shift seconds').fill('0')
   await page.locator('.opts').getByRole('button', { name: /^Save/ }).click()
   await expect(page.getByLabel('shift', { exact: true })).toHaveCount(0)
+})
+
+test('shift clock page and the full list of links', async ({ page, context }) => {
+  const code = uniqueCode('links')
+  page.on('dialog', d => d.accept())
+  await page.goto(`/c/${code}?k=testkey&mode=small`)
+  await expect(page.getByLabel('shift', { exact: true })).toHaveText('90')
+  const shiftPage = await context.newPage()
+  await shiftPage.goto(`/b/${code}?view=shift`)
+  await expect(shiftPage.locator('.board.shiftb .sbig')).toHaveText('90')
+  await page.getByRole('button', { name: 'START', exact: true }).click()
+  await expect(shiftPage.locator('.board.shiftb .sbig')).not.toHaveText('90', { timeout: 4000 })
+  await page.getByRole('button', { name: 'QR', exact: true }).click()
+  const links = await page.locator('.qr .lk code').allTextContents()
+  const base = new URL(page.url()).origin
+  for (const want of [`/b/${code}`, `/b/${code}?rink=a`, `/b/${code}?rink=b`, `/b/${code}?view=shift`, `/o/${code}?rink=a`, `/o/${code}?rink=b`, `/c/${code}?k=testkey`, `/c/${code}?k=testkey&rink=a`, `/c/${code}?k=testkey&rink=b`]) {
+    expect(links).toContain(base + want)
+  }
 })

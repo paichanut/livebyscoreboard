@@ -32,9 +32,11 @@ test('public /b/ display is read-only: no controls, keys do nothing, key not in 
   // public links never carry the operator key
   expect(board.url()).not.toContain('k=')
   await page.getByRole('button', { name: 'QR' }).click()
-  const url = await page.locator('.sheet .url').first().textContent()
-  expect(url).toContain(`/b/${code}`)
-  expect(url).not.toContain('k=')
+  // the "watch" links (scoreboard, shift clock, OBS banner) come before the controller link
+  const links = await page.locator('.qr .lk code').allTextContents()
+  expect(links[0]).toContain(`/b/${code}`)
+  for (const url of links.slice(0, -1)) expect(url).not.toContain('k=')
+  expect(links.at(-1)).toContain(`/c/${code}?k=`)
 })
 
 test('a display opened before the operator has no controls either', async ({ page }) => {

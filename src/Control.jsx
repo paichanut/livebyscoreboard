@@ -607,31 +607,44 @@ function GoalSheet({ s, id, update, close, t }) {
   )
 }
 
+// Every link of this game, in full: what people watch (public) and the controllers (keep private)
 function QrSheet({ boardUrl, bannerUrl, controlUrl, close, t, small, labels }) {
   const src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=0&data=${encodeURIComponent(boardUrl)}`
   const share = () => navigator.share?.({ title: 'Live scoreboard', url: boardUrl }).catch(() => {})
+  const withParam = (url, k, val) => { const u = new URL(url); u.searchParams.set(k, val); return u.toString() }
+  const rinkName = k => labels[k === 'a' ? 'rinkA' : 'rinkB']
+  const watch = [
+    [small ? t('linkCenterBoard') : t('linkBoard'), boardUrl],
+    ...(small ? ['a', 'b'].map(k => [`${t('linkBoard')} · ${rinkName(k)}`, withParam(boardUrl, 'rink', k)]) : []),
+    [t('linkShift'), withParam(boardUrl, 'view', 'shift')],
+    ...(small ? ['a', 'b'].map(k => [`${t('obsOverlay')} ${rinkName(k)}`, withParam(bannerUrl, 'rink', k)]) : [[t('obsOverlay'), bannerUrl]]),
+  ]
+  const run = [
+    [small ? t('linkCenterControl') : t('operatorLink'), controlUrl],
+    ...(small ? ['a', 'b'].map(k => [`${t('linkRinkControl')} · ${rinkName(k)}`, withParam(controlUrl, 'rink', k)]) : []),
+  ]
+  const Link = ([label, url]) => (
+    <div className="lk" key={url}>
+      <span>{label}</span>
+      <code>{url}</code>
+      <button className="btn sm" onClick={() => navigator.clipboard?.writeText(url)}>{t('copyLink')}</button>
+    </div>
+  )
   return (
     <Sheet close={close}>
       <h3>{t('publicLink')}</h3>
       <div className="qr">
         <img src={src} alt="QR code" />
-        <div className="url">{boardUrl}</div>
         <div className="row">
-          <button className="btn sm" onClick={() => navigator.clipboard?.writeText(boardUrl)}>{t('copyLink')}</button>
           {navigator.share && <button className="btn sm" onClick={share}>{t('share')}</button>}
         </div>
         <div className="hint" style={{ textAlign: 'center' }}>{t('publicHint')}</div>
-        {small && ['a', 'b'].map(k => (
-          <div key={k} className="url" style={{ marginTop: 8 }}>
-            {labels[k === 'a' ? 'rinkA' : 'rinkB']}: {boardUrl}?rink={k}{' '}
-            <button className="btn sm" onClick={() => navigator.clipboard?.writeText(`${boardUrl}?rink=${k}`)}>{t('copyLink')}</button>
-            <button className="btn sm accent" onClick={() => { const u = new URL(controlUrl); u.searchParams.set('rink', k); navigator.clipboard?.writeText(u.toString()) }}>{t('copyRinkController')}</button>
-          </div>
-        ))}
-        <div className="url" style={{ marginTop: 8 }}>{t('obsOverlay')} {bannerUrl}</div>
-        <button className="btn sm" onClick={() => navigator.clipboard?.writeText(bannerUrl)}>{t('copyBanner')}</button>
-        <div className="url" style={{ marginTop: 8 }}>{t('operatorLink')}</div>
-        <button className="btn sm accent" onClick={() => navigator.clipboard?.writeText(controlUrl)}>{t('copyOperator')}</button>
+        <div className="links">
+          <h4>{t('linksWatch')}</h4>
+          {watch.map(Link)}
+          <h4>{t('linksRun')}</h4>
+          {run.map(Link)}
+        </div>
       </div>
       <button className="btn ghost" onClick={close}>{t('close')}</button>
     </Sheet>

@@ -34,6 +34,14 @@ function FullscreenHint() {
 // Small ice (two games on one rink): /b/CODE is the center board (both games, the shared clock and the
 // shift countdown), /b/CODE?rink=a and ?rink=b are the side boards: one game each, same clock.
 const RINK = (() => { const q = new URLSearchParams(window.location.search).get('rink'); return q === 'a' || q === 'b' ? q : null })()
+// one color per rink, the same on every screen, so players can tell the halves apart at a glance
+export const RINK_COLOR = { a: '#ffd166', b: '#4cc9f0' }
+export function RinkTag({ rink, label, className = 'rinkpill' }) {
+  return <div className={className} style={{ '--rk': RINK_COLOR[rink] }}>{label}</div>
+}
+
+// /b/CODE?view=shift: the shift (line change) countdown alone, full screen (bench / extra screen)
+const VIEW = new URLSearchParams(window.location.search).get('view')
 
 export default function Board() {
   const gameId = useGameId()
@@ -63,11 +71,14 @@ export default function Board() {
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
 
+  if (VIEW === 'shift') return <ShiftBoard s={raw} sound={sound} />
   if (small && !RINK) return <DualBoard s={s} sound={sound} clear={clear} bgOpacity={bgOpacity} />
 
   const o = s.opts
   const L = o.labels
   const minimal = o.layout === 'minimal'
+  // side board: every card frame in its rink's color (the same color as on the center board)
+  const rinkStyle = small && RINK ? { '--frame': RINK_COLOR[RINK] } : null
   // the line-change countdown; in small ice only on the center board
   const shift = small ? null : shiftInfo(s)
   const arena = o.layout === 'arena'
@@ -83,18 +94,18 @@ export default function Board() {
 
   if (o.layout === 'compact') {
     return (
-      <div className={`board compactb ${clear ? 'clear' : ''}`} style={clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
+      <div className={`board compactb ${clear ? 'clear' : ''}`} style={{ ...(clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
         <SoundToggle sound={sound} className="sound" />
         <FullscreenButton />
         <FullscreenHint />
-        <Compact s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
+        <Compact rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
       </div>
     )
   }
 
   return (
     <div className={`board ${clear ? 'clear' : ''} ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}
-      style={arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
+      style={{ ...(arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
       {!clear && <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>}
       <SoundToggle sound={sound} className="sound" />
       <FullscreenButton />
@@ -111,6 +122,7 @@ export default function Board() {
       <Team key={`home-${flash === 'home' ? s.goalFlash.at : 0}`} t={s.home} logo={!minimal && o.homeLogo} logoTop={arena} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null} />
 
       <div className="mid">
+        {small && RINK && <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} />}
         {toRem > 0 && (
           <div className="timeout" style={{ '--c': s[s.timeout.team].color }}>
             {L.timeout} · {s[s.timeout.team].name} <b className="tnum">{fmtClock(toRem)}</b>
@@ -164,6 +176,22 @@ function EventText({ s, flash, withName }) {
   return null
 }
 
+function ShiftBoard({ s, sound }) {
+  const sh = shiftInfo(s)
+  const L = s.opts.labels
+  return (
+    <div className="board shiftb">
+      <SoundToggle sound={sound} className="sound" />
+      <FullscreenButton />
+      <FullscreenHint />
+      <div className="slabel">{L.shift}</div>
+      <div className="sbig tnum" aria-label="shift">{sh ? Math.ceil(sh.remainingMs / 1000) : '—'}</div>
+      <div className="sclock tnum">{L.period} {periodLabel(s)} · {fmtClock(clockShown(s))}</div>
+      {!sh && <div className="soff">Shift clock is off · Control → Options → Game → Line change buzzer</div>}
+    </div>
+  )
+}
+
 // Small ice center board: Rink A | clock, period, shift countdown | Rink B (PC Scoreboards' two-game board)
 function DualBoard({ s, sound, clear, bgOpacity }) {
   const o = s.opts
@@ -184,7 +212,7 @@ function DualBoard({ s, sound, clear, bgOpacity }) {
           <div className="side">{o.topRightImg && <img src={o.topRightImg} alt="" />}</div>
         </div>
       )}
-      <DualGame s={rinkView(s, 'a')} label={L.rinkA} />
+      <DualGame s={rinkView(s, 'a')} label={L.rinkA} rink="a" />
       <div className="dmid">
         {o.logoImg && <img className="dlogo" src={o.logoImg} alt="" />}
         <div className={`dclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
@@ -198,17 +226,17 @@ function DualBoard({ s, sound, clear, bgOpacity }) {
           </div>
         )}
       </div>
-      <DualGame s={rinkView(s, 'b')} label={L.rinkB} />
+      <DualGame s={rinkView(s, 'b')} label={L.rinkB} rink="b" />
     </div>
   )
 }
 
-function DualGame({ s, label }) {
+function DualGame({ s, label, rink }) {
   const flash = goalFlashActive(s)
   const strength = strengthLabel(s)
   return (
-    <div className="dgame">
-      <div className="dlabel">{label}{strength && <span className="dstr">{strength}</span>}</div>
+    <div className="dgame" style={{ '--rk': RINK_COLOR[rink] }}>
+      <div className="dlabel"><RinkTag rink={rink} label={label} />{strength && <span className="dstr">{strength}</span>}</div>
       <div className="dteams">
         {['home', 'away'].map(team => {
           const run = activePenalties(s, team)
@@ -236,7 +264,7 @@ function DualGame({ s, label }) {
 // Compact layout: one broadcast-style panel (the operator's earlier OBS design). Home | clock box,
 // period, tournament logo | away; scores in team colors; penalties under each team only when there
 // are any (space is reserved so nothing moves); date + time of day along the bottom when it is on.
-function Compact({ s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isSO }) {
+function Compact({ rinkTag, s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isSO }) {
   const o = s.opts
   const L = o.labels
   const side = team => {
@@ -268,6 +296,7 @@ function Compact({ s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isS
     <div className="cpanel">
       {side('home')}
       <div className="cmid">
+        {rinkTag}
         <div className={`cclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
         <div className="clabel">{isNum ? L.period : ''}</div>
         <div className="cperiod">{periodLabel(s)}</div>
