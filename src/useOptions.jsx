@@ -16,6 +16,8 @@ export function useAppearance(s) {
       '--c-teamname': o?.colors?.teamName, '--c-clock': o?.colors?.clock, '--c-score': o?.colors?.score,
       '--c-period': o?.colors?.period, '--c-shots': o?.colors?.shots, '--c-penplayer': o?.colors?.penPlayer,
       '--c-pentime': o?.colors?.penTime, '--c-goal': o?.colors?.goal,
+      // only the colors picked by hand (the compact panel keeps its own design unless one of these is set)
+      '--u-bg': o?.colors?.bg, '--u-card': o?.colors?.card, '--u-text': o?.colors?.text,
     }
     for (const [k, v] of Object.entries(vars)) v ? root.style.setProperty(k, v) : root.style.removeProperty(k)
     const font = o?.digits === 'segments' ? 'Share Tech Mono' : o?.font
