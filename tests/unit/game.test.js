@@ -586,3 +586,20 @@ test('shift timer counts down with the game clock, starts over, and buzzes once 
   s = G.setOptions(s, { ...s.opts, shiftMs: 0 })
   assert.equal(G.shiftInfo(s), null)
 })
+
+test('power-play goal: release or keep the minor, and the goal records which', () => {
+  let s = G.addPenalty(G.newGame(), 'away', '12', 2, 'Hooking')
+  s = G.startClock(s)
+  const c = G.releaseCandidate(s, 'home')
+  assert.equal(c.penalty.player, '12')
+  assert.equal(G.releaseCandidate(s, 'away'), null) // the short-handed side scoring releases nobody
+  const kept = G.addScore(s, 'home', 1, { release: false })
+  assert.equal(kept.penalties.length, 1)
+  assert.deepEqual(kept.events.find(e => e.type === 'goal').release, { penaltyId: c.penalty.id, player: '12', done: false })
+  assert.equal(G.gameSheet(kept).goals[0].release, 'kept #12')
+  const rel = G.addScore(s, 'home', 1)
+  assert.equal(rel.penalties.length, 0)
+  assert.equal(G.gameSheet(rel).goals[0].release, 'ended #12')
+  assert.ok(G.summaryText(rel).includes('(ended #12)'))
+  assert.ok(rel.events.some(e => e.type === 'penaltyEnd' && e.reason === 'goal'))
+})

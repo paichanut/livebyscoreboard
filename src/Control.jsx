@@ -58,6 +58,12 @@ export default function Control() {
   const v = s && r === 'b' ? G.rinkView(s, 'b') : s
   const ur = fn => update(x => G.onRink(x, rinkRef.current, fn))
   const shift = s ? G.shiftInfo(s) : null
+  // IIHF Rule 16: a power-play goal ends the opponent's minor. Ask first (Options → Other can turn the question off).
+  const askRelease = (x, team) => x.opts.confirm?.releaseOnGoal !== false && G.releaseCandidate(G.foldPenalties(x), team)
+  const scoreGoal = (team, horn = false) => {
+    if (askRelease(v, team)) { setSheet(`release-${team}-${horn ? 1 : 0}`); return }
+    ur(x => { const n = G.addScore(x, team, 1); return horn ? G.fireHorn(n) : n })
+  }
   const [openPen, setOpenPen] = useState(null) // penalty row showing its ±1/±5 s buttons
   // optional: play horn/buzzer on this device too (phone speaker / laptop plugged into the PA)
   // horn / buzzer play here too, not only on the display (new key so everyone starts with sound on)
@@ -116,9 +122,9 @@ export default function Control() {
         penaltyOn: x => G.setPlayLive(x, true), penaltyOff: x => G.setPlayLive(x, false),
         removePenalty: x => (ask('removePenalty', t('confirmRemovePenalty')) ? G.removeLastPenalty(x) : x),
         timeOfDay: G.toggleTimeOfDay,
-        homeGoal: x => G.addScore(x, 'home', 1), homeGoalMinus: x => G.addScore(x, 'home', -1),
+        homeGoal: x => { if (askRelease(x, 'home')) { setSheet('release-home-0'); return null } return G.addScore(x, 'home', 1) }, homeGoalMinus: x => G.addScore(x, 'home', -1),
         homeShot: x => G.addShot(x, 'home', 1), homeShotMinus: x => G.addShot(x, 'home', -1),
-        awayGoal: x => G.addScore(x, 'away', 1), awayGoalMinus: x => G.addScore(x, 'away', -1),
+        awayGoal: x => { if (askRelease(x, 'away')) { setSheet('release-away-0'); return null } return G.addScore(x, 'away', 1) }, awayGoalMinus: x => G.addScore(x, 'away', -1),
         awayShot: x => G.addShot(x, 'away', 1), awayShotMinus: x => G.addShot(x, 'away', -1),
         periodPlus: x => (ask('period', t('confirmNext')) ? G.nextPeriod(x) : x),
         periodMinus: x => (ask('period', t('confirmPrev')) ? G.prevPeriod(x) : x),
@@ -270,8 +276,8 @@ export default function Control() {
               <button className="n" aria-label={`rename ${team}`} title={t('editTeam')} onClick={() => setSheet(`team-${team}`)}>{tm.name}</button>
               <div className="s tnum">{tm.score}</div>
               <div className="goalrow">
-                <button className="goal" onClick={() => ur(x => G.addScore(x, team, 1))}>{t('goal')}</button>
-                <button className="goal horn" aria-label={`goal and horn ${team}`} onClick={() => ur(x => G.fireHorn(G.addScore(x, team, 1)))}>{t('goalHorn')}</button>
+                <button className="goal" onClick={() => scoreGoal(team)}>{t('goal')}</button>
+                <button className="goal horn" aria-label={`goal and horn ${team}`} onClick={() => scoreGoal(team, true)}>{t('goalHorn')}</button>
               </div>
               {(() => {
                 const g = G.goalNeedingScorer(v, team)
@@ -290,7 +296,7 @@ export default function Control() {
               <div className="mini">
                 <span className="ml">{t('scoreLbl')}</span>
                 <button className="btn minus" onClick={() => ur(x => G.addScore(x, team, -1))}>{t('minus1')}</button>
-                <button className="btn plus" aria-label="score +1" onClick={() => ur(x => G.addScore(x, team, 1))}>+1</button>
+                <button className="btn plus" aria-label="score +1" onClick={() => scoreGoal(team)}>+1</button>
               </div>
               <div className="mini">
                 <span className="ml">{o.labels.shots} <b className="tnum">{tm.shots}</b></span>
@@ -401,6 +407,25 @@ export default function Control() {
       )}
       {sheet?.startsWith('goal-') && <GoalSheet s={v} id={sheet.slice(5)} update={ur} close={() => setSheet(null)} t={t} />}
       {sheet === 'share' && <ShareSheet t={t} close={() => setSheet(null)} Sheet={Sheet} />}
+      {sheet?.startsWith('release-') && (() => {
+        const [, team, horn] = sheet.split('-')
+        const opp = team === 'home' ? 'away' : 'home'
+        const c = G.releaseCandidate(G.foldPenalties(v), team)
+        const done = release => { ur(x => { const n = G.addScore(x, team, 1, { release }); return horn === '1' ? G.fireHorn(n) : n }); setSheet(null) }
+        const who = c ? (c.penalty.player ? `#${c.penalty.player}` : t('pen')) : ''
+        return (
+          <Sheet close={() => setSheet(null)}>
+            <h3>{t('goal')} · {v[team].name}</h3>
+            {c ? <>
+              <p className="hint">{t('relText', { team: v[opp].name, who, inf: c.penalty.infraction ? ` (${c.penalty.infraction})` : '', time: G.fmtClock(c.remainingMs, { tenths: false }) })}</p>
+              {c.partial && <p className="hint">{t('relDouble')}</p>}
+              <button className="btn primary" aria-label="goal and release" onClick={() => done(true)}>{t('relYes', { who })}</button>
+              <button className="btn" aria-label="goal and keep" onClick={() => done(false)}>{t('relNo', { who })}</button>
+            </> : <button className="btn primary" onClick={() => done(true)}>{t('goal')}</button>}
+            <button className="btn ghost" onClick={() => setSheet(null)}>{t('cancel')}</button>
+          </Sheet>
+        )
+      })()}
       {sheet === 'qr' && <QrSheet small={small && !locked} labels={o.labels} boardUrl={boardUrl} bannerUrl={bannerUrl} controlUrl={controlUrl} close={() => setSheet(null)} t={t} />}
     </div>
   )

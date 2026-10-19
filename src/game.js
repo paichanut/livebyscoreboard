@@ -330,16 +330,26 @@ export function prevPeriod(s) {
 // Rule 16.2: a goal by the side with more skaters ends the scored-against side's running minor with
 // the least time left (a double minor loses only its current 2:00 portion). Never a major or misconduct,
 // never on a penalty-shot goal. Undoing a goal (−1) does not bring the penalty back.
-export function releaseOnGoal(s, team, now = wallNow()) {
+// The penalty a goal by `team` would end now: { penalty, remainingMs, partial (double minor: only the current
+// 2:00 ends) }, or null (not a power-play goal, or no running minor). The control page asks before releasing it.
+export function releaseCandidate(s, team, now = wallNow()) {
   const opp = team === 'home' ? 'away' : 'home'
-  const f = foldPenalties(s, now)
-  const sk = skaters(f, now)
-  if (sk[team] <= sk[opp]) return f
-  const v = penaltyView(f, now)
-  const cands = f.penalties.filter(p => p.team === opp && takesSlot(p) && ['minor', 'double'].includes(kindOf(p)) && v[p.id]?.status === 'running')
-  if (!cands.length) return f
+  const sk = skaters(s, now)
+  if (sk[team] <= sk[opp]) return null
+  const v = penaltyView(s, now)
+  const cands = (s.penalties || []).filter(p => p.team === opp && takesSlot(p) && ['minor', 'double'].includes(kindOf(p)) && v[p.id]?.status === 'running')
+  if (!cands.length) return null
   const target = cands.reduce((a, b) => (v[b.id].remainingMs < v[a.id].remainingMs ? b : a))
-  const rem = v[target.id].remainingMs
+  const remainingMs = v[target.id].remainingMs
+  return { penalty: target, remainingMs, partial: kindOf(target) === 'double' && remainingMs > 2 * MIN }
+}
+
+export function releaseOnGoal(s, team, now = wallNow()) {
+  const f = foldPenalties(s, now)
+  const c = releaseCandidate(f, team, now)
+  if (!c) return f
+  const target = c.penalty
+  const rem = c.remainingMs
   if (kindOf(target) === 'double' && rem > 2 * MIN) {
     return { ...f, penalties: f.penalties.map(p => (p.id === target.id ? { ...p, elapsedMs: p.durationMs - 2 * MIN } : p)) }
   }
@@ -355,13 +365,17 @@ export function goalSituation(s, team, { penaltyShot = false } = {}, now = wallN
   return d === 0 ? 'EQ' : d > 0 ? `PP${d}` : `SH${-d}`
 }
 
-export function addScore(s, team, delta, { penaltyShot = false } = {}) {
+// release: false keeps the penalty a power-play goal would end (the operator said no); the goal's log entry
+// records what happened to it: release = { penaltyId, player, done: true | false }
+export function addScore(s, team, delta, { penaltyShot = false, release = true } = {}) {
   const score = Math.max(0, s[team].score + delta)
   const goalFlash = delta > 0 ? { team, at: wallNow() } : s.goalFlash
   const situation = delta > 0 ? goalSituation(s, team, { penaltyShot }) : null
-  const base = delta > 0 && !penaltyShot ? releaseOnGoal(s, team) : s
+  const cand = delta > 0 && !penaltyShot ? releaseCandidate(foldPenalties(s), team) : null
+  const base = cand && release ? releaseOnGoal(s, team) : s
   let next = { ...base, [team]: { ...s[team], score }, goalFlash }
-  if (delta > 0) next = logEvent(next, 'goal', { team, situation, scorer: '', a1: '', a2: '', ...(penaltyShot ? { penaltyShot: true } : {}) })
+  const rel = cand ? { release: { penaltyId: cand.penalty.id, player: cand.penalty.player, done: Boolean(release) } } : {}
+  if (delta > 0) next = logEvent(next, 'goal', { team, situation, scorer: '', a1: '', a2: '', ...rel, ...(penaltyShot ? { penaltyShot: true } : {}) })
   else if (score !== s[team].score) next = dropLastEvent(next, e => e.type === 'goal' && e.team === team) // undo a mistaken goal
   return touch(next)
 }
@@ -627,6 +641,8 @@ export function gameSheet(s) {
       no: goals.length + 1, id: e.id, period: e.period, time: time(e), team: e.team, teamName: team(e.team).name,
       scorer: e.scorer || '', a1: e.a1 || '', a2: e.a2 || '',
       situation: [sit, e.en ? 'EN' : ''].filter(Boolean).join(' '), score: `${h}:${a}`,
+      // what the power-play goal did to the opponent's minor (the operator is asked)
+      release: e.release ? `${e.release.done ? 'ended' : 'kept'} ${e.release.player ? `#${e.release.player}` : 'penalty'}` : '',
     })
   }
   const ends = {}
@@ -696,7 +712,7 @@ export function summaryText(s, date = new Date(wallNow())) {
   if (!g.goals.length) out.push('  —')
   else {
     out.push(col('No', 4) + col('Time', 7) + col('Team', w) + col('Goal', 6) + col('Assists', 12) + col('Sit.', 8) + 'Score')
-    for (const x of g.goals) out.push(col(x.no, 4) + col(x.time, 7) + col(x.teamName, w) + col(num(x.scorer) || '?', 6) + col([num(x.a1), num(x.a2)].filter(Boolean).join(', '), 12) + col(x.situation, 8) + x.score)
+    for (const x of g.goals) out.push(col(x.no, 4) + col(x.time, 7) + col(x.teamName, w) + col(num(x.scorer) || '?', 6) + col([num(x.a1), num(x.a2)].filter(Boolean).join(', '), 12) + col(x.situation, 8) + x.score + (x.release ? `  (${x.release})` : ''))
   }
   out.push('', 'PENALTIES')
   if (!g.penalties.length) out.push('  —')
@@ -723,7 +739,7 @@ export function summaryCsv(s) {
   const g = gameSheet(s)
   const head = ['section', 'period', 'time', 'team', 'number', 'assist1', 'assist2', 'situation', 'pim', 'offence', 'end', 'score']
   const lines = [head.join(',')]
-  for (const x of g.goals) lines.push(['goal', x.period, x.time, x.teamName, x.scorer, x.a1, x.a2, x.situation, '', '', '', x.score].map(csvCell).join(','))
+  for (const x of g.goals) lines.push(['goal', x.period, x.time, x.teamName, x.scorer, x.a1, x.a2, x.situation, '', '', x.release, x.score].map(csvCell).join(','))
   for (const x of g.penalties) lines.push(['penalty', x.period, x.time, x.teamName, x.player, '', '', '', x.pim, x.offence, x.end, ''].map(csvCell).join(','))
   for (const x of g.timeline.filter(x => x.kind === 'SHOT' || x.kind === 'OFFSIDE')) lines.push([x.kind.toLowerCase(), x.period, x.time, x.teamName, '', '', '', '', '', '', '', ''].map(csvCell).join(','))
   return lines.join('\n')
@@ -748,7 +764,7 @@ body{font:13px/1.35 system-ui,sans-serif;color:#111;margin:24px}h1{font-size:20p
 <div class="score">${esc(g.home.name)} ${g.totals.home.goals} – ${g.totals.away.goals} ${esc(g.away.name)}</div>
 <h2>Goals by period</h2><table>${periodHead}${byRow('home', g.goalsBy, g.totals.home.goals)}${byRow('away', g.goalsBy, g.totals.away.goals)}</table>
 <h2>Goals</h2><table><tr><th>No</th><th>Time</th><th>Team</th><th>Goal</th><th>A1</th><th>A2</th><th>Sit.</th><th>Score</th></tr>
-${rows(g.goals, x => [x.no, x.time, x.teamName, num(x.scorer) || '?', num(x.a1), num(x.a2), x.situation, x.score])}</table>
+${rows(g.goals, x => [x.no, x.time, x.teamName, num(x.scorer) || '?', num(x.a1), num(x.a2), x.situation + (x.release ? ` · ${x.release}` : ''), x.score])}</table>
 <h2>Penalties</h2><table><tr><th>Time</th><th>Team</th><th>No</th><th>PIM</th><th>Offence</th><th>End</th></tr>
 ${rows(g.penalties, x => [x.time, x.teamName, num(x.player), x.pim, x.offence, x.end])}</table>
 ${g.shootout.home.length + g.shootout.away.length ? `<h2>Shootout</h2><table>${['home', 'away'].map(t => `<tr><th>${esc(g[t].name)}</th><td>${g.shootout[t].map(x => (x === 'goal' ? '●' : '○')).join(' ')}</td><td><b>${g.shootout[t + 'Goals']}</b></td></tr>`).join('')}</table>` : ''}

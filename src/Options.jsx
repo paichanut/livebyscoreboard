@@ -338,6 +338,7 @@ function OtherTab({ o, set, get, update, close, resetAll }) {
       <Check label="New game" path="confirm.newGame" get={get} set={set} />
       <Check label="Change period (resets clock)" path="confirm.period" get={get} set={set} />
       <Check label="Remove penalty" path="confirm.removePenalty" get={get} set={set} />
+      <Check label="Power-play goal: ask before ending the penalty (IIHF Rule 16)" path="confirm.releaseOnGoal" get={get} set={set} />
       <h4>Danger zone</h4>
       <button className="btn danger" onClick={() => { if (confirm('Reset scores, clock and penalties for a new game?')) { update(G.resetGame); close() } }}>New game (reset scores & clock)</button>
       <button className="btn ghost" onClick={() => { if (confirm('Reset ALL options to defaults?')) resetAll() }}>Reset all options</button>

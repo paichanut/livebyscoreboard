@@ -61,15 +61,28 @@ test('power-play goal ends the least-time minor; a major stays', async ({ page, 
   await away(page).locator('.pen').nth(1).getByRole('button', { name: 'more' }).click()
   await away(page).locator('.pen').nth(1).getByRole('button', { name: '−5' }).click() // #12 now has less time
   await expect(page.locator('.clockcard .st')).toHaveText('5v3')
+  // the operator is asked first (IIHF Rule 16); "keep" scores but leaves #12 in the box
   await home(page).getByRole('button', { name: '+ GOAL' }).click()
+  await expect(page.locator('.sheet')).toContainText('#12')
+  await page.locator('.sheet').getByRole('button', { name: 'goal and keep' }).click()
+  await expect(home(page).locator('.s')).toHaveText('1')
+  await expect(away(page).locator('.pen')).toHaveCount(2)
+  await home(page).getByRole('button', { name: '+ GOAL' }).click()
+  await page.locator('.sheet').getByRole('button', { name: 'goal and release' }).click()
   await expect(away(page).locator('.pen')).toHaveCount(1)
   await expect(away(page).locator('.pen')).toContainText('#7')
   await expect(page.locator('.clockcard .st')).toHaveText('5v4')
   await expect(boardAway(board).locator('.score')).toHaveText('0')
   await expect(board.locator('.board .strength')).toHaveText('5v4 · PP', { timeout: 8000 })
-  // another goal: the major is never released
+  // another goal: the major is never released, so nothing to ask
   await home(page).getByRole('button', { name: '+ GOAL' }).click()
+  await expect(page.locator('.sheet')).toHaveCount(0)
+  await expect(home(page).locator('.s')).toHaveText('3')
   await expect(away(page).locator('.pen')).toHaveCount(1)
+  // the game log says what each power-play goal did
+  await page.getByRole('button', { name: /Summary/ }).click()
+  await expect(page.locator('.sheet')).toContainText('kept #12')
+  await expect(page.locator('.sheet')).toContainText('ended #12')
 })
 
 test('PC Scoreboards controls: period time only, goal light, time of day, edit penalty, keyboard', async ({ page, context }) => {
@@ -103,6 +116,7 @@ test('PC Scoreboards controls: period time only, goal light, time of day, edit p
   // Keyboard, PC Scoreboards layout: Y start all, H stop all, Q home goal
   await page.locator('body').click({ position: { x: 2, y: 2 } })
   await page.keyboard.press('KeyQ')
+  await page.locator('.sheet').getByRole('button', { name: 'goal and keep' }).click()
   await expect(page.locator('.control .tc').nth(0).locator('.s')).toHaveText('1')
   await page.keyboard.press('KeyY')
   await expect(page.getByRole('button', { name: 'STOP', exact: true })).toBeVisible()
