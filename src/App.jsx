@@ -7,6 +7,7 @@ import Live from './Live.jsx'
 import Setup from './Setup.jsx'
 import Login from './Login.jsx'
 import Teams from './Teams.jsx'
+import Handoff from './Handoff.jsx'
 import { CONFIGURED } from './sync.js'
 
 function usePath() {
@@ -28,5 +29,6 @@ export default function App() {
   if (path === '/live' || path === '/games') return <Live />
   if (path === '/login') return <Login />
   if (path === '/teams') return <Teams />
+  if (path === '/handoff') return <Handoff />
   return <Home />
 }

@@ -291,3 +291,38 @@ revoke all on function public.team_list(text), public.team_save(text, text, text
   public.team_update(text, uuid, text, text, text), public.team_delete(text, uuid) from public;
 grant execute on function public.team_list(text), public.team_save(text, text, text, text),
   public.team_update(text, uuid, text, text, text), public.team_delete(text, uuid) to anon, authenticated;
+
+-- ---------- Login handoff for the desktop app's online link ----------
+-- A controller opened through the desktop app's Cloudflare link (another web address) can't read this
+-- site's saved login. /handoff turns the saved session into a one-time code that lives 60 s; the desktop
+-- app redeems it through /api/handoff. The session token itself never goes into a URL.
+create table if not exists public.login_handoffs (
+  code text primary key,
+  username text not null references public.operators(username) on delete cascade,
+  expires_at timestamptz not null,
+  used boolean not null default false
+);
+alter table public.login_handoffs enable row level security;
+
+create or replace function public.handoff_create(p_token text)
+returns text language sql volatile security definer set search_path = public, extensions as $$
+  with cleanup as (delete from public.login_handoffs where expires_at < now() - interval '1 hour'),
+  ins as (
+    insert into public.login_handoffs (code, username, expires_at)
+    select encode(gen_random_bytes(16), 'hex'), s.username, now() + interval '60 seconds'
+    from public.operator_sessions s where s.token = p_token and s.expires_at > now()
+    returning code
+  )
+  select code from ins;
+$$;
+
+-- the username for a fresh, unused code (and the code is used up), else null
+create or replace function public.handoff_redeem(p_code text)
+returns text language sql volatile security definer set search_path = public as $$
+  update public.login_handoffs set used = true
+  where code = p_code and not used and expires_at > now()
+  returning username;
+$$;
+
+revoke all on function public.handoff_create(text), public.handoff_redeem(text) from public;
+grant execute on function public.handoff_create(text), public.handoff_redeem(text) to anon, authenticated;

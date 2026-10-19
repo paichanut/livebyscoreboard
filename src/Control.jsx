@@ -10,6 +10,7 @@ import { saveTeam } from './teamLibrary.js'
 import TimeBadge from './TimeBadge.jsx'
 import { ContactLinks, DEV } from './Contact.jsx'
 import Options, { SavedTeams, resizeImage } from './Options.jsx'
+import { RINK_COLOR } from './Board.jsx'
 import { KEY_GROUPS, KEY_LABELS, keyName } from './options.js'
 
 // keys a rink controller (A / B) may use: its own score, shots, penalties and goal light, not the shared clock
@@ -151,15 +152,16 @@ export default function Control() {
   const isSO = s.period === 'SO'
 
   return (
-    <div className="control">
+    <div className={`control ${small ? 'small' : ''}`} style={small ? { '--rk': RINK_COLOR[r] } : undefined}>
 
       <div className="card clockcard">
+        {locked && <div className="rinkctlbig" style={{ '--rk': RINK_COLOR[locked] }}>{o.labels[locked === 'a' ? 'rinkA' : 'rinkB']}</div>}
         {locked && <div className="rinkctl">🎮 {t('rinkController', { rink: o.labels[locked === 'a' ? 'rinkA' : 'rinkB'] })}</div>}
         {small && !locked && (
           <div className="rinktabs">
             {['a', 'b'].map(k => {
               const x = G.rinkView(s, k)
-              return <button key={k} className={`btn sm ${r === k ? 'on' : ''}`} aria-label={`rink ${k}`} onClick={() => setRink(k)}>
+              return <button key={k} className={`btn ${r === k ? 'on' : ''}`} style={{ '--rk': RINK_COLOR[k] }} aria-label={`rink ${k}`} onClick={() => setRink(k)}>
                 {o.labels[k === 'a' ? 'rinkA' : 'rinkB']} · <span className="tnum">{x.home.score}–{x.away.score}</span>
               </button>
             })}
@@ -264,7 +266,7 @@ export default function Control() {
           return (
             // the scoring team's card blinks on the control page too, for as long as the goal light is on
             <div className={`tc ${G.goalFlashActive(v) === team ? 'flash' : ''}`} key={`${team}-${G.goalFlashActive(v) === team ? v.goalFlash.at : 0}`} style={{ '--c': tm.color }}>
-              {small && <span className="rinkbadge">{o.labels[r === 'a' ? 'rinkA' : 'rinkB']}</span>}
+              {small && <span className="rinkbadge" style={{ '--rk': RINK_COLOR[r] }}>{o.labels[r === 'a' ? 'rinkA' : 'rinkB']}</span>}
               <button className="n" aria-label={`rename ${team}`} title={t('editTeam')} onClick={() => setSheet(`team-${team}`)}>{tm.name}</button>
               <div className="s tnum">{tm.score}</div>
               <div className="goalrow">
