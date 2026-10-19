@@ -436,9 +436,34 @@ export function addPenalty(s, team, player, minutes, infraction = '', { kind, co
     elapsedMs: 0,
     ...(coincidental && !game ? { coincidental: true } : {}),
   }
-  return touch(logEvent({ ...f, penalties: [...f.penalties, p] }, 'penalty', {
+  // the display announces the call for a few seconds; a second penalty on the same player right after
+  // (fighting 5 + game misconduct) joins the same announcement
+  const now = wallNow()
+  const prev = f.penaltyCall
+  const same = prev && prev.team === team && prev.player === p.player && now - prev.at < PENALTY_JOIN_MS
+  const penaltyCall = { team, player: p.player, at: same ? prev.at : now, ids: same ? [...prev.ids, p.id] : [p.id] }
+  return touch(logEvent({ ...f, penalties: [...f.penalties, p], penaltyCall }, 'penalty', {
     team, player: p.player, minutes: p.minutes, infraction: p.infraction, penaltyId: p.id, kind: p.kind, ...(p.coincidental ? { coincidental: true } : {}),
   }))
+}
+
+export const PENALTY_SHOW_MS = 5000
+const PENALTY_JOIN_MS = 2000
+
+// The penalty just called, for the display: { team, player, at, text } for PENALTY_SHOW_MS after it was
+// added, e.g. text "#12 HOOKING 2:00" or "#7 FIGHTING 5:00 + GM". Follows edits; gone if it was removed.
+export function penaltyCallActive(s, now = wallNow()) {
+  const c = s.penaltyCall
+  if (!c || now - c.at >= PENALTY_SHOW_MS) return null
+  const items = c.ids.map(id => s.penalties.find(p => p.id === id)).filter(Boolean)
+  if (!items.length) return null
+  const one = (p, first) => {
+    if (kindOf(p) === 'game') return first ? (p.infraction && !/game misconduct/i.test(p.infraction) ? `${p.infraction} · GAME MISCONDUCT` : 'GAME MISCONDUCT') : 'GM'
+    const time = `${p.minutes}:00`
+    return first ? [p.infraction || (kindOf(p) === 'misconduct' ? 'MISCONDUCT' : ''), time].filter(Boolean).join(' ') : time
+  }
+  const text = [items[0].player ? `#${items[0].player}` : '', items.map((p, i) => one(p, i === 0)).join(' + ')].filter(Boolean).join(' ')
+  return { team: c.team, player: c.player, at: c.at, text: text.toUpperCase() }
 }
 
 export function removePenalty(s, id) {

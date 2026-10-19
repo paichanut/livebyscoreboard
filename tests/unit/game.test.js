@@ -511,3 +511,20 @@ test('penalty quick picks follow IIHF and older games get them once', async () =
   assert.equal(old.opts.penaltyTemplates.find(x => x.name === 'Fighting').alsoGame, true)
   assert.equal(old.opts.templatesV, 2)
 })
+
+test('a new penalty is announced on the display for 5 s: number, infraction, minutes', () => {
+  let s = G.addPenalty(game(), 'home', '12', 2, 'Hooking')
+  assert.equal(G.penaltyCallActive(s).text, '#12 HOOKING 2:00')
+  assert.equal(G.penaltyCallActive(s).team, 'home')
+  assert.equal(G.penaltyCallActive(s, s.penaltyCall.at + G.PENALTY_SHOW_MS + 1), null)
+  // fighting 5 + game misconduct on the same player: one announcement
+  s = G.addPenalty(G.addPenalty(game(), 'away', '7', 5, 'Fighting'), 'away', '7', 0, 'Fighting', { kind: 'game' })
+  assert.equal(G.penaltyCallActive(s).text, '#7 FIGHTING 5:00 + GM')
+  // removed by mistake: the announcement goes too
+  s = G.addPenalty(game(), 'home', '9', 2, 'Tripping')
+  s = G.removePenalty(s, s.penalties[0].id)
+  assert.equal(G.penaltyCallActive(s), null)
+  // bench minor without a number, misconduct without an infraction
+  assert.equal(G.penaltyCallActive(G.addPenalty(game(), 'home', '', 2, 'Too many players')).text, 'TOO MANY PLAYERS 2:00')
+  assert.equal(G.penaltyCallActive(G.addPenalty(game(), 'home', '4', 10)).text, '#4 MISCONDUCT 10:00')
+})

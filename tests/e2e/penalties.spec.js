@@ -166,3 +166,21 @@ test('IIHF quick picks: Fighting is 5 + GM; a major for checking from behind add
   await sheet.getByRole('button', { name: '5 min', exact: true }).click()
   await expect(sheet.getByRole('button', { name: '+ game misconduct', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
+
+test('the board announces a new penalty for 5 s: PENALTY · team, #number infraction minutes', async ({ page, context }) => {
+  const code = uniqueCode('pcall')
+  await openControl(page, code)
+  const board = await openBoard(context, code)
+  await home(page).getByRole('button', { name: 'add penalty' }).click()
+  const sheet = page.locator('.sheet')
+  await sheet.getByPlaceholder('#').fill('24')
+  await sheet.getByRole('button', { name: /^Checking from behind/ }).click()
+  await sheet.getByRole('button', { name: /^Add penalty/ }).click()
+  const call = board.locator('.pencall')
+  await expect(call).toContainText('PENALTY')
+  await expect(call.locator('.pctext')).toHaveText('#24 CHECKING FROM BEHIND 2:00')
+  // the whole line fits in the middle column
+  expect(await call.locator('.pctext').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+  await board.screenshot({ path: test.info().outputPath('pencall.png') })
+  await expect(call).toBeHidden({ timeout: 7000 })
+})

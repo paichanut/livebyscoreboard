@@ -615,3 +615,8 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 
 /* offside: same slot as GOAL!, a steady (non-blinking) label for a few seconds */
 .board .goalflash.offside { animation: none; letter-spacing: .08em; }
+.board .pencall { display: flex; flex-direction: column; align-items: center; max-width: 100%; line-height: 1.05; text-align: center; animation: pencall .25s ease-out; }
+.board .pencall .pclabel { font-size: calc(2.6 * var(--u)); font-weight: 800; letter-spacing: .18em; color: var(--c-goal, var(--c)); white-space: nowrap; }
+.board .pencall .pclabel span { color: var(--muted); letter-spacing: .08em; }
+.board .pencall .pctext { font-size: calc(3.6 * var(--u)); font-weight: 800; letter-spacing: .04em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@keyframes pencall { from { opacity: 0; transform: translateY(calc(.6 * var(--u))); } to { opacity: 1; transform: none; } }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick } from './useGame.js'
-import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, periodLabel, clockRemaining } from './game.js'
+import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, penaltyCallActive, periodLabel, clockRemaining } from './game.js'
 import { ONLINE } from './sync.js'
 import { now as serverNow } from './clock.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
@@ -52,7 +52,7 @@ export default function Board() {
     document.addEventListener('mousedown', down)
     return () => { document.removeEventListener('dblclick', on); document.removeEventListener('mousedown', down) }
   }, [])
-  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.showTimeOfDay || s?.penalties?.length))
+  useTick(100, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.penaltyCall || s?.showTimeOfDay || s?.penalties?.length))
 
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
@@ -135,11 +135,20 @@ export default function Board() {
   )
 }
 
-// The reserved slot under the strength chip: GOAL! while the goal light is on, else OFFSIDE for a few seconds
+// The reserved slot under the strength chip: GOAL! while the goal light is on, else the latest of
+// OFFSIDE / the penalty just called ("PENALTY · team" over "#12 HOOKING 2:00") for a few seconds
 function EventText({ s, flash, withName }) {
   const L = s.opts.labels
   const off = offsideActive(s)
+  const pen = penaltyCallActive(s)
   if (flash) return <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal}{withName && <span>{s[flash].name}</span>}</div>
+  if (pen && (!off || pen.at >= s.offside.at)) return (
+    <div className="pencall" style={{ '--c': s[pen.team].color }}>
+      <div className="pclabel">{L.penalty || 'PENALTY'}{withName && <span> · {s[pen.team].name}</span>}</div>
+      {/* long infractions ("#24 CHECKING FROM BEHIND 2:00") get smaller so the line always fits the middle */}
+      <div className="pctext" style={{ fontSize: `calc(${Math.min(3.6, 72 / pen.text.length).toFixed(2)} * var(--u))` }}>{pen.text}</div>
+    </div>
+  )
   if (off) return <div className="goalflash offside" style={{ '--c': s[off].color }}>{L.offside || 'OFFSIDE'}{withName && <span>{s[off].name}</span>}</div>
   return null
 }
