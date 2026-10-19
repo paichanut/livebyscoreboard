@@ -160,6 +160,12 @@ export default function Board() {
 
 // The reserved slot under the strength chip: GOAL! while the goal light is on, else the latest of
 // OFFSIDE / the penalty just called ("PENALTY · team" over "#12 HOOKING 2:00") for a few seconds
+// Offside and penalty point at the side that committed it: "◀ OFFSIDE" for the team on the left (home),
+// "OFFSIDE ▶" for the one on the right (away). \uFE0E keeps the arrows as text, never emoji.
+function Pointed({ team, children }) {
+  return <>{team === 'home' && <b className="ptr">{'\u25C0\uFE0E'}</b>}{children}{team === 'away' && <b className="ptr">{'\u25B6\uFE0E'}</b>}</>
+}
+
 function EventText({ s, flash, withName }) {
   const L = s.opts.labels
   const off = offsideActive(s)
@@ -167,12 +173,12 @@ function EventText({ s, flash, withName }) {
   if (flash) return <div className="goalflash" style={{ '--c': s[flash].color }}>{L.goal}{withName && <span>{s[flash].name}</span>}</div>
   if (pen && (!off || pen.at >= s.offside.at)) return (
     <div className="pencall" style={{ '--c': s[pen.team].color }}>
-      <div className="pclabel">{L.penalty || 'PENALTY'}{withName && <span> · {s[pen.team].name}</span>}</div>
+      <div className="pclabel"><Pointed team={pen.team}>{L.penalty || 'PENALTY'}</Pointed></div>
       {/* long infractions ("#24 CHECKING FROM BEHIND 2:00") get smaller so the line always fits the middle */}
       <div className="pctext" style={{ fontSize: `calc(${Math.min(3.6, 72 / pen.text.length).toFixed(2)} * var(--u))` }}>{pen.text}</div>
     </div>
   )
-  if (off) return <div className="goalflash offside" style={{ '--c': s[off].color }}>{L.offside || 'OFFSIDE'}{withName && <span>{s[off].name}</span>}</div>
+  if (off) return <div className="goalflash offside" style={{ '--c': s[off].color }}><Pointed team={off}>{L.offside || 'OFFSIDE'}</Pointed></div>
   return null
 }
 

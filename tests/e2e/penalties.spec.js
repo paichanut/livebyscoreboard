@@ -191,7 +191,7 @@ test('the board announces a new penalty for 15 s: PENALTY · team, #number infra
   await sheet.getByRole('button', { name: /^Checking from behind/ }).click()
   await sheet.getByRole('button', { name: /^Add penalty/ }).click()
   const call = board.locator('.pencall')
-  await expect(call).toContainText('PENALTY')
+  await expect(call.locator('.pclabel')).toHaveText('\u25C0\uFE0EPENALTY') // home = left: the arrow points left
   await expect(call.locator('.pctext')).toHaveText('#24 CHECKING FROM BEHIND 2:00')
   // the whole line fits in the middle column
   expect(await call.locator('.pctext').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)

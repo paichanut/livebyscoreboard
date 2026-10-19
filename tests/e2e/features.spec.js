@@ -292,9 +292,11 @@ test('offside: shows on the scoreboard and goes into the game log', async ({ pag
   const board = await openBoard(context, code)
   await page.getByRole('button', { name: 'offside +1 away' }).click()
   await expect(away(page).locator('.mini', { hasText: 'Offside' })).toContainText('1')
-  await expect(board.locator('.board .evslot')).toContainText('OFFSIDE')
-  await expect(board.locator('.board .evslot')).toContainText('AWAY')
-  await expect(board.locator('.board .evslot .goalflash')).toHaveCount(0, { timeout: 8000 }) // gone after a few seconds
+  // the arrow points at the side that was offside (away = right)
+  await expect(board.locator('.board .evslot .goalflash')).toHaveText('OFFSIDE\u25B6\uFE0E')
+  await page.waitForTimeout(12000)
+  await expect(board.locator('.board .evslot .goalflash')).toBeVisible() // still there after 12 s
+  await expect(board.locator('.board .evslot .goalflash')).toHaveCount(0, { timeout: 5000 }) // gone after 15 s
   await page.getByRole('button', { name: '📋 Summary' }).click()
   await expect(page.locator('.sheet pre.summary')).toContainText(/OFFSIDE +AWAY +Offside/)
 })

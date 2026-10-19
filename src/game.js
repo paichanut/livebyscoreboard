@@ -406,7 +406,7 @@ export function clearGoalFlash(s) {
 }
 
 // Offside: counted per team, logged (time + side, no player) and shown on the display for a few seconds
-export const OFFSIDE_SHOW_MS = 5000
+export const OFFSIDE_SHOW_MS = 15000 // Pai: like a penalty call, 15 s
 export function addOffside(s, team, delta) {
   const offsides = Math.max(0, (s[team].offsides || 0) + delta)
   if (offsides === (s[team].offsides || 0)) return s

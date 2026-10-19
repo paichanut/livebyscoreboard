@@ -722,3 +722,6 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
   color: rgba(255, 40, 40, .45); -webkit-text-stroke: max(2px, .25vw) rgba(255, 255, 255, .4);
 }
 .linkbtn.unlic { color: #ff6b6b; font-weight: 700; }
+
+/* offside / penalty call: the arrow points at the side that committed it (Board.jsx Pointed) */
+.board .ptr { font-size: .8em; margin: 0 .35em; vertical-align: .05em; }
