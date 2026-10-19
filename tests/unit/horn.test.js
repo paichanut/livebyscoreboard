@@ -29,6 +29,6 @@ test('the goal horn fades out over its last second', async () => {
   calls.length = 0
   assert.equal(H.playSound('horn-nhl'), true)
   // 4.2 s sample started at t=10: full volume until 13.2, then down to silence at 14.2
-  const round = c => c.map(x => (typeof x === 'number' ? Math.round(x * 1000) / 1000 : x))
+  const round = c => c.map(x => (typeof x === 'number' ? Math.round(x * 10000) / 10000 : x))
   assert.deepEqual(calls.filter(c => c[0] !== 'start').map(round), [['set', 1, 13.2], ['ramp', 0.0001, 14.2], ['stop', 14.2]])
 })
