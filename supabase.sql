@@ -195,3 +195,99 @@ returns boolean language sql volatile security definer set search_path = public 
 $$;
 revoke all on function public.delete_game(text, text) from public;
 grant execute on function public.delete_game(text, text) to anon, authenticated;
+
+-- ---------- Shared team library (every operator's teams, one list for everybody) ----------
+-- Anyone can read it (the display / desktop app pick teams from it); a logged-in operator adds teams;
+-- the uploader edits their own; an admin (operators.is_admin, i.e. paichanut) can edit or replace any
+-- logo, e.g. to fix one without a transparent background. The uploader is only shown masked ("pa*******").
+alter table public.operators add column if not exists is_admin boolean not null default false;
+update public.operators set is_admin = true where username = 'paichanut';
+
+create table if not exists public.teams (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (length(trim(name)) between 1 and 40),
+  color text not null default '#888888',
+  logo text not null default '',
+  uploaded_by text references public.operators(username) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists teams_name_key on public.teams (lower(trim(name)));
+alter table public.teams enable row level security; -- no direct access: RPCs only (they mask the uploader)
+
+create or replace function public.mask_name(p text)
+returns text language sql immutable as $$
+  select case when p is null then '' else left(p, 2) || repeat('*', greatest(length(p) - 2, 0)) end;
+$$;
+
+-- p_token may be null (not logged in): can_edit is then false everywhere
+create or replace function public.team_list(p_token text)
+returns table (id uuid, name text, color text, logo text, uploader text, mine boolean, can_edit boolean, updated_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  with me as (
+    select s.username, o.is_admin from public.operator_sessions s join public.operators o using (username)
+    where s.token = p_token and s.expires_at > now()
+  )
+  select t.id, t.name, t.color, t.logo, public.mask_name(t.uploaded_by),
+         coalesce(t.uploaded_by = (select username from me), false),
+         coalesce((select is_admin from me), false) or coalesce(t.uploaded_by = (select username from me), false),
+         t.updated_at
+  from public.teams t
+  order by lower(t.name);
+$$;
+
+-- Add a team, or update it (same name) when it is yours or you are admin. An empty logo/color keeps the old one.
+-- Returns 'added' | 'updated' | 'taken' (someone else's team) | 'login' (no valid session)
+create or replace function public.team_save(p_token text, p_name text, p_color text, p_logo text)
+returns text language sql volatile security definer set search_path = public as $$
+  with me as (
+    select s.username, o.is_admin from public.operator_sessions s join public.operators o using (username)
+    where s.token = p_token and s.expires_at > now()
+  ),
+  cur as (select * from public.teams where lower(trim(name)) = lower(trim(p_name))),
+  ins as (
+    insert into public.teams (name, color, logo, uploaded_by)
+    select trim(p_name), coalesce(nullif(p_color, ''), '#888888'), coalesce(p_logo, ''), me.username from me
+    where not exists (select 1 from cur) and length(trim(coalesce(p_name, ''))) > 0
+    returning 'added'::text as r
+  ),
+  upd as (
+    update public.teams t set color = coalesce(nullif(p_color, ''), t.color), logo = coalesce(nullif(p_logo, ''), t.logo), updated_at = now()
+    from me where lower(trim(t.name)) = lower(trim(p_name)) and (t.uploaded_by = me.username or me.is_admin)
+    returning 'updated'::text as r
+  )
+  select coalesce((select r from ins), (select r from upd),
+                  case when not exists (select 1 from me) then 'login' else 'taken' end);
+$$;
+
+-- Rename / recolor / replace the logo of a team by id (yours, or any if admin). Null or '' keeps a field.
+-- Returns 'updated' | 'denied'
+create or replace function public.team_update(p_token text, p_id uuid, p_name text, p_color text, p_logo text)
+returns text language sql volatile security definer set search_path = public as $$
+  with me as (
+    select s.username, o.is_admin from public.operator_sessions s join public.operators o using (username)
+    where s.token = p_token and s.expires_at > now()
+  ),
+  upd as (
+    update public.teams t set name = coalesce(nullif(trim(p_name), ''), t.name), color = coalesce(nullif(p_color, ''), t.color),
+      logo = coalesce(nullif(p_logo, ''), t.logo), updated_at = now()
+    from me where t.id = p_id and (t.uploaded_by = me.username or me.is_admin)
+    returning 1
+  )
+  select case when exists (select 1 from upd) then 'updated' else 'denied' end;
+$$;
+
+create or replace function public.team_delete(p_token text, p_id uuid)
+returns boolean language sql volatile security definer set search_path = public as $$
+  with me as (
+    select s.username, o.is_admin from public.operator_sessions s join public.operators o using (username)
+    where s.token = p_token and s.expires_at > now()
+  ),
+  d as (delete from public.teams t using me where t.id = p_id and (t.uploaded_by = me.username or me.is_admin) returning 1)
+  select exists (select 1 from d);
+$$;
+
+revoke all on function public.team_list(text), public.team_save(text, text, text, text),
+  public.team_update(text, uuid, text, text, text), public.team_delete(text, uuid) from public;
+grant execute on function public.team_list(text), public.team_save(text, text, text, text),
+  public.team_update(text, uuid, text, text, text), public.team_delete(text, uuid) to anon, authenticated;

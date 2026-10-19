@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
-import { ONLINE, DESKTOP, NEEDS_LOGIN, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
+import { ONLINE, DESKTOP, NEEDS_LOGIN, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
 import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
 import { saveTeam } from './teamLibrary.js'
@@ -428,6 +428,7 @@ function TeamSheet({ team, s, update, close, t }) {
     const n = name.trim() || s[team].name
     update(x => G.setOptions(G.setTeam(x, team, { name: n, color }), { ...x.opts, [logoKey]: logo }))
     saveTeam({ name: n, color, logo })
+    shareTeamIfNew({ name: n, color, logo })
     close()
   }
   return (

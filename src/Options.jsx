@@ -4,6 +4,7 @@ import { unlockAudio, playSound, ready } from './horn.js'
 import * as G from './game.js'
 import { LANGS, translator } from './i18n.js'
 import { listTeams, saveTeam, removeTeam } from './teamLibrary.js'
+import { SHARED_TEAMS, listSharedTeams, shareTeamIfNew } from './sync.js'
 
 const TABS = ['Game', 'Teams', 'Keys', 'Colors', 'Sounds', 'Text', 'Banner', 'Other']
 
@@ -35,8 +36,7 @@ export default function Options({ s, update, close }) {
       if (!G.periodList(n).includes(n.period)) n = G.setPeriod(n, '1')
       return n
     })
-    saveTeam({ ...home, logo: o.homeLogo })
-    saveTeam({ ...away, logo: o.awayLogo })
+    for (const tm of [{ ...home, logo: o.homeLogo }, { ...away, logo: o.awayLogo }]) { saveTeam(tm); shareTeamIfNew(tm) }
     close()
   }
 
@@ -167,20 +167,25 @@ function TeamsTab({ get, set, home, setHome, away, setAway }) {
   )
 }
 
-// One-tap list of teams saved in this browser (see teamLibrary.js)
+// One-tap list of teams: the shared online library (see sync.js, table `teams`) plus the ones saved in
+// this browser / on this computer (teamLibrary.js). Shared teams win when both have the same name.
 export function SavedTeams({ onPick, label = 'Saved teams' }) {
   const [list, setList] = useState(listTeams)
-  if (!list.length) return <div className="savedteams"><span className="hint"><a href="/teams" target="_blank" rel="noreferrer">+ Add team logos (one-tap teams) ▸</a></span></div>
+  const [shared, setShared] = useState([])
+  useEffect(() => { if (SHARED_TEAMS) listSharedTeams().then(setShared, () => {}) }, [])
+  const sharedIds = new Set(shared.map(t => t.name.toLowerCase()))
+  const all = [...shared.map(t => ({ ...t, shared: true })), ...list.filter(t => !sharedIds.has(t.id))]
+  if (!all.length) return <div className="savedteams"><span className="hint"><a href="/teams" target="_blank" rel="noreferrer">+ Add team logos (one-tap teams) ▸</a></span></div>
   return (
     <div className="savedteams">
       <span className="hint">{label} · <a href="/teams" target="_blank" rel="noreferrer">manage logos ▸</a></span>
       <div className="chips">
-        {list.map(tm => (
-          <span className="savedteam" key={tm.id} style={{ '--c': tm.color }}>
+        {all.map(tm => (
+          <span className="savedteam" key={tm.shared ? `s-${tm.id}` : tm.id} style={{ '--c': tm.color }} title={tm.shared ? `by ${tm.uploader || '—'}` : undefined}>
             <button className="btn sm" aria-label={`use team ${tm.name}`} onClick={() => onPick(tm)}>
               {tm.logo ? <img src={tm.logo} alt="" /> : <i />}{tm.name}
             </button>
-            <button className="x" aria-label={`forget team ${tm.name}`} onClick={() => { removeTeam(tm.id); setList(listTeams()) }}>✕</button>
+            {!tm.shared && <button className="x" aria-label={`forget team ${tm.name}`} onClick={() => { removeTeam(tm.id); setList(listTeams()) }}>✕</button>}
           </span>
         ))}
       </div>

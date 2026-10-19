@@ -83,6 +83,57 @@ export async function deleteGame(gameId) {
 }
 
 // Operator keys are remembered per game in this browser
+// ---------- Shared team library (table `teams`, see supabase.sql) ----------
+// Everybody's teams in one list: anyone can pick from it, a logged-in operator adds teams, the uploader
+// (or the admin) edits them. The desktop app has no keys: it reads the list through the web app's /api/teams.
+const SHARED_TEAMS_URL = 'https://livebyscoreboard.vercel.app/api/teams'
+export const SHARED_TEAMS = ONLINE || DESKTOP
+
+export async function listSharedTeams() {
+  if (supabase) {
+    const { data, error } = await supabase.rpc('team_list', { p_token: getSession() || null })
+    if (error) throw new Error(error.message)
+    return data || []
+  }
+  if (DESKTOP) {
+    const r = await fetch(SHARED_TEAMS_URL)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    return (await r.json()).map(t => ({ ...t, can_edit: false, mine: false }))
+  }
+  return []
+}
+
+// Add (or update your own team with the same name). 'added' | 'updated' | 'taken' | 'login'
+export async function saveSharedTeam({ name, color, logo }) {
+  if (!supabase || !getSession()) return 'login'
+  const { data, error } = await supabase.rpc('team_save', { p_token: getSession(), p_name: name, p_color: color || '', p_logo: logo || '' })
+  if (error) throw new Error(error.message)
+  return data
+}
+
+// A team set up in a game (Options / team sheet) joins the shared library if it is not there yet.
+// Never overwrites an existing entry: the admin may have fixed that logo since this game was set up.
+export async function shareTeamIfNew({ name, color, logo }) {
+  const n = String(name || '').trim()
+  if (!supabase || !getSession() || !n || ['home', 'away'].includes(n.toLowerCase())) return
+  try {
+    const list = await listSharedTeams()
+    if (!list.some(t => t.name.trim().toLowerCase() === n.toLowerCase())) await saveSharedTeam({ name: n, color, logo })
+  } catch {}
+}
+
+export async function updateSharedTeam(id, { name, color, logo }) {
+  const { data, error } = await supabase.rpc('team_update', { p_token: getSession(), p_id: id, p_name: name || '', p_color: color || '', p_logo: logo || '' })
+  if (error) throw new Error(/teams_name_key/.test(error.message) ? 'Another team already has that name.' : error.message)
+  return data === 'updated'
+}
+
+export async function deleteSharedTeam(id) {
+  const { data, error } = await supabase.rpc('team_delete', { p_token: getSession(), p_id: id })
+  if (error) throw new Error(error.message)
+  return Boolean(data)
+}
+
 export function rememberKey(gameId, key) { try { localStorage.setItem(`rinkboard:key:${gameId}`, key) } catch {} }
 export function storedKey(gameId) { try { return localStorage.getItem(`rinkboard:key:${gameId}`) || '' } catch { return '' } }
 
