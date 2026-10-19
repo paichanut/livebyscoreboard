@@ -247,17 +247,15 @@ function logPenaltyEnds(s, ended, reason, now = wallNow()) {
 
 // startClock = faceoff: the clock starts and play is live. { penalties: false } starts only the
 // period clock and leaves the penalty clocks as they are (PC Scoreboards "Start period time").
-export function startClock(s, { penalties = true } = {}) {
+export function startClock(s, { penalties = true, now = wallNow() } = {}) {
   if (s.clock.running) return s
-  if (clockRemaining(s) <= 0) return s
-  const now = wallNow()
+  if (clockRemaining(s, now) <= 0) return s
   const playLive = penalties ? true : s.playLive !== false
   return touch({ ...foldAll(s, now), timeout: null, playLive, clock: { ...s.clock, running: true, since: now } })
 }
 
-export function stopClock(s) {
+export function stopClock(s, now = wallNow()) {
   if (!s.clock.running) return s
-  const now = wallNow()
   return touch({ ...foldAll(s, now), clock: { remainingMs: clockRemaining(s, now), running: false, since: null } })
 }
 
@@ -291,8 +289,9 @@ export function fmtTimeOfDay(ms = wallNow()) {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-export function toggleClock(s) {
-  return s.clock.running ? stopClock(s) : startClock(s)
+// `now`: the time of the press (clock.js nowAt), so STOP keeps exactly the time showing when it was pressed
+export function toggleClock(s, now = wallNow()) {
+  return s.clock.running ? stopClock(s, now) : startClock(s, { now })
 }
 
 // Setting or nudging the game clock never moves a penalty (they count real time)

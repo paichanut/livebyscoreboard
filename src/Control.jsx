@@ -10,11 +10,20 @@ import { saveTeam } from './teamLibrary.js'
 import TimeBadge from './TimeBadge.jsx'
 import { ContactLinks, DEV } from './Contact.jsx'
 import { useLicense } from './License.jsx'
+import { nowAt } from './clock.js'
 import Options, { SavedTeams, resizeImage } from './Options.jsx'
 import { RINK_COLOR } from './Board.jsx'
 import { KEY_GROUPS, KEY_LABELS, keyName } from './options.js'
 
 // keys a rink controller (A / B) may use: its own score, shots, penalties and goal light, not the shared clock
+// Clock start/stop act when the button goes down (a click only counts when the mouse button comes back up,
+// ~0.1 s later) and use the time of the press, so STOP keeps exactly the time showing when it was pressed.
+// Enter on a focused button still works (a keyboard click has detail 0).
+const onPress = fn => ({
+  onPointerDown: e => { if (e.button === 0) fn(nowAt(e.timeStamp)) },
+  onClick: e => { if (e.detail === 0) fn(nowAt(e.timeStamp)) },
+})
+const CLOCK_KEYS = ['startStop', 'startAll', 'stopAll', 'startClockOnly', 'stopClockOnly']
 const RINK_KEYS = ['homeGoal', 'homeGoalMinus', 'homeShot', 'homeShotMinus', 'awayGoal', 'awayGoalMinus', 'awayShot', 'awayShotMinus',
   'removePenalty', 'goalLightHome', 'goalLightAway', 'goalLightOff']
 
@@ -117,10 +126,13 @@ export default function Control() {
       const act = Object.keys(k).find(name => k[name] && k[name] === code)
       if (!act) return
       e.preventDefault()
+      // start/stop: on the key going down, at the time it went down; holding the key does not repeat it
+      const at = nowAt(e.timeStamp)
+      if (e.repeat && CLOCK_KEYS.includes(act)) return
       const map = {
-        startStop: G.toggleClock,
-        startAll: x => G.startClock(x), stopAll: G.stopClock,
-        startClockOnly: x => G.startClock(x, { penalties: false }), stopClockOnly: G.stopClock,
+        startStop: x => G.toggleClock(x, at),
+        startAll: x => G.startClock(x, { now: at }), stopAll: x => G.stopClock(x, at),
+        startClockOnly: x => G.startClock(x, { penalties: false, now: at }), stopClockOnly: x => G.stopClock(x, at),
         resetClock: x => (ask('period', t('confirmResetClock')) ? G.resetClock(x) : x),
         penaltiesOn: x => G.setPlayLive(x, true), penaltiesOff: x => G.setPlayLive(x, false),
         penaltyOn: x => G.setPlayLive(x, true), penaltyOff: x => G.setPlayLive(x, false),
@@ -202,7 +214,7 @@ export default function Control() {
         )}
         {!locked && <>
         <div className="row">
-          <button className={`btn big ${running ? 'danger' : 'primary'}`} onClick={() => update(G.toggleClock)} disabled={!running && remaining <= 0}>
+          <button className={`btn big ${running ? 'danger' : 'primary'}`} {...onPress(at => update(x => G.toggleClock(x, at)))} disabled={!running && remaining <= 0}>
             {running ? t('stop') : t('start')}
           </button>
         </div>
@@ -211,13 +223,13 @@ export default function Control() {
         <div className="groups">
           <div className="grp">
       <span className="gl">{t('allTimes')}</span>
-      <button className={`btn sm go ${running && s.playLive !== false ? 'lit' : ''}`} aria-label="start all times" onClick={() => update(x => G.startClock(x))} disabled={remaining <= 0}>{t('startBtn')}</button>
-      <button className="btn sm" aria-label="stop all times" onClick={() => update(G.stopClock)}>{t('stopBtn')}</button>
+      <button className={`btn sm go ${running && s.playLive !== false ? 'lit' : ''}`} aria-label="start all times" {...onPress(at => update(x => G.startClock(x, { now: at })))} disabled={remaining <= 0}>{t('startBtn')}</button>
+      <button className="btn sm" aria-label="stop all times" {...onPress(at => update(x => G.stopClock(x, at)))}>{t('stopBtn')}</button>
           </div>
           <div className="grp">
       <span className="gl">{t('periodTime')}</span>
-      <button className={`btn sm go ${running ? 'lit' : ''}`} aria-label="start period time" onClick={() => update(x => G.startClock(x, { penalties: false }))} disabled={remaining <= 0}>{t('startBtn')}</button>
-      <button className="btn sm" aria-label="stop period time" onClick={() => update(G.stopClock)}>{t('stopBtn')}</button>
+      <button className={`btn sm go ${running ? 'lit' : ''}`} aria-label="start period time" {...onPress(at => update(x => G.startClock(x, { penalties: false, now: at })))} disabled={remaining <= 0}>{t('startBtn')}</button>
+      <button className="btn sm" aria-label="stop period time" {...onPress(at => update(x => G.stopClock(x, at)))}>{t('stopBtn')}</button>
       <button className="btn sm" aria-label="reset period time" onClick={() => { if (ask('period', t('confirmResetClock'))) update(G.resetClock) }}>{t('reset')}</button>
           </div>
           <div className="grp">

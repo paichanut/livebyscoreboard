@@ -612,3 +612,13 @@ test('shift seconds tick with the game clock seconds', () => {
   assert.equal(G.fmtClock(G.clockRemaining(s)), '14:55')
   assert.equal(G.shiftInfo(s).seconds, 55)
 })
+
+test('STOP keeps the time of the press, even when it is handled later', () => {
+  const t0 = 1_000_000
+  let s = G.startClock(G.newGame(), { now: t0 })
+  const pressed = t0 + 12_345
+  s = G.toggleClock(s, pressed) // handled late, but stamped with the press time
+  assert.equal(s.clock.running, false)
+  assert.equal(s.clock.remainingMs, s.periodLengthMs - 12_345)
+  assert.equal(G.clockRemaining(s, pressed + 5_000), s.periodLengthMs - 12_345)
+})
