@@ -1,3 +1,4 @@
+import zlib from 'node:zlib'
 import { test, expect } from '@playwright/test'
 import { uniqueCode, openControl, openBoard, openOptions, saveOptions, home, away, boardHome, boardAway, addPenalty } from './helpers.js'
 
@@ -229,6 +230,33 @@ test('team logos page: upload named by file, rename, then pick on the control pa
   await page.locator('.sheet').getByRole('button', { name: 'Save' }).click()
   await expect(board.locator('.board .team').first().locator('.name')).toHaveText('Bangkok Bears')
   await expect(board.locator('.board .team').first().locator('.toplogo')).toBeVisible()
+})
+
+// w×h RGBA PNG, transparent except where solid(x, y) says so
+function rgbaPng(w, h, solid) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 })
+  const crc = b => { let c = 0xffffffff; for (const x of b) c = crcTable[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0 }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length)
+    const body = Buffer.concat([Buffer.from(type), data])
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc(body))
+    return Buffer.concat([len, body, c])
+  }
+  const raw = Buffer.alloc(h * (1 + w * 4))
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (solid(x, y)) raw.set([255, 0, 0, 255], y * (1 + w * 4) + 1 + x * 4)
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr.set([8, 6, 0, 0, 0], 8)
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])
+}
+// 100×100, transparent except a 20×40 block in the middle (a logo with its background removed)
+const PADDED = rgbaPng(100, 100, (x, y) => x >= 40 && x < 60 && y >= 30 && y < 70)
+
+test('a logo without background loses its empty border, so it fills its box', async ({ page }) => {
+  await page.goto('/teams')
+  await page.locator('.teamsPage input[type=file][multiple]').setInputFiles([{ name: 'padded_logo.png', mimeType: 'image/png', buffer: PADDED }])
+  const img = page.locator('.tcard img').first()
+  await expect(img).toBeVisible()
+  const size = await img.evaluate(i => [i.naturalWidth, i.naturalHeight])
+  expect(size).toEqual([22, 42]) // the 20×40 block plus a 2 % margin, not 100×100
 })
 
 test('developer contact on Home and the control page', async ({ page }) => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { DEFAULT_KEYS, KEY_LABELS, KEY_GROUPS, SOUND_CHOICES, FONT_CHOICES, COLOR_FIELDS, defaultOptions, keyName } from './options.js'
 import { unlockAudio, playSound, ready } from './horn.js'
 import * as G from './game.js'
@@ -159,18 +159,58 @@ function ImagePick({ label, path, get, set, max = 512 }) {
   )
 }
 
+// Pictures are stored resized. Logos (≤ 512 px, PNG) lose their empty transparent border first, so a logo
+// whose background was removed fills its box on the scoreboard instead of floating small in the middle.
 export function resizeImage(file, max) {
+  return fitImage(URL.createObjectURL(file), max)
+}
+
+// Also used when a saved team is picked, so logos uploaded before the trim existed get it too.
+export function fitImage(src, max = 320) {
   return new Promise(res => {
     const img = new Image()
     img.onload = () => {
-      const r = Math.min(1, max / Math.max(img.width, img.height))
+      let box = { x: 0, y: 0, w: img.width, h: img.height }
+      if (max <= 512) box = opaqueBox(img) || box
+      const r = Math.min(1, max / Math.max(box.w, box.h))
       const c = document.createElement('canvas')
-      c.width = Math.round(img.width * r); c.height = Math.round(img.height * r)
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+      c.width = Math.max(1, Math.round(box.w * r)); c.height = Math.max(1, Math.round(box.h * r))
+      c.getContext('2d').drawImage(img, box.x, box.y, box.w, box.h, 0, 0, c.width, c.height)
       res(max > 512 ? c.toDataURL('image/jpeg', 0.7) : c.toDataURL('image/png'))
     }
-    img.src = URL.createObjectURL(file)
+    img.onerror = () => res(src)
+    img.src = src
   })
+}
+
+// The part of the picture that isn't (nearly) transparent, plus a 2 % margin; null when there is nothing to cut.
+function opaqueBox(img) {
+  try {
+    const c = document.createElement('canvas')
+    c.width = img.width; c.height = img.height
+    const g = c.getContext('2d', { willReadFrequently: true })
+    g.drawImage(img, 0, 0)
+    const d = g.getImageData(0, 0, c.width, c.height).data
+    let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1
+    for (let y = 0; y < c.height; y++) {
+      for (let x = 0; x < c.width; x++) {
+        if (d[(y * c.width + x) * 4 + 3] > 12) {
+          if (x < x0) x0 = x
+          if (x > x1) x1 = x
+          if (y < y0) y0 = y
+          if (y > y1) y1 = y
+        }
+      }
+    }
+    if (x1 < 0) return null // fully transparent
+    const m = Math.round(0.02 * Math.max(x1 - x0, y1 - y0))
+    const box = { x: Math.max(0, x0 - m), y: Math.max(0, y0 - m) }
+    box.w = Math.min(c.width, x1 + m + 1) - box.x
+    box.h = Math.min(c.height, y1 + m + 1) - box.y
+    return box.w === c.width && box.h === c.height ? null : box
+  } catch {
+    return null // a picture from another site can't be read: keep it as it is
+  }
 }
 
 function TeamsTab({ get, set, home, setHome, away, setAway }) {
@@ -199,7 +239,14 @@ function TeamsTab({ get, set, home, setHome, away, setAway }) {
 export function SavedTeams({ onPick, label = 'Saved teams' }) {
   const [list, setList] = useState(listTeams)
   const [shared, setShared] = useState([])
+  const picked = useRef(null)
   useEffect(() => { if (SHARED_TEAMS) listSharedTeams().then(setShared, () => {}) }, [])
+  // at once, then the logo again without its empty transparent border (unless another team was picked meanwhile)
+  const pick = tm => {
+    picked.current = tm
+    onPick(tm)
+    if (tm.logo) fitImage(tm.logo).then(logo => { if (picked.current === tm && logo !== tm.logo) onPick({ ...tm, logo }) })
+  }
   const sharedIds = new Set(shared.map(t => t.name.toLowerCase()))
   const all = [...shared.map(t => ({ ...t, shared: true })), ...list.filter(t => !sharedIds.has(t.id))]
   if (!all.length) return <div className="savedteams"><span className="hint"><a href="/teams" target="_blank" rel="noreferrer">+ Add team logos (one-tap teams) ▸</a></span></div>
@@ -209,7 +256,7 @@ export function SavedTeams({ onPick, label = 'Saved teams' }) {
       <div className="chips">
         {all.map(tm => (
           <span className="savedteam" key={tm.shared ? `s-${tm.id}` : tm.id} style={{ '--c': tm.color }} title={tm.shared ? `by ${tm.uploader || '—'}` : undefined}>
-            <button className="btn sm" aria-label={`use team ${tm.name}`} onClick={() => onPick(tm)}>
+            <button className="btn sm" aria-label={`use team ${tm.name}`} onClick={() => pick(tm)}>
               {tm.logo ? <img src={tm.logo} alt="" /> : <i />}{tm.name}
             </button>
             {!tm.shared && <button className="x" aria-label={`forget team ${tm.name}`} onClick={() => { removeTeam(tm.id); setList(listTeams()) }}>✕</button>}
