@@ -181,7 +181,7 @@ test('IIHF quick picks: Fighting is 5 + GM; a major for checking from behind add
   await expect(sheet.getByRole('button', { name: '+ game misconduct', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('the board announces a new penalty for 5 s: PENALTY · team, #number infraction minutes', async ({ page, context }) => {
+test('the board announces a new penalty for 15 s: PENALTY · team, #number infraction minutes', async ({ page, context }) => {
   const code = uniqueCode('pcall')
   await openControl(page, code)
   const board = await openBoard(context, code)
@@ -196,5 +196,7 @@ test('the board announces a new penalty for 5 s: PENALTY · team, #number infrac
   // the whole line fits in the middle column
   expect(await call.locator('.pctext').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
   await board.screenshot({ path: test.info().outputPath('pencall.png') })
-  await expect(call).toBeHidden({ timeout: 7000 })
+  await page.waitForTimeout(12000)
+  await expect(call).toBeVisible() // still there after 12 s
+  await expect(call).toBeHidden({ timeout: 5000 })
 })

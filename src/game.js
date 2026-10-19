@@ -460,7 +460,7 @@ export function addPenalty(s, team, player, minutes, infraction = '', { kind, co
   }))
 }
 
-export const PENALTY_SHOW_MS = 5000
+export const PENALTY_SHOW_MS = 15000 // Pai: the penalty stays on the scoreboard for 15 s
 const PENALTY_JOIN_MS = 2000
 
 // The penalty just called, for the display: { team, player, at, text } for PENALTY_SHOW_MS after it was
