@@ -603,3 +603,7 @@ test('power-play goal: release or keep the minor, and the goal records which', (
   assert.ok(G.summaryText(rel).includes('(ended #12)'))
   assert.ok(rel.events.some(e => e.type === 'penaltyEnd' && e.reason === 'goal'))
 })
+
+test('the display layout defaults to compact', () => {
+  assert.equal(defaultOptions().layout, 'compact')
+})

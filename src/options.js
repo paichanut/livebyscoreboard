@@ -108,7 +108,9 @@ export function defaultOptions() {
       { name: 'Game misconduct', kind: 'game' },
     ],
     templatesV: 2, // 2 = IIHF 2026/27 quick picks; older games get them once in withDefaults
-    layout: 'arena', // 'arena' (logos on top, penalty boxes, background photo) | 'full' | 'minimal' (no shots/logos/title, bigger numbers)
+    // 'compact' (default: one broadcast panel) | 'arena' (logos on top, penalty boxes, background photo) | 'full' | 'minimal'.
+    // The e2e test build keeps 'arena' (VITE_DEFAULT_LAYOUT in .env.test): most display tests are written against it.
+    layout: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DEFAULT_LAYOUT) || 'compact',
     bgImg: '', // arena layout background photo
     bgOpacity: 50, // display page background, % (100 = solid for a TV; lower lets video show through in OBS / camera overlays)
     uiLang: 'en', // control page language: 'en' | 'th' (display labels are the free-text `labels` below)

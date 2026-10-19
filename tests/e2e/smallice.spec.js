@@ -93,3 +93,20 @@ test('shift clock page and the full list of links', async ({ page, context }) =>
     expect(links).toContain(base + want)
   }
 })
+
+test('compact layout shows the shift countdown too', async ({ page, context }) => {
+  const code = uniqueCode('cshift')
+  page.on('dialog', d => d.accept())
+  await page.goto(`/c/${code}?k=testkey`)
+  await page.getByRole('button', { name: /Options/ }).click()
+  await page.locator('.opts').getByRole('button', { name: /^Compact —/ }).click()
+  await page.locator('.opts').getByLabel('shift minutes').fill('1')
+  await page.locator('.opts').getByLabel('shift seconds').fill('30')
+  await page.locator('.opts').getByRole('button', { name: /^Save/ }).click()
+  const board = await context.newPage()
+  await board.goto(`/b/${code}`)
+  await expect(board.locator('.compactb .cshift b')).toHaveText('90')
+  await page.getByRole('button', { name: 'START', exact: true }).click()
+  await expect(board.locator('.compactb .cshift b')).not.toHaveText('90', { timeout: 4000 })
+  await board.screenshot({ path: test.info().outputPath('compact-shift.png') })
+})

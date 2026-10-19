@@ -79,8 +79,8 @@ export default function Board() {
   const minimal = o.layout === 'minimal'
   // side board: every card frame in its rink's color (the same color as on the center board)
   const rinkStyle = small && RINK ? { '--frame': RINK_COLOR[RINK] } : null
-  // the line-change countdown; in small ice only on the center board
-  const shift = small ? null : shiftInfo(s)
+  // the line-change countdown: on every layout when the shift clock is on (side boards too)
+  const shift = shiftInfo(s)
   const arena = o.layout === 'arena'
   const strength = strengthLabel(s)
   const hOn = skatersOnIce(s, 'home'), aOn = skatersOnIce(s, 'away')
@@ -98,7 +98,7 @@ export default function Board() {
         <SoundToggle sound={sound} className="sound" />
         <FullscreenButton />
         <FullscreenHint />
-        <Compact rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
+        <Compact shift={shift} rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
       </div>
     )
   }
@@ -132,7 +132,7 @@ export default function Board() {
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
         <div className={`clock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
-        {shift && <div className="shiftchip">{L.shift} <b className="tnum">{Math.ceil(shift.remainingMs / 1000)}</b></div>}
+        {shift && <div className="shiftbox"><span>{L.shift}</span><b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b></div>}
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         {/* reserved slot: always the same height, so GOAL! appearing moves nothing and covers nothing */}
         <div className="evslot"><EventText s={s} flash={flash} withName /></div>
@@ -264,7 +264,7 @@ function DualGame({ s, label, rink }) {
 // Compact layout: one broadcast-style panel (the operator's earlier OBS design). Home | clock box,
 // period, tournament logo | away; scores in team colors; penalties under each team only when there
 // are any (space is reserved so nothing moves); date + time of day along the bottom when it is on.
-function Compact({ rinkTag, s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isSO }) {
+function Compact({ shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isSO }) {
   const o = s.opts
   const L = o.labels
   const side = team => {
@@ -300,6 +300,7 @@ function Compact({ rinkTag, s, final, flash, strength, ppColor, ppTeam, toRem, i
         <div className={`cclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
         <div className="clabel">{isNum ? L.period : ''}</div>
         <div className="cperiod">{periodLabel(s)}</div>
+        {shift && <div className="cshift"><span>{L.shift}</span><b className="tnum" aria-label="shift">{Math.ceil(shift.remainingMs / 1000)}</b></div>}
         <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
         <div className="evslot"><EventText s={s} flash={flash} /></div>
         {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
