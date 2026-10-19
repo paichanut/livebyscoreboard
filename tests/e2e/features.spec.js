@@ -259,6 +259,20 @@ test('a logo without background loses its empty border, so it fills its box', as
   expect(size).toEqual([22, 42]) // the 20×40 block plus a 2 % margin, not 100×100
 })
 
+test('✂ Trim empty borders: logos saved before the trim get it too', async ({ page }) => {
+  await page.goto('/teams')
+  const padded = `data:image/png;base64,${PADDED.toString('base64')}`
+  await page.evaluate(logo => localStorage.setItem('rinkboard:teams', JSON.stringify([{ id: 'old logo', name: 'Old Logo', color: '#ff0000', logo }])), padded)
+  await page.reload()
+  const img = page.locator('[data-team="old logo"] img')
+  await expect(img).toBeVisible()
+  expect(await img.evaluate(i => [i.naturalWidth, i.naturalHeight])).toEqual([100, 100])
+  page.once('dialog', d => d.accept())
+  await page.getByRole('button', { name: /Trim empty borders/ }).click()
+  await expect(page.locator('.teamsPage .warn')).toContainText('Trimmed 1 logo')
+  await expect.poll(() => img.evaluate(i => [i.naturalWidth, i.naturalHeight])).toEqual([22, 42])
+})
+
 test('developer contact on Home and the control page', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.home .contact')).toContainText('Pai Chanut')

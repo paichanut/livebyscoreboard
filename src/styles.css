@@ -497,6 +497,7 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .teamsPage a { color: var(--accent); }
 .teamsPage .hint { color: var(--muted); font-size: 14px; line-height: 1.5; }
 .teamsPage .upload { align-self: flex-start; cursor: pointer; }
+.teamsPage .trimall { align-self: flex-start; }
 .teamsPage .warn { background: #3a2b00; color: #ffd166; border-radius: 10px; padding: 10px 12px; font-size: 14px; }
 .teamsPage .search { background: var(--card); color: var(--text); border: 1px solid var(--dim); border-radius: 12px; padding: 10px 14px; font-size: 16px; }
 .teamsPage .empty { color: var(--dim); }

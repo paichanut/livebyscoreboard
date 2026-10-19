@@ -165,23 +165,28 @@ export function resizeImage(file, max) {
   return fitImage(URL.createObjectURL(file), max)
 }
 
-// Also used when a saved team is picked, so logos uploaded before the trim existed get it too.
-export function fitImage(src, max = 320) {
+export function fitImage(src, max = 320, { onlyTrimmed = false } = {}) {
   return new Promise(res => {
     const img = new Image()
     img.onload = () => {
       let box = { x: 0, y: 0, w: img.width, h: img.height }
-      if (max <= 512) box = opaqueBox(img) || box
+      const cut = max <= 512 && opaqueBox(img)
+      if (cut) box = cut
+      else if (onlyTrimmed) return res(null)
       const r = Math.min(1, max / Math.max(box.w, box.h))
       const c = document.createElement('canvas')
       c.width = Math.max(1, Math.round(box.w * r)); c.height = Math.max(1, Math.round(box.h * r))
       c.getContext('2d').drawImage(img, box.x, box.y, box.w, box.h, 0, 0, c.width, c.height)
       res(max > 512 ? c.toDataURL('image/jpeg', 0.7) : c.toDataURL('image/png'))
     }
-    img.onerror = () => res(src)
+    img.onerror = () => res(onlyTrimmed ? null : src)
     img.src = src
   })
 }
+
+// A logo already saved (team library, a picked team): the same logo without its empty transparent border, or
+// null when it has none (solid background, already trimmed, or a picture from another site).
+export const trimLogo = src => fitImage(src, 512, { onlyTrimmed: true })
 
 // The part of the picture that isn't (nearly) transparent, plus a 2 % margin; null when there is nothing to cut.
 function opaqueBox(img) {
@@ -245,7 +250,7 @@ export function SavedTeams({ onPick, label = 'Saved teams' }) {
   const pick = tm => {
     picked.current = tm
     onPick(tm)
-    if (tm.logo) fitImage(tm.logo).then(logo => { if (picked.current === tm && logo !== tm.logo) onPick({ ...tm, logo }) })
+    if (tm.logo) trimLogo(tm.logo).then(logo => { if (logo && picked.current === tm) onPick({ ...tm, logo }) })
   }
   const sharedIds = new Set(shared.map(t => t.name.toLowerCase()))
   const all = [...shared.map(t => ({ ...t, shared: true })), ...list.filter(t => !sharedIds.has(t.id))]

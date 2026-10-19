@@ -5,11 +5,24 @@
 // Test build (no server): this browser only.
 import React, { useEffect, useState } from 'react'
 import { listTeams, saveTeam, updateTeam, removeTeam, nameFromFile } from './teamLibrary.js'
-import { resizeImage } from './Options.jsx'
+import { resizeImage, trimLogo } from './Options.jsx'
 import { ONLINE, DESKTOP, getSession, sessionUser, listSharedTeams, saveSharedTeam, updateSharedTeam, deleteSharedTeam } from './sync.js'
 
 const PALETTE = ['#e63946', '#3a86ff', '#2a9d8f', '#f4a261', '#8338ec', '#ff006e', '#06d6a0', '#ffbe0b']
 const colorTimers = {}
+// "✂ Trim empty borders": every logo this login may change (the admin: all of them) loses its empty transparent
+// border, like new uploads do. Logos with a solid background or already trimmed are left alone.
+async function trimAll(teams, save, progress) {
+  let done = 0, n = 0
+  for (const tm of teams) {
+    progress(`Trimming ${++n}/${teams.length}…`)
+    const logo = tm.logo && await trimLogo(tm.logo)
+    if (logo && await save(tm, logo) !== false) done++
+  }
+  return `Trimmed ${done} logo${done === 1 ? '' : 's'}${teams.length - done ? ` (${teams.length - done} had no empty border)` : ''}.`
+}
+const TRIM_ASK = 'Trim the empty transparent border of every logo below, so each fills its box on the scoreboard? Logos with a solid background stay as they are.'
+
 const fileName = name => `${name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'logo'}.png`
 
 export default function Teams() {
@@ -37,6 +50,8 @@ function SharedTeams() {
     if (taken.length) setMsg(`Already in the library (added by someone else): ${taken.join(', ')}. Pick them from the list instead.`)
   })
   const shown = (list || []).filter(t => t.name.toLowerCase().includes(q.trim().toLowerCase()))
+  const editable = (list || []).filter(t => t.can_edit && t.logo)
+  const trim = () => window.confirm(TRIM_ASK) && run(async () => setMsg(await trimAll(editable, (tm, logo) => updateSharedTeam(tm.id, { logo }), setMsg)))
 
   return (
     <div className="teamsPage">
@@ -53,6 +68,7 @@ function SharedTeams() {
             <input type="file" accept="image/*" multiple onChange={e => { addFiles(e.target.files); e.target.value = '' }} hidden />
           </label>
         : <a className="btn primary upload" href="/login?next=/teams">Log in to add logos</a>}
+      {editable.length > 0 && <button className="btn trimall" onClick={trim}>✂ Trim empty borders</button>}
       {msg && <div className="warn">{msg}</div>}
       {list && list.length > 6 && <input className="search" placeholder="search teams" value={q} onChange={e => setQ(e.target.value)} />}
       {!list && <div className="empty">loading…</div>}
@@ -111,6 +127,11 @@ function LocalTeams() {
   const shown = list.filter(match)
   const mineIds = new Set(list.map(t => t.id))
   const sharedShown = shared.filter(t => !mineIds.has(t.name.toLowerCase()) && match(t))
+  const trim = async () => {
+    if (!window.confirm(TRIM_ASK)) return
+    const text = await trimAll(list.filter(t => t.logo), (tm, logo) => updateTeam(tm.id, { logo }), setMsg)
+    setList(listTeams()); setMsg(text)
+  }
 
   return (
     <div className="teamsPage">
@@ -123,6 +144,7 @@ function LocalTeams() {
         + Add logos
         <input type="file" accept="image/*" multiple onChange={e => { addFiles(e.target.files); e.target.value = '' }} hidden />
       </label>
+      {list.some(t => t.logo) && <button className="btn trimall" onClick={trim}>✂ Trim empty borders</button>}
       {msg && <div className="warn">{msg}</div>}
       {list.length + shared.length > 6 && <input className="search" placeholder="search teams" value={q} onChange={e => setQ(e.target.value)} />}
       {!list.length && <div className="empty">No teams yet.</div>}
