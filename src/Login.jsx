@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react'
+import { validUsername } from '../lib/desktop-address.js'
 import { login, logout, getSession, sessionUser, checkSession, NEEDS_LOGIN } from './sync.js'
 
 // Operator login. Watching a game (display, banner, /live) never needs this.
 export default function Login() {
-  const next = new URLSearchParams(window.location.search).get('next') || '/'
-  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/'
-  const [user, setUser] = useState('')
+  const params = new URLSearchParams(window.location.search)
+  const requestedAccount = params.get('account') || ''
+  const account = validUsername(requestedAccount) ? requestedAccount.toLowerCase() : ''
+  const next = params.get('next') || '/'
+  const safeNext = next.startsWith('/') && !next.startsWith('//') && !/[\\\u0000-\u001f\u007f]/.test(next) ? next : '/'
+  const [user, setUser] = useState(account)
   const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -29,11 +33,11 @@ export default function Login() {
   if (who) return (
     <div className="home login">
       <h1>Live by Scoreboard</h1>
-      <p>Logged in as <b>{who}</b>. You can create and run any game on this device.</p>
+      <p>Logged in as <b>{who}</b>. {account && who !== account ? `Sign in as ${account} to control this desktop.` : 'You can continue to your game.'}</p>
       <div className="links">
-        <a className="btn primary" href={safeNext}>Continue</a>
+        {(!account || who === account) && <a className="btn primary" href={safeNext}>Continue</a>}
         <a className="btn" href="/live">Live games</a>
-        <button className="btn ghost" onClick={async () => { await logout(); setWho('') }}>Log out</button>
+        <button className="btn ghost" onClick={async () => { await logout(); setWho('') }}>{account && who !== account ? 'Switch account' : 'Log out'}</button>
       </div>
     </div>
   )
@@ -41,9 +45,9 @@ export default function Login() {
   return (
     <form className="home login" onSubmit={submit}>
       <h1>Live by Scoreboard</h1>
-      <p>Operator login. Spectators, the TV display and the OBS banner do not need this.</p>
+      <p>{account ? `Sign in as ${account} to control this desktop.` : 'Operator login. Spectators, the TV display and the OBS banner do not need this.'}</p>
       <div className="fields">
-        <input id="login-user" autoComplete="username" autoCapitalize="none" placeholder="username" value={user} onChange={e => setUser(e.target.value)} autoFocus />
+        <input id="login-user" autoComplete="username" autoCapitalize="none" placeholder="username" value={user} readOnly={Boolean(account)} onChange={e => setUser(e.target.value)} autoFocus />
         <input id="login-pass" type="password" autoComplete="current-password" placeholder="password" value={pw} onChange={e => setPw(e.target.value)} />
       </div>
       {err && <div className="err">{err}</div>}

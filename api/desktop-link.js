@@ -1,7 +1,59 @@
-// Fixed desktop addresses use the existing private game-key and operator login RPCs.
-// Registry rows have no scoreboard fields and are excluded from the live game list.
+// Account-scoped desktop addresses use a separate owner-protected registry.
+// Legacy flat addresses remain compatible with older desktop releases.
 import { randomBytes, createHash } from 'node:crypto'
 import { LEASE_MS, machineCode, validMachineCode, tunnelOrigin, registryState, isRegistry, destination } from '../lib/desktop-links.js'
+import { validUsername, validMachineId } from '../lib/desktop-address.js'
+
+const online = relay => Boolean(tunnelOrigin(relay.url) && Number(relay.seenAt) > Date.now() - LEASE_MS)
+
+async function machineRequest(req, res, rpc) {
+  const input = req.method === 'GET' ? req.query : req.body || {}
+  const username = machineCode(input.username)
+  const code = machineCode(input.code)
+  const fail = error => {
+    const errors = {
+      login: [401, 'Operator login required.'],
+      forbidden: [403, 'Sign in with the account that owns this desktop.'],
+      missing: [404, 'Desktop not found.'],
+      machine_in_use: [409, 'That machine name is already paired to another computer on this account.'],
+      invalid_machine: [400, 'Use 3–40 letters, numbers or hyphens for the machine name.'],
+    }
+    const [status, message] = errors[error] || [502, 'Could not connect this desktop.']
+    return res.status(status).json({ desktop: true, error: message })
+  }
+  if ((req.method === 'GET' && input.action) || (req.method === 'POST' && !['publish', 'register', 'resolve'].includes(input.action))) return res.status(400).json({ error: 'Invalid desktop action.' })
+  if (req.method === 'POST' && input.action === 'publish') {
+    if (!validMachineId(input.machineId) || typeof input.machineKey !== 'string' || !/^[0-9a-f]{32}$/.test(input.nonce || '') || typeof input.url !== 'string' || input.url && !tunnelOrigin(input.url)) {
+      return res.status(400).json({ error: 'Invalid desktop registration.' })
+    }
+    const saved = await rpc('desktop_machine_publish', { p_machine_id: input.machineId, p_key: input.machineKey, p_nonce: input.nonce, p_url: input.url })
+    return res.status(saved ? 200 : 403).json(saved ? { ok: true } : { error: 'Pair this desktop again.' })
+  }
+  if (!validUsername(username) || !validMachineCode(code)) return res.status(400).json({ error: 'Invalid account or machine name.' })
+  if (req.method === 'POST' && input.action === 'register') {
+    if (!validMachineId(input.machineId) || typeof input.password !== 'string' || !input.password || input.password.length > 1000) return res.status(400).json({ error: 'Enter your operator login.' })
+    const token = await rpc('operator_login', { p_username: username, p_password: input.password })
+    if (!token) return fail('login')
+    try {
+      const result = await rpc('desktop_machine_register', { p_token: token, p_machine_id: input.machineId, p_machine: code })
+      return result?.error ? fail(result.error) : res.status(200).json(result)
+    } finally { await rpc('operator_logout', { p_token: token }).catch(() => {}) }
+  }
+  const kind = input.kind
+  if (!['b', 'c', 'o'].includes(kind)) return res.status(400).json({ error: 'Invalid display choice.' })
+  let relay
+  if (kind === 'c') {
+    if (req.method !== 'POST' || typeof input.token !== 'string' || !input.token) return fail('login')
+    relay = await rpc('desktop_machine_control', { p_token: input.token, p_username: username, p_machine: code })
+    if (relay?.error) return fail(relay.error)
+  } else relay = await rpc('desktop_machine_lookup', { p_username: username, p_machine: code })
+  if (!relay) return res.status(404).json({ desktop: false, error: 'Desktop not found.' })
+  if (!online(relay)) return res.status(200).json({ desktop: true, online: false, machine: code, username })
+  const url = destination(relay, kind, input, kind === 'c' ? relay.key : '')
+  if (!url) return res.status(400).json({ error: 'Invalid desktop connection.' })
+  return res.status(200).json({ desktop: true, online: true, machine: code, username, url })
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
   res.setHeader('Referrer-Policy', 'no-referrer')
@@ -10,7 +62,11 @@ export default async function handler(req, res) {
   if (!base || !key) return res.status(503).json({ error: 'Online service is not configured.' })
   const rpc = async (name, args) => {
     const r = await fetch(base + '/rest/v1/rpc/' + name, { method: 'POST', headers: { apikey:key, Authorization:'Bearer '+key, 'Content-Type':'application/json' }, body:JSON.stringify(args), signal:AbortSignal.timeout(10000) })
-    if (!r.ok) throw new Error('Online service request failed (' + r.status + ').')
+    if (!r.ok) {
+      const error = new Error('Online service request failed (' + r.status + ').')
+      if (name.startsWith('desktop_machine_') && r.status === 404) error.setupRequired = true
+      throw error
+    }
     return r.json()
   }
   const read = async code => {
@@ -20,6 +76,10 @@ export default async function handler(req, res) {
   }
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {}
+    if (!['GET','POST'].includes(req.method)) return res.status(405).json({error:'Method not allowed.'})
+    if (body.version === 2 || body.machineId != null || req.method === 'GET' && req.query.username != null || body.action === 'resolve' && body.username != null) {
+      return await machineRequest(req, res, rpc)
+    }
     const code = machineCode(req.method === 'GET' ? req.query.code : body.code)
     if (!validMachineCode(code)) return req.method === 'GET'
       ? res.status(200).json({ desktop:false })
@@ -64,5 +124,7 @@ export default async function handler(req, res) {
     const url = destination(relay,kind,options,machineKey)
     if (!url) return res.status(400).json({error:'Invalid display choice.'})
     return res.status(200).json({desktop:true,online:true,url})
-  } catch { return res.status(502).json({error:'Could not reach the online service. Please retry.'}) }
+  } catch (error) {
+    return res.status(error.setupRequired ? 503 : 502).json({ error: error.setupRequired ? 'Permanent desktop links need setup on the server.' : 'Could not reach the online service. Please retry.' })
+  }
 }

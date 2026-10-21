@@ -32,11 +32,12 @@ export function ShareSheet({ t, close, Sheet }) {
     } catch { setNote('Could not pair this desktop. Please retry.') }
     finally { setPassword(''); setPairing(false) }
   }
+  useEffect(() => { if (sh?.fixed && sh.fixed.version !== 2) setMachine(sh.fixed.code) }, [sh?.fixed?.code, sh?.fixed?.version])
   if (!sh) return null
   const chat = chatId ?? sh.telegram.chatId
   // every board and controller (share.cjs links()); the controllers ask for a Live by Scoreboard login
   const groups = [
-    ...(sh.fixed ? [['Fixed Vercel · ' + t('linksWatch'),sh.fixed.links.watch],['Fixed Vercel · ' + t('shareRun'),sh.fixed.links.run]] : []),
+    ...(sh.fixed ? [['Fixed Vercel · ' + t('linksWatch'),sh.fixed.links.watch],['Fixed Vercel · Controller (owner login)',sh.fixed.links.run]] : []),
     ...(sh.links ? [['Dynamic Cloudflare · ' + t('linksWatch'),sh.links.watch],['Dynamic Cloudflare · ' + t('shareRun'),sh.links.run]] : []),
   ]
   const copy = async url => { try { await navigator.clipboard.writeText(url); setCopied(url) } catch {} }
@@ -50,10 +51,10 @@ export function ShareSheet({ t, close, Sheet }) {
   return (
     <Sheet close={close}>
       <h3>🌐 {t('shareTitle')}</h3>
-      <p className="hint">Keep a permanent Vercel address and the dynamic Cloudflare tunnel. Both link sets are sent to Telegram when the tunnel connects. The desktop must be online for either address to work.</p>
+      <p className="hint">Keep a permanent Vercel address and the dynamic Cloudflare tunnel. Only Cloudflare links are sent to Telegram. Permanent links are available here. The desktop must be online for either address to work.</p>
       <h4>Fixed Vercel link</h4>
-      {sh.fixed ? <p className="hint">Machine: <b>{sh.fixed.code}</b> · {sh.fixedStatus || 'connecting'}<br />Controller links use your existing operator login.</p> : <div>
-        <p className="hint">Pair once with your existing operator account. Choose a unique machine name; it stays the same after restarts.</p>
+      {sh.fixed?.version === 2 ? <p className="hint">Account: <b>{sh.fixed.username}</b> · Machine: <b>{sh.fixed.code}</b> · {sh.fixedStatus || 'connecting'}<br />Controller links require this account’s operator login.</p> : <div>
+        <p className="hint">Pair once with your operator account. Your machine name stays the same after restarts. Existing links can be upgraded here without changing your game.</p>
         <div className="field">Machine name<input aria-label="Machine name" autoCapitalize="none" value={machine} onChange={e => setMachine(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))} maxLength={40} placeholder="arena-pc" /></div>
         <div className="field">Operator username<input aria-label="Operator username" autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} /></div>
         <div className="field">Operator password<input aria-label="Operator password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></div>

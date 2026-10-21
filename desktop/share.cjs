@@ -26,7 +26,7 @@ const path = require('node:path')
 const { spawn } = require('node:child_process')
 
 const SITE = 'https://livebyscoreboard.vercel.app'
-const { createHmac } = require('node:crypto')
+const { createHmac, randomUUID } = require('node:crypto')
 const fixedControlKey = () => createHmac('sha256',settings.fixed.key).update('desktop-control-v1:' + settings.fixed.nonce).digest('hex').slice(0,24)
 let fixedTimer = null
 let fixedBusy = false
@@ -42,7 +42,7 @@ async function publishFixed() {
   if (fixedBusy) { fixedPending = true; return }
   fixedBusy = true
   try {
-    const r = await fixedApi({action:'publish',code:settings.fixed.code,machineKey:settings.fixed.key,nonce:settings.fixed.nonce,url:settings.enabled ? status.url : ''})
+    const r = await fixedApi({action:'publish',...(settings.fixed.version === 2 ? {version:2,machineId:settings.machineId} : {code:settings.fixed.code}),machineKey:settings.fixed.key,nonce:settings.fixed.nonce,url:settings.enabled ? status.url : ''})
     set({fixedStatus:r.ok ? (status.url && settings.enabled ? 'online' : 'offline') : 'error'})
   } catch(e) { set({fixedStatus:e.message}) }
   finally { fixedBusy=false; if (fixedPending) { fixedPending=false; publishFixed() } }
@@ -86,7 +86,9 @@ let sentUrl = ''
 function loadSettings() {
   try { settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsFile, 'utf8')) } } catch {}
   settings.telegram = { botToken: '', chatId: '', ...settings.telegram }
-  if (!/^[0-9a-f]{24}$/.test(settings.controlKey || '')) { settings.controlKey = newKey(); saveSettings() }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(settings.machineId || '')) settings.machineId = randomUUID()
+  if (!/^[0-9a-f]{24}$/.test(settings.controlKey || '')) settings.controlKey = newKey()
+  saveSettings()
 }
 function saveSettings() {
   try { fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2)) } catch {}
@@ -95,7 +97,7 @@ function saveSettings() {
 // what the control page may see: never the token itself
 const publicState = () => ({
   enabled: settings.enabled, ...status, local: port ? `http://127.0.0.1:${port}` : '',
-  fixed: settings.fixed?.key ? {code:settings.fixed.code,links:(({watch,run})=>({watch,run}))(links(SITE,settings.fixed.code,false))} : null,
+  fixed: settings.fixed?.key ? {version:settings.fixed.version || 1,username:settings.fixed.username || '',code:settings.fixed.code,links:(({watch,run})=>({watch,run}))(links(SITE,settings.fixed.version === 2 ? encodeURIComponent(settings.fixed.username)+'/'+encodeURIComponent(settings.fixed.code) : settings.fixed.code,false))} : null,
   links: status.url ? (({ watch, run }) => ({ watch, run }))(links(status.url)) : null,
   telegram: { tokenSet: Boolean(settings.telegram.botToken), chatId: settings.telegram.chatId, last: status.telegram },
 })
@@ -422,9 +424,7 @@ const message = url => {
   const { watch, run, s } = links(url)
   const match = s ? `${s.home?.name || 'HOME'} vs ${s.away?.name || 'AWAY'}${s.rinkB && s.opts?.smallIce ? ` · ${s.rinkB.home?.name} vs ${s.rinkB.away?.name}` : ''}\n` : ''
   const list = rows => rows.map(([label, link]) => `${label}: ${link}`).join('\n')
-  const fixed = settings.fixed?.key ? links(SITE,settings.fixed.code,false) : null
-  const permanent = fixed ? '\nFIXED VERCEL LINKS:\nWatch:\n' + list(fixed.watch) + '\nRun (operator login):\n' + list(fixed.run) + '\n\nDYNAMIC CLOUDFLARE LINKS:\n' : ''
-  return `🏒 Live by Scoreboard is online\n${match}${permanent}\nWatch:\n${list(watch)}\n\nRun the game (keep these links private):\n${list(run)}`
+  return `🏒 Live by Scoreboard is online\n${match}\nWatch:\n${list(watch)}\n\nRun the game (keep these links private):\n${list(run)}`
 }
 
 async function sendTelegram(url) {
@@ -467,8 +467,8 @@ async function initShare({ webDir, license: lic }) {
   fixedTimer = setInterval(publishFixed, 60000)
   ipcMain.handle('share:pair', async (_e, credentials) => {
     try {
-      if (settings.fixed?.key && settings.fixed.code !== String(credentials?.code || '').trim().toLowerCase()) return {ok:false,error:'This desktop is already paired. Keep its existing machine name.'}
-      const fixed = await fixedApi({action:'register',code:credentials.code,username:credentials.username,password:credentials.password})
+      const fixed = await fixedApi({version:2,action:'register',machineId:settings.machineId,code:credentials?.code,username:credentials?.username,password:credentials?.password})
+      if (fixed.version !== 2 || fixed.machineId !== settings.machineId || !fixed.key || !fixed.nonce || !fixed.username || !fixed.code) throw new Error('Could not pair this desktop. Please update the online service.')
       settings.fixed = fixed
       settings.controlKey = fixedControlKey()
       saveSettings(); sessions.clear(); sentUrl=''; set({})
