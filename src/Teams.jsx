@@ -1,12 +1,12 @@
 // Team logo library: upload logos once, name them, then pick a team with one tap when setting up a game.
 // Online (web app): one shared library for every operator (table `teams`): anyone picks from it, a
 // logged-in operator uploads, the uploader edits their own teams and the admin can fix any logo.
-// Desktop app: teams saved on this computer, plus the shared library read-only when there is internet.
+// Desktop app: own teams plus a downloaded shared library, both available offline.
 // Test build (no server): this browser only.
 import React, { useEffect, useState } from 'react'
 import { listTeams, saveTeam, updateTeam, removeTeam, nameFromFile } from './teamLibrary.js'
 import { resizeImage, trimLogo } from './Options.jsx'
-import { ONLINE, DESKTOP, getSession, sessionUser, listSharedTeams, saveSharedTeam, updateSharedTeam, deleteSharedTeam } from './sync.js'
+import { ONLINE, DESKTOP, getSession, sessionUser, listSharedTeams, watchSharedTeams, refreshSharedTeams, saveSharedTeam, updateSharedTeam, deleteSharedTeam } from './sync.js'
 
 const PALETTE = ['#e63946', '#3a86ff', '#2a9d8f', '#f4a261', '#8338ec', '#ff006e', '#06d6a0', '#ffbe0b']
 const colorTimers = {}
@@ -103,14 +103,29 @@ function SharedTeams() {
   )
 }
 
-// This browser / this computer. The desktop app also shows the shared library (read-only) when online.
+// This browser / this computer. Downloaded desktop teams are read-only copies of the shared library.
 function LocalTeams() {
   const [list, setList] = useState(listTeams)
   const [shared, setShared] = useState([])
+  const downloaded = DESKTOP && Boolean(window.desktop?.listTeams)
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
   const refresh = ok => { setList(listTeams()); setMsg(ok === false ? 'Could not save: this browser is out of space. Remove some teams or use smaller logos.' : '') }
-  useEffect(() => { if (DESKTOP) listSharedTeams().then(setShared, () => setShared([])) }, [])
+  const [checking, setChecking] = useState(false)
+  useEffect(() => {
+    if (!DESKTOP) return
+    let active = true
+    const receive = teams => { if (active) setShared(teams) }
+    const stop = watchSharedTeams(receive)
+    listSharedTeams().then(receive, () => {})
+    return () => { active = false; stop() }
+  }, [])
+  const checkUpdates = async () => {
+    setChecking(true); setMsg('')
+    try { setShared(await refreshSharedTeams()) }
+    catch { setMsg('Could not check for updates. Downloaded teams are still available offline.') }
+    finally { setChecking(false) }
+  }
 
   const addFiles = async files => {
     let ok = true
@@ -144,10 +159,11 @@ function LocalTeams() {
         + Add logos
         <input type="file" accept="image/*" multiple onChange={e => { addFiles(e.target.files); e.target.value = '' }} hidden />
       </label>
+      {DESKTOP && <button className="btn ghost" disabled={checking} onClick={checkUpdates}>{checking ? 'Checking…' : 'Check for team updates'}</button>}
       {list.some(t => t.logo) && <button className="btn trimall" onClick={trim}>✂ Trim empty borders</button>}
       {msg && <div className="warn">{msg}</div>}
       {list.length + shared.length > 6 && <input className="search" placeholder="search teams" value={q} onChange={e => setQ(e.target.value)} />}
-      {!list.length && <div className="empty">No teams yet.</div>}
+      {!list.length && !shared.length && <div className="empty">No teams yet.</div>}
       <div className="tgrid">
         {shown.map(tm => (
           <div className="tcard" key={tm.id} style={{ '--c': tm.color }} data-team={tm.id}>
@@ -166,15 +182,15 @@ function LocalTeams() {
         ))}
       </div>
       {sharedShown.length > 0 && <>
-        <h2 className="subhead">Shared library (online)</h2>
-        <p className="hint">Teams uploaded by Live by Scoreboard operators. They also show up in the team pickers while this computer is online; "Keep" saves one here so it works offline too.</p>
+        <h2 className="subhead">{downloaded ? 'Downloaded team library' : 'Shared library (online)'}</h2>
+        <p className="hint">{downloaded ? 'Team names and logos are saved automatically on this computer and work offline. Internet checks add new teams and refresh updated names and logos. Copy a team to edit it locally.' : 'Teams uploaded by Live by Scoreboard operators. Copy a team to save it in this browser for offline use.'}</p>
         <div className="tgrid">
           {sharedShown.map(tm => (
             <div className="tcard ro" key={tm.id} style={{ '--c': tm.color }}>
               <div className="logo">{tm.logo ? <img src={tm.logo} alt="" /> : <span>no logo</span>}</div>
               <div className="tname">{tm.name}</div>
               <div className="by">by {tm.uploader || '—'}</div>
-              <div className="trow"><button className="btn sm" aria-label={`keep ${tm.name}`} onClick={() => refresh(saveTeam(tm))}>Keep on this computer</button></div>
+              <div className="trow"><button className="btn sm" aria-label={`copy ${tm.name} to my teams`} onClick={() => refresh(saveTeam(tm))}>Copy to my teams</button></div>
             </div>
           ))}
         </div>

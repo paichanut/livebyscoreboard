@@ -12,6 +12,7 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test tests/unit/*.test.js",
     "test:e2e": "playwright test",
+    "test:desktop": "playwright test --config playwright.desktop.config.js",
     "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {

@@ -4,7 +4,7 @@ import { unlockAudio, playSound, ready } from './horn.js'
 import * as G from './game.js'
 import { LANGS, translator } from './i18n.js'
 import { listTeams, saveTeam, removeTeam } from './teamLibrary.js'
-import { SHARED_TEAMS, listSharedTeams, shareTeamIfNew } from './sync.js'
+import { SHARED_TEAMS, listSharedTeams, watchSharedTeams, shareTeamIfNew } from './sync.js'
 import { useGameId } from './useGame.js'
 
 const TABS = ['Game', 'Teams', 'Keys', 'Colors', 'Sounds', 'Text', 'Banner', 'Other']
@@ -259,7 +259,13 @@ export function SavedTeams({ onPick, label = 'Saved teams' }) {
   const [list, setList] = useState(listTeams)
   const [shared, setShared] = useState([])
   const picked = useRef(null)
-  useEffect(() => { if (SHARED_TEAMS) listSharedTeams().then(setShared, () => {}) }, [])
+  useEffect(() => {
+    let active = true
+    const receive = teams => { if (active) setShared(teams) }
+    const stop = watchSharedTeams(receive)
+    if (SHARED_TEAMS) listSharedTeams().then(receive, () => {})
+    return () => { active = false; stop() }
+  }, [])
   // at once, then the logo again without its empty transparent border (unless another team was picked meanwhile)
   const pick = tm => {
     picked.current = tm

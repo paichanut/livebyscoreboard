@@ -9,6 +9,7 @@ const { pathToFileURL } = require('node:url')
 const { initUpdates } = require('./updater.cjs')
 const { initShare, stopShare } = require('./share.cjs')
 const { isExpired, watchTime, EXPIRES } = require('./license.cjs')
+const { createTeamCache } = require('./teams.cjs')
 
 const WEB = path.join(__dirname, 'web')
 // Each licence year is its own edition ("Live by Scoreboard 2026", package.json), but they all keep their data
@@ -148,6 +149,21 @@ else {
     // past the licence date (license.cjs): still works, with UNLICENSED on the boards and no updates
     const license = { unlicensed: isExpired(), expires: EXPIRES }
     ipcMain.on('license:get', e => { e.returnValue = license })
+    const teams = createTeamCache({
+      directory: app.getPath('userData'),
+      fetch: (url, options) => net.fetch(url, options),
+      onUpdate: list => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          if (!win.webContents.isDestroyed()) win.webContents.send('teams:changed', list)
+        }
+      },
+    })
+    ipcMain.handle('teams:list', () => teams.list())
+    ipcMain.handle('teams:refresh', () => teams.refresh())
+    teams.list().catch(() => {})
+    setInterval(() => {
+      if (net.isOnline()) teams.refresh().catch(() => {})
+    }, 5 * 60_000).unref()
     watchTime()
     protocol.handle('app', serve)
     openControl()

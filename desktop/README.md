@@ -5,6 +5,18 @@ One computer, no internet: the control page opens on the laptop screen and the s
 Both windows are one program, so there is always exactly one game; it is saved on the computer and
 is still there after a restart.
 
+Team names and logos from the shared library download automatically and stay on this computer for
+offline use, including after restarting or updating the app. The library loads from disk first; the
+internet only adds new teams and refreshes changed names or logos (on startup, on reconnection, and
+every five minutes while online). An unavailable connection never
+clears downloaded teams. **Team logos → Check for team updates** forces a refresh. Library updates do
+not change teams or logos already selected for a game. **Copy to my teams** makes a separate editable
+copy; personal teams stay separate from shared updates. The downloaded library lives in
+`downloaded-teams.json` inside the app's existing user data folder.
+
+Cache checks: `npm run test:unit` exercises downloads and disk persistence; `npm run test:desktop`
+exercises the built desktop UI with the real disk cache, mocked Electron IPC and a mock remote library.
+
 - Display window: F11 or double-click = full screen on/off. Closing it only hides it; Control → Display brings it back.
 - The control window always opens in front and keeps the keyboard. **F4** switches: in Control it shows
   the scoreboard, in the scoreboard it goes back to Control. With only one screen the scoreboard waits

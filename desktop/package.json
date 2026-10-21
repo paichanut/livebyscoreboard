@@ -26,6 +26,7 @@
       "updater.cjs",
       "preload.cjs",
       "share.cjs",
+      "teams.cjs",
       "license.cjs",
       "display-preload.cjs",
       "web/**/*"

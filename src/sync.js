@@ -96,11 +96,20 @@ export async function listSharedTeams() {
     return data || []
   }
   if (DESKTOP) {
+    if (window.desktop?.listTeams) return window.desktop.listTeams()
     const r = await fetch(SHARED_TEAMS_URL)
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     return (await r.json()).map(t => ({ ...t, can_edit: false, mine: false }))
   }
   return []
+}
+
+export function watchSharedTeams(callback) {
+  return DESKTOP && window.desktop?.onTeams ? window.desktop.onTeams(callback) : () => {}
+}
+
+export function refreshSharedTeams() {
+  return DESKTOP && window.desktop?.refreshTeams ? window.desktop.refreshTeams() : listSharedTeams()
 }
 
 // Add (or update your own team with the same name). 'added' | 'updated' | 'taken' | 'login'

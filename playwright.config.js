@@ -5,6 +5,7 @@ const executablePath = process.env.PW_CHROMIUM_PATH || undefined
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  testIgnore: '**/desktop-teams.spec.js',
   timeout: 30_000,
   expect: { timeout: 5_000 },
   retries: process.env.CI ? 1 : 0,
