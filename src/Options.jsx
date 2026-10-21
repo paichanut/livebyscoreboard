@@ -139,6 +139,8 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters, pr
       <h4>Goal indicator</h4>
       <Check label="When a score increases, show goal indicator" path="goalIndicator" get={get} set={set} />
       <Num label="Turn off after (sec)" path="goalOffSec" get={get} set={set} min={1} max={120} />
+      <h4>Penalty announcement</h4>
+      <Check label="Show referee animation on scoreboard" path="penaltyAnimation" get={get} set={set} />
       <h4>Common penalty lengths (min)</h4>
       <div className="penlens">
         {o.penaltyLengths.map((m, i) => <span className="chip" key={i}>{m} min <button onClick={() => set('penaltyLengths', o.penaltyLengths.filter((_, j) => j !== i))}>✕</button></span>)}

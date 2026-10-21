@@ -2,6 +2,10 @@
 
 Updated 2026-10-21. Continue in the existing repository `paichanut/livebyscoreboard`, branch `main`. Do not create a replacement repository.
 
+## Current penalty display follow-up
+
+The follow-up changes shorten the referee neck and clarify tripping (below knee), kneeing (front of knee), and clipping (behind knee). Every scoreboard layout clips the illustration to a lower region after its score. The publication details below describe the earlier baseline release; check GitHub Actions and the latest release for the follow-up version.
+
 ## Published state
 
 - Production: https://livebyscoreboard.vercel.app/
@@ -17,7 +21,7 @@ The handoff note itself is a later documentation commit. It does not require ano
 ## User requirements implemented
 
 1. Homepage button and public **/referee-signals** page with 34 original animated SVG illustrations, English/Thai text, search, categories, per-card/global pause, and reduced-motion support.
-2. Adding a penalty displays the corresponding animated referee, player and call on the offending team's side for 15 seconds. The latest user correction explicitly requires the announcement to **cover that team's score**. Keep the center clock visible. Rink A/B calls stay with their own rink.
+2. Adding a penalty displays the corresponding animated referee, player and call on the offending team's side for 15 seconds. The latest user correction requires the announcement to stay **only in the SOG/penalty area below the score; never cover any score**. Keep the center clock visible. Announcements use English-only text and a dark slate referee background. Options → Game → Show referee animation on scoreboard enables/disables them (on by default), preserving normal penalty text and timers when off. Rink A/B calls stay with their own rink.
 3. Small ice has **Display A** (A only), **Display B** (B only), and **Display C** (CENTER, both games). Desktop A/B open independent windows; C retains existing automatic HDMI placement. A/B can be moved to monitors and toggled full screen with F11.
 4. All four scores in the center view align horizontally, including different team-name lengths and missing logos. Reserved logo/name rows are deliberate. The tournament logo fills more available center space with padding.
 5. Desktop Online link offers both fixed Vercel entry URLs and dynamic Cloudflare URLs. Telegram includes both complete sets, including A/B/C.

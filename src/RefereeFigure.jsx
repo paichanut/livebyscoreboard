@@ -37,7 +37,7 @@ export default function RefereeFigure({ signal, playing = true, className = '', 
   const active = playing && (!reduced || ignoreReducedMotion)
   const frames = signal?.frames || [{ at: 0, left: [35, 48, 37, 63], right: [65, 48, 63, 63] }]
   const leg = signal?.stance === 'leg'
-  const shoulders = leg ? [[51, 49], [69, 49]] : [[38, 33], [62, 33]]
+  const shoulders = leg ? [[51, 35], [66, 40]] : [[38, 33], [62, 33]]
   const first = frames[0]
   const hasMotion = frames.length > 1
   useEffect(() => {
@@ -51,13 +51,13 @@ export default function RefereeFigure({ signal, playing = true, className = '', 
         <pattern id={`stripes-${unique}`} width="6" height="12" patternUnits="userSpaceOnUse"><rect width="6" height="12" fill="#fff" /><rect width="2.5" height="12" fill="#172437" /></pattern>
       </defs>
       <ellipse cx="50" cy="100" rx="20" ry="1.8" fill="#dce6ef" />
-      <path d="M45,64 L44,92 M55,64 L56,92" fill="none" stroke="#172437" strokeWidth="7" strokeLinecap="round" />
-      <path d="M38,96 H48 M52,96 H62" fill="none" stroke="#71859c" strokeWidth="1.5" strokeLinecap="round" />
-      <path d={leg ? 'M51,48 L69,48 L60,65 L40,65 Z' : 'M38,32 L62,32 L60,65 L40,65 Z'} fill={`url(#stripes-${unique})`} stroke="#172437" strokeWidth="1.5" strokeLinejoin="round" />
-      <rect x={leg ? 56.5 : 46.5} y={leg ? 40 : 24} width="7" height="8" fill="#efc8a8" />
-      <circle cx={leg ? 60 : 50} cy={leg ? 34 : 18} r="8" fill="#efc8a8" stroke="#172437" strokeWidth="1.3" />
-      <path d={leg ? 'M52.5,33 Q60,19 67.5,33' : 'M42.5,17 Q50,3 57.5,17'} fill="none" stroke="#172437" strokeWidth="2.7" />
-      {signal?.target && <circle cx={signal.target[0]} cy={signal.target[1]} r="7" fill="none" stroke="#dc8241" strokeWidth="1" strokeDasharray="2 2" />}
+      <path d={leg ? 'M44,64 L40,77 L40,92 M55,64 L60,77 L57,92' : 'M45,64 L44,92 M55,64 L56,92'} fill="none" stroke="#172437" strokeWidth="7" strokeLinecap="round" />
+      <path d={leg ? 'M34,96 H45 M51,96 H63' : 'M38,96 H48 M52,96 H62'} fill="none" stroke="#71859c" strokeWidth="1.5" strokeLinecap="round" />
+      <path d={leg ? 'M49,33 L68,39 L60,65 L40,65 Z' : 'M38,32 L62,32 L60,65 L40,65 Z'} fill={`url(#stripes-${unique})`} stroke="#172437" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d={leg ? 'M57,34 L58,31 L65,33 L63,37 Z' : 'M46.5,28 H53.5 V32 H46.5 Z'} fill="#efc8a8" />
+      <circle cx={leg ? 63 : 50} cy={leg ? 26 : 21} r="8" fill="#efc8a8" stroke="#172437" strokeWidth="1.3" />
+      <path d={leg ? 'M55.5,25 Q63,11 70.5,25' : 'M42.5,20 Q50,6 57.5,20'} fill="none" stroke="#172437" strokeWidth="2.7" />
+      {signal?.target && <circle cx={signal.target[0]} cy={signal.target[1]} r={leg ? 4.5 : 7} fill="none" stroke="#dc8241" strokeWidth="1" strokeDasharray="2 2" />}
       {['left', 'right'].map((side, i) => {
         const shoulder = shoulders[i]
         const points = f => `${shoulder.join(',')} ${f[side][0]},${f[side][1]} ${f[side][2]},${f[side][3]}`

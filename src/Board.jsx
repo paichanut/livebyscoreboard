@@ -280,13 +280,15 @@ function DualGame({ s, label, rink }) {
               {s.opts[`${team}Logo`] && <img className="dtlogo" src={s.opts[`${team}Logo`]} alt="" />}
               <div className="dname">{s[team].name}</div>
               <div className="dscore tnum">{s[team].score}</div>
-              <div className="dpens">
-                {run.slice(0, 2).map(p => (
-                  <div className="dpen" key={p.id}><span>{p.player ? `#${p.player}` : s.opts.labels.penalty}</span><b className="tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</b></div>
-                ))}
-                {more > 0 && <div className="dpen more">+{more}</div>}
+              <div className="dteam-lower">
+                <div className="dpens">
+                  {run.slice(0, 2).map(p => (
+                    <div className="dpen" key={p.id}><span>{p.player ? `#${p.player}` : s.opts.labels.penalty}</span><b className="tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</b></div>
+                  ))}
+                  {more > 0 && <div className="dpen more">+{more}</div>}
+                </div>
+                <PenaltyAnnouncement s={s} team={team} />
               </div>
-              <PenaltyAnnouncement s={s} team={team} />
             </div>
           )
         })}
@@ -311,19 +313,21 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
         <div className="clogo">{o[`${team}Logo`] && <img src={o[`${team}Logo`]} alt="" />}</div>
         <div className="cname">{t.name}</div>
         <div className="cscore tnum">{t.score}</div>
-        {isSO
-          ? <Shootout attempts={s.shootout[team]} className="so" />
-          : <><div className="clabel">{L.shots}</div><div className="cshots tnum">{t.shots}</div></>}
-        <div className="cpens">
-          {pens.slice(0, 3).map(p => (
-            <div key={p.id} className={`cpen ${running.has(p.id) ? '' : 'wait'}`}>
-              <span>{p.player ? `#${p.player}` : L.penalty}</span>
-              <b className="tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</b>
-            </div>
-          ))}
-          {pens.length > 3 && <div className="cpen more">+{pens.length - 3}</div>}
+        <div className="cteam-lower">
+          {isSO
+            ? <Shootout attempts={s.shootout[team]} className="so" />
+            : <><div className="clabel">{L.shots}</div><div className="cshots tnum">{t.shots}</div></>}
+          <div className="cpens">
+            {pens.slice(0, 3).map(p => (
+              <div key={p.id} className={`cpen ${running.has(p.id) ? '' : 'wait'}`}>
+                <span>{p.player ? `#${p.player}` : L.penalty}</span>
+                <b className="tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</b>
+              </div>
+            ))}
+            {pens.length > 3 && <div className="cpen more">+{pens.length - 3}</div>}
+          </div>
+          <PenaltyAnnouncement s={s} team={team} />
         </div>
-        <PenaltyAnnouncement s={s} team={team} />
       </div>
     )
   }
@@ -360,8 +364,10 @@ function Team({ t, logo, logoTop, flash, L, showShots, so, children }) {
       {logo && logoTop && <img className="toplogo" src={logo} alt="" />}
       <div className="name">{t.name}</div>
       <div className="score tnum">{t.score}</div>
-      {so ? <Shootout attempts={so} /> : showShots && <div className="shots">{L.shots} <b className="tnum">{t.shots}</b></div>}
-      {children}
+      <div className="team-lower">
+        {so ? <Shootout attempts={so} /> : showShots && <div className="shots">{L.shots} <b className="tnum">{t.shots}</b></div>}
+        {children}
+      </div>
     </div>
   )
 }

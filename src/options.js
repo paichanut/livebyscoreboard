@@ -91,6 +91,7 @@ export function defaultOptions() {
     timeoutWarnSec: 15,
     goalIndicator: true,
     goalOffSec: 15,
+    penaltyAnimation: true,
     penaltyLengths: [2, 4, 5, 10],
     // Infraction templates on the penalty sheet: tap one to fill the name and the length
     // Penalty quick picks, IIHF 2026/27: the usual minutes for each infraction. `majorGM`: IIHF has no plain

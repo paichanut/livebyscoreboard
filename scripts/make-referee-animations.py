@@ -64,16 +64,16 @@ add('cross-checking', 'Cross-checking', 'ครอสเช็ค', '59', 'penal
     note='Keep the fists closed. Open palms are the checking-from-behind signal.')
 add('tripping', 'Tripping', 'ขัดขา', '57', 'penalty', 165,
     'Tap the leg below the knee. Both skates stay on the ice.', 'ใช้มือแตะขาส่วนใต้เข่า โดยให้สเกตทั้งสองอยู่บนพื้น',
-    [44, 61, 41, 69], [72, 64, 56, 83], ('palm', 'palm'), 'tap',
-    away_right=[77, 63, 67, 80], stance='leg', target=[56, 83])
+    [37, 50, 42, 66], [76, 61, 58, 85], ('palm', 'palm'), 'tap',
+    away_right=[79, 59, 70, 82], stance='leg', target=[58, 85])
 add('kneeing', 'Kneeing', 'ใช้เข่า', '50', 'penalty', 164,
     'Tap the knee with an open hand while both skates remain down.', 'ใช้ฝ่ามือตบเข่า โดยไม่ยกสเกตออกจากพื้น',
-    [44, 61, 41, 69], [73, 59, 56, 74], ('palm', 'palm'), 'tap',
-    away_right=[77, 58, 69, 72], stance='leg', target=[56, 74])
+    [37, 50, 42, 66], [77, 57, 62, 77], ('palm', 'palm'), 'tap',
+    away_right=[80, 55, 73, 74], stance='leg', target=[62, 77])
 add('clipping', 'Clipping', 'ตัดขาจากด้านหลัง', '44', 'penalty', 163,
     'Tap the back of the knee. Keep both skates on the ice.', 'ใช้มือแตะบริเวณหลังเข่า โดยให้สเกตทั้งสองอยู่บนพื้น',
-    [44, 61, 41, 69], [76, 62, 62, 76], ('palm', 'palm'), 'tap',
-    away_right=[81, 62, 74, 79], stance='leg', target=[62, 76])
+    [37, 50, 42, 66], [52, 58, 37, 77], ('palm', 'palm'), 'tap',
+    away_right=[56, 57, 45, 70], stance='leg', target=[37, 77])
 add('elbowing', 'Elbowing', 'ใช้ศอก', '45', 'penalty', 163,
     'Touch one elbow with the opposite hand.', 'ใช้มือแตะข้อศอกของแขนอีกข้าง',
     [35, 49, 72, 42], [73, 42, 59, 46], ('palm', 'fist'), 'tap', away_left=[34, 50, 63, 54])
@@ -211,9 +211,9 @@ def render(signal, t, size=360):
     for x in [40, 46, 52, 58]:
         line([(x, 34), (max(42, min(58, x)), 63)], width=2.5)
     draw.line([xy(p) for p in torso + [torso[0]]], fill='#172437', width=round(1.4*unit))
-    draw.rectangle((*xy((46.5, 24)), *xy((53.5, 32))), fill='#efc8a8')
-    ellipse([42, 10, 58, 26], '#efc8a8', width=1.3)
-    draw.arc((*xy((42, 10)), *xy((58, 26))), 185, 350, fill='#172437', width=round(2.6*unit))
+    draw.rectangle((*xy((46.5, 28)), *xy((53.5, 32))), fill='#efc8a8')
+    ellipse([42, 13, 58, 29], '#efc8a8', width=1.3)
+    draw.arc((*xy((42, 13)), *xy((58, 29))), 185, 350, fill='#172437', width=round(2.6*unit))
     pose = frame_at(signal, t)
     for side, shoulder, kind in zip(['left', 'right'], [(38, 33), (62, 33)], signal['hands']):
         ex, ey, hx, hy = pose[side]

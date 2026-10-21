@@ -127,7 +127,7 @@ test('New shift asks first', async ({ page }) => {
   await expect(page.getByLabel('shift', { exact: true })).toHaveText(/^(90|89)$/)
 })
 
-test('four scores align with unequal team names and missing logos; penalty covers only its own score', async ({ page, context }) => {
+test('four scores align with unequal team names and missing logos; penalty stays below scores', async ({ page, context }) => {
   const code = uniqueCode('aligned')
   await page.goto(`/c/${code}?k=testkey&mode=small`)
   await expect(page.locator('.rinktabs')).toBeVisible()
@@ -164,7 +164,7 @@ test('four scores align with unequal team names and missing logos; penalty cover
   await expect(board.locator('.dgame').first().locator('.penalty-signal')).toHaveCount(0)
   await expect(announcement).toHaveAttribute('data-team','away')
   const region = await announcement.boundingBox(), score = await scores.last().boundingBox()
-  expect(region.y).toBeLessThan(score.y + score.height)
-  expect(region.y + region.height).toBeGreaterThan(score.y)
+  expect(region.y).toBeGreaterThanOrEqual(score.y + score.height)
+  expect(region.height).toBeGreaterThan(0)
   if (process.env.LBS_PREVIEW_DIR) await board.screenshot({path:`${process.env.LBS_PREVIEW_DIR}/center-four-team-penalty.png`})
 })
