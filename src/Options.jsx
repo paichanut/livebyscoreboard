@@ -343,7 +343,7 @@ function SoundsTab({ o, set }) {
   const EVENTS = [['horn', 'Horn button'], ['buzzer', 'Buzzer button'], ['endPeriod', 'End of period'], ['timeoutStart', 'Start of timeout'], ['timeoutWarn', 'Timeout warning'], ['timeoutEnd', 'End of timeout']]
   return (
     <>
-      <div className="hint">Sounds play on the display (TV) page. Tap "enable sound" there once.</div>
+      <div className="hint">Arena audio is always enabled on the control and display pages. A browser may require one tap on each page to allow playback.</div>
       {EVENTS.map(([k, label]) => (
         <div className="colorrow" key={k}>
           <span>{label}</span>

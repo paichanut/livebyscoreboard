@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createStore } from './sync.js'
 import { withDefaults } from './options.js'
 import { clockRemaining } from './game.js'
+import { now as wallNow } from './clock.js'
 
 export function useGame(gameId, opts = {}) {
   const storeRef = useRef(null)
@@ -36,20 +37,21 @@ export function useTick(intervalMs, active = true) {
   }, [intervalMs, active])
 }
 
-// Redraw while a clock runs: every 50 ms and exactly when the game clock turns the next whole second, so
-// the clock, the shift countdown and the shift buzzer (useGameSounds) change on the same instant.
+// Redraw every 50 ms and at each clock tenth, including the exact expiry.
+// Return one time snapshot for both the displayed clock and its sound checks.
 export function useClockTick(s, active = true) {
   const [, setN] = useState(0)
   useEffect(() => {
     if (!active) return
     let id
     const loop = () => {
-      const toSecond = (s?.clock?.running ? clockRemaining(s) % 1000 : 0) || 1000
-      id = setTimeout(() => { setN(n => n + 1); loop() }, Math.min(50, toSecond + 1))
+      const toTenth = (s?.clock?.running ? clockRemaining(s) % 100 : 0) || 100
+      id = setTimeout(() => { setN(n => n + 1); loop() }, Math.min(50, toTenth))
     }
     loop()
     return () => clearTimeout(id)
   }, [s, active])
+  return wallNow()
 }
 
 export const cleanCode = c => (c || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32)

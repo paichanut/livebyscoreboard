@@ -19,8 +19,8 @@ export const HORN_FADE_SEC = 1
 const fadeFor = dur => (dur >= 2 ? HORN_FADE_SEC : 0)
 
 export function unlockAudio() {
-  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
-  if (ctx.state === 'suspended') ctx.resume()
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' })
+  if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume()?.catch(() => {})
   preload()
   return ctx
 }

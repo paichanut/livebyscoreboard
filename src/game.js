@@ -185,8 +185,11 @@ export function strengthLabel(state, now = wallNow()) {
   return `${h}v${a}`
 }
 
-export function fmtClock(ms, { tenths = true } = {}) {
+export function fmtClock(ms, { tenths = true, countdown = true } = {}) {
+  // Never show an expired countdown while positive time remains. Keep the
+  // existing truncation elsewhere, including the shift/game second alignment.
   ms = Math.max(0, ms)
+  if (countdown && ms > 0) ms = Math.max(tenths ? 100 : 1000, ms)
   const totalSec = Math.floor(ms / 1000)
   const m = Math.floor(totalSec / 60)
   const s = totalSec % 60
@@ -256,7 +259,10 @@ export function startClock(s, { penalties = true, now = wallNow() } = {}) {
 
 export function stopClock(s, now = wallNow()) {
   if (!s.clock.running) return s
-  return touch({ ...foldAll(s, now), clock: { remainingMs: clockRemaining(s, now), running: false, since: null } })
+  const remainingMs = clockRemaining(s, now)
+  // Tell other screens this was a real expiry, even if their local clock is a few ms behind.
+  const expiredAt = remainingMs <= 0 ? s.clock.since + s.clock.remainingMs : null
+  return touch({ ...foldAll(s, now), clock: { remainingMs, running: false, since: null, expiredAt } })
 }
 
 // The whistle: pause or resume penalty clocks without touching the game clock

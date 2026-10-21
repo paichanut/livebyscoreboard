@@ -18,8 +18,7 @@ test('horn button on control plays the horn sample on the display (sound on by d
 
   // sound is on by default; if the browser holds audio back, a tap anywhere unlocks it
   await board.locator('.board').click({ position: { x: 5, y: 5 } })
-  await expect(board.locator('.board .sound')).toHaveClass(/on/)
-  await expect(board.locator('.board .sound')).toHaveText(/sound on/)
+  await expect(board.locator('.board .sound')).toHaveCount(0)
   // samples are decoded after the tap
   await board.waitForFunction(() => window.__played !== undefined)
   await board.waitForTimeout(800)
@@ -44,16 +43,16 @@ test('horn plays on the control page and the display at the same time (sound on 
   const board = await openBoard(context, code)
   await board.locator('.board').click({ position: { x: 5, y: 5 } })
   await page.locator('.clockcard .c').click()
-  await expect(page.locator('.csound')).toHaveText(/sound on/)
+  await expect(page.locator('.csound')).toHaveCount(0)
   await page.waitForTimeout(800)
   await page.getByRole('button', { name: '📯 Horn' }).click()
   await page.waitForFunction(() => window.__played.length > 0)
   await board.waitForFunction(() => window.__played.length > 0)
   expect((await page.evaluate(() => window.__played))[0].kind).toBe('sample')
   expect((await board.evaluate(() => window.__played))[0].kind).toBe('sample')
-  // the operator can still mute their own page
-  await page.locator('.csound').click()
-  await expect(page.locator('.csound')).toHaveText(/sound off/)
+  // No sound on/off control remains on either page.
+  await expect(page.getByRole('button', { name: /sound on|sound off/i })).toHaveCount(0)
+  await expect(board.getByRole('button', { name: /sound on|sound off/i })).toHaveCount(0)
 })
 
 test('+ GOAL 📯 adds the goal and sounds the horn on the display', async ({ page, context }) => {

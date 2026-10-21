@@ -636,3 +636,27 @@ test('correction key: F2 by default; games still on ` move to F2 once, another k
   assert.equal(withDefaults({ ...G.newGame(), opts: { keys: { correction: 'Backquote' } } }).opts.keys.correction, 'F2')
   assert.equal(withDefaults({ ...G.newGame(), opts: { keysV: 2, keys: { correction: 'Backquote' } } }).opts.keys.correction, 'Backquote')
 })
+
+test('countdowns show zero only when no time remains', () => {
+  for (const ms of [1, 49, 99]) assert.equal(G.fmtClock(ms), '0.1')
+  for (const ms of [1, 99, 999]) assert.equal(G.fmtClock(ms, { tenths: false }), '0:01')
+  assert.equal(G.fmtClock(0), '0.0')
+  assert.equal(G.fmtClock(0, { tenths: false }), '0:00')
+  assert.equal(G.fmtClock(49, { countdown: false }), '0.0', 'count-up clocks still truncate elapsed time')
+})
+
+test('silent arena sound settings migrate to audible defaults', () => {
+  const sounds = Object.fromEntries(Object.keys(G.newGame().opts.sounds).map(k => [k, 'none']))
+  assert.deepEqual(withDefaults({ opts: { sounds } }).opts.sounds, G.newGame().opts.sounds)
+  const custom = withDefaults({ opts: { sounds: { endPeriod: 'synth-buzzer' } } })
+  assert.equal(custom.opts.sounds.endPeriod, 'synth-buzzer')
+})
+
+
+test('stopping at expiry marks the deadline for other screens; pause and corrections do not', () => {
+  const running = { ...G.newGame(), clock: { running: true, since: 1000, remainingMs: 2000 } }
+  assert.equal(G.stopClock(running, 2999).clock.expiredAt, null)
+  assert.equal(G.stopClock(running, 3000).clock.expiredAt, 3000)
+  assert.equal(G.stopClock(running, 4000).clock.expiredAt, 3000)
+  assert.equal(G.setClock(G.stopClock(running, 4000), 2000).clock.expiredAt, undefined)
+})

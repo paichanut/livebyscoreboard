@@ -119,7 +119,6 @@ input, select { font-family: inherit; }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .board .brand { position: absolute; bottom: 1.6vh; left: 0; right: 0; text-align: center; font-family: var(--font-ui); font-size: calc(1.1 * var(--u)); letter-spacing: .3em; color: var(--dim); text-transform: uppercase; }
 .board .sound { position: absolute; top: 1.5vh; right: calc(1.5 * var(--u)); font-family: var(--font-ui); font-size: calc(1.1 * var(--u)); background: var(--card2); color: var(--muted); border-radius: 999px; padding: .8vh calc(1.4 * var(--u)); }
-.board .sound.on { color: var(--go); }
 .board .status { position: absolute; top: 1.5vh; left: calc(1.5 * var(--u)); font-family: var(--font-ui); font-size: calc(1.1 * var(--u)); letter-spacing: .15em; text-transform: uppercase; color: var(--dim); }
 @media (orientation: portrait) {
   .board { grid-template-columns: 1fr 1fr; grid-template-rows: auto minmax(0, 1fr); padding: 3vh 4vw; }
@@ -367,7 +366,6 @@ input, select { font-family: inherit; }
 .timebadge { color: var(--accent); }
 
 .control .csound { color: var(--muted); }
-.control .csound.on { color: var(--go); }
 
 .control .localwarn { background: #3a2b00; color: #ffd166; border: 1px solid #7a5a00; border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.4; }
 
@@ -467,8 +465,6 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .board.clear .mid, .board.arena .mid { background: var(--card); border-radius: calc(1.6 * var(--u)); padding: 2vh calc(1.5 * var(--u)); }
 .board.clear .pens:empty { display: none; }
 /* on a stream the sound button is invisible until the mouse is over it */
-.board.clear .sound { opacity: 0; transition: opacity .2s; }
-.board.clear .sound:hover, .board.clear .sound:focus-visible { opacity: 1; }
 /* arena cards scale with the shorter side so a small or wide overlay never clips */
 .board.arena { --u: min(1vw, 1.75vh); }
 .board.arena .team .name { font-size: calc(4.6 * var(--u)); }
