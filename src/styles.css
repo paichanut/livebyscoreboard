@@ -240,7 +240,7 @@ input, select { font-family: inherit; }
 .board .period b { color: var(--c-period, var(--accent)); }
 .board .pen .pp { color: var(--c-penplayer, var(--text)); }
 .board .pen .pt { color: var(--c-pentime, var(--muted)); }
-.board .goalflash { color: var(--c-goal, var(--c)); }
+.board .goalflash { color: var(--c-goal, var(--accent)); }
 
 /* ---------- Logos, title bar, layouts ---------- */
 /* team logo: a faded picture behind the score */
@@ -438,7 +438,7 @@ input, select { font-family: inherit; }
 .board.arena .penbox { grid-row: 2; background: var(--card); border-radius: calc(1.2 * var(--u)); border-left: .7vw solid var(--c); padding: 1.2vh calc(1.6 * var(--u)); min-height: 20vh; display: flex; flex-direction: column; gap: .6vh; }
 .board.arena .penbox.pb-home { grid-column: 1; }
 .board.arena .penbox.pb-away { grid-column: 3; }
-.board.arena .penbox .ph { font-size: calc(1.9 * var(--u)); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board.arena .penbox .ph { font-size: calc(1.9 * var(--u)); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--c-teamname, var(--muted)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .board.arena .penbox .prow { display: flex; justify-content: space-between; align-items: baseline; font-size: calc(3.4 * var(--u)); font-weight: 800; line-height: 1.1; }
 .board.arena .penbox .prow .pp { color: var(--c-penplayer, var(--text)); }
 .board.arena .penbox .prow .pt { color: var(--c-pentime, var(--accent)); }
@@ -544,7 +544,7 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .compactb .clogo { height: calc(9 * var(--u)); display: flex; align-items: center; justify-content: center; }
 .compactb .clogo img { max-height: 100%; max-width: calc(14 * var(--u)); object-fit: contain; }
 .compactb .cname { font-size: calc(4 * var(--u)); color: var(--c-teamname, inherit); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; text-align: center; line-height: 1.05; margin-top: calc(.6 * var(--u)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.compactb .cscore { font-size: calc(17 * var(--u)); font-weight: 800; line-height: 1; color: var(--c-score, var(--c)); margin: calc(.4 * var(--u)) 0; text-shadow: 0 0 calc(1.2 * var(--u)) rgba(0,0,0,.35); }
+.compactb .cscore { font-size: calc(17 * var(--u)); font-weight: 800; line-height: 1; color: var(--c-score, inherit); margin: calc(.4 * var(--u)) 0; text-shadow: 0 0 calc(1.2 * var(--u)) rgba(0,0,0,.35); }
 .compactb .clabel { font-family: var(--font-ui); font-size: calc(1.8 * var(--u)); letter-spacing: .14em; text-transform: uppercase; color: var(--cp-label); font-weight: 700; min-height: 1.2em; }
 .compactb .cshots { font-size: calc(5 * var(--u)); font-weight: 800; line-height: 1; color: var(--c-shots, inherit); }
 .compactb .cpens { margin-top: auto; width: 100%; min-height: calc(7.6 * var(--u)); display: flex; flex-direction: column; justify-content: flex-end; gap: calc(.4 * var(--u)); }
@@ -633,7 +633,7 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 /* offside: same slot as GOAL!, a steady (non-blinking) label for a few seconds */
 .board .goalflash.offside { animation: none; letter-spacing: .08em; }
 .board .pencall { display: flex; flex-direction: column; align-items: center; max-width: 100%; line-height: 1.05; text-align: center; animation: pencall .25s ease-out; }
-.board .pencall .pclabel { font-size: calc(2.6 * var(--u)); font-weight: 800; letter-spacing: .18em; color: var(--c-goal, var(--c)); white-space: nowrap; }
+.board .pencall .pclabel { font-size: calc(2.6 * var(--u)); font-weight: 800; letter-spacing: .18em; color: var(--c-goal, var(--accent)); white-space: nowrap; }
 .board .pencall .pclabel span { color: var(--muted); letter-spacing: .08em; }
 .board .pencall .pctext { font-size: calc(3.6 * var(--u)); font-weight: 800; letter-spacing: .04em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 @keyframes pencall { from { opacity: 0; transform: translateY(calc(.6 * var(--u))); } to { opacity: 1; transform: none; } }
@@ -659,11 +659,12 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 .board.dual .dteam.flash { animation: flashbg2 .5s ease-in-out infinite alternate; }
 @keyframes flashbg2 { from { background: var(--card2); } to { background: color-mix(in srgb, var(--c) 40%, var(--card2)); } }
 .board.dual .dtlogo { height: calc(7 * var(--u)); max-width: 80%; object-fit: contain; flex-shrink: 1; min-height: 0; }
-.board.dual .dname { font-size: calc(3 * var(--u)); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; text-align: center; line-height: 1.05; max-width: 100%; overflow-wrap: anywhere; color: #dfe5ec; }
-.board.dual .dscore { font-size: calc(15 * var(--u)); font-weight: 800; line-height: .95; }
+.board.dual .dname { font-size: calc(3 * var(--u)); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; text-align: center; line-height: 1.05; max-width: 100%; overflow-wrap: anywhere; color: var(--c-teamname, var(--text)); }
+.board.dual .dscore { font-size: calc(15 * var(--u)); font-weight: 800; line-height: .95; color: var(--c-score, var(--text)); }
 .board.dual .dpens { display: flex; flex-direction: column; gap: calc(.5 * var(--u)); width: 100%; margin-top: auto; min-height: calc(7 * var(--u)); }
 .board.dual .dpen { display: flex; justify-content: space-between; align-items: baseline; gap: calc(.6 * var(--u)); background: var(--card); border-left: calc(.5 * var(--u)) solid var(--c); border-radius: calc(.6 * var(--u)); padding: calc(.3 * var(--u)) calc(.8 * var(--u)); font-size: calc(2.6 * var(--u)); font-weight: 800; }
-.board.dual .dpen b { color: var(--stop); }
+.board.dual .dpen > span { color: var(--c-penplayer, var(--text)); }
+.board.dual .dpen b { color: var(--c-pentime, var(--stop)); }
 .board.dual .dpen.more { justify-content: center; color: var(--muted); font-size: calc(2 * var(--u)); }
 .board.dual .evslot { min-height: calc(5 * var(--u)); }
 .board.dual .goalflash { font-size: calc(4.2 * var(--u)); }

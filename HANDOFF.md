@@ -6,6 +6,10 @@ Updated 2026-10-21. Continue in the existing repository `paichanut/livebyscorebo
 
 The desktop app now automatically persists the shared team library, including logo bytes, in `downloaded-teams.json` under its existing user data folder. It reads disk before checking the network, preserves downloaded teams offline, and refreshes the library on startup, reconnection, every five minutes online, or Team logos → Check for team updates. Unchanged external images are reused; changed images that fail to download retain their previous local copy and retry later. Personal teams and current game selections are independent. See `desktop/teams.cjs`, its IPC handlers/preload, and `desktop/README.md`. Run `npm run test:desktop` for the built desktop UI checks (real disk cache, mocked Electron IPC and remote/game endpoints). This requires installing the desktop release containing the cache; deploying Vercel alone does not update an installed desktop app.
 
+## Scoreboard text colors
+
+Corresponding text uses the same element color on both sides: scores, team names, penalty player numbers and event labels. Custom Colors settings apply to both sides, including all four small-ice scores. Team accent colors remain on borders and flashes.
+
 ## Current penalty display follow-up
 
 The follow-up changes shorten the referee neck and clarify tripping (below knee), kneeing (front of knee), and clipping (behind knee). Every scoreboard layout clips the illustration to a lower region after its score. The publication details below describe the earlier baseline release; check GitHub Actions and the latest release for the follow-up version.
