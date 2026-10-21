@@ -98,12 +98,19 @@ const takesSlot = p => !p.coincidental && ['minor', 'double', 'major'].includes(
 // Shown on the display's penalty clocks
 export const onPenaltyClock = p => takesSlot(p)
 
+// IIHF 3x3 Ultimate Hockey uses penalty shots. Standard 3-on-3 overtime
+// uses the separate 4-on-3 manpower procedure from the main rulebook.
+export const isThreeOnThree = s => Number(s.skaters) === 3 && s.opts?.threeOnThreeRules !== 'overtime'
+export const isPenaltyShot = (s, p) => Boolean(p.penaltyShot || p.kind === 'shot' || (isThreeOnThree(s) && ['minor', 'double', 'major'].includes(kindOf(p))))
+
 // { [id]: { remainingMs, status: 'running' | 'waiting' | 'done' | 'game' } }
 export function penaltyView(s, now = wallNow()) {
   const budget = liveBudget(s, now)
   const out = {}
   for (const team of ['home', 'away']) {
-    const list = (s.penalties || []).filter(p => p.team === team)
+    const all = (s.penalties || []).filter(p => p.team === team)
+    for (const p of all) if (isPenaltyShot(s, p)) out[p.id] = { remainingMs: 0, status: 'shot' }
+    const list = all.filter(p => !isPenaltyShot(s, p))
     // slot penalties: spend the live time on the (at most two) running ones; when one ends, the next starts
     const endAt = {} // live-time offset at which a slot penalty ended (Infinity = still going)
     let pending = list.filter(takesSlot).map(p => ({ id: p.id, rem: Math.max(0, p.durationMs - (p.elapsedMs || 0)) }))
@@ -167,6 +174,7 @@ export function teamPenalties(state, team, now = wallNow()) {
 }
 
 export function skaters(state, now = wallNow()) {
+  if (isThreeOnThree(state)) return { home: 3, away: 3 }
   const v = penaltyView(state, now)
   const down = team => state.penalties.filter(p => p.team === team && takesSlot(p) && v[p.id]?.status === 'running').length
   let h = state.skaters - down('home')
@@ -238,7 +246,7 @@ const touch = s => ({ ...s, updatedAt: wallNow() })
 export function foldPenalties(s, now = wallNow()) {
   const v = penaltyView(s, now)
   const penalties = (s.penalties || []).filter(p => v[p.id] && v[p.id].status !== 'done')
-    .map(p => ({ ...p, kind: kindOf(p), elapsedMs: p.durationMs - v[p.id].remainingMs }))
+    .map(p => v[p.id].status === 'shot' ? p : ({ ...p, kind: kindOf(p), elapsedMs: p.durationMs - v[p.id].remainingMs }))
   const ended = (s.penalties || []).filter(p => !penalties.some(q => q.id === p.id))
   return logPenaltyEnds({ ...s, penalties, penFoldAt: now }, ended, 'expired', now)
 }
@@ -444,14 +452,16 @@ export function setTeam(s, team, patch) {
 export function addPenalty(s, team, player, minutes, infraction = '', { kind, coincidental = false } = {}) {
   const f = foldPenalties(s)
   const game = kind === 'game'
+  const shot = isThreeOnThree(s) && !game && minutes !== 10
   const p = {
     id: Math.random().toString(36).slice(2, 9),
     team,
     player: String(player || '').trim(),
     infraction: String(infraction || '').trim(),
-    minutes: game ? 20 : minutes,
-    kind: game ? 'game' : penaltyKind(minutes),
-    durationMs: game ? 0 : minutes * MIN,
+    minutes: game ? 20 : shot ? 0 : minutes,
+    kind: game ? 'game' : shot ? 'shot' : penaltyKind(minutes),
+    durationMs: game || shot ? 0 : minutes * MIN,
+    ...(shot ? { penaltyShot: true } : {}),
     elapsedMs: 0,
     ...(coincidental && !game ? { coincidental: true } : {}),
   }
@@ -462,11 +472,17 @@ export function addPenalty(s, team, player, minutes, infraction = '', { kind, co
   const same = prev && prev.team === team && prev.player === p.player && now - prev.at < PENALTY_JOIN_MS
   const penaltyCall = { team, player: p.player, at: same ? prev.at : now, ids: same ? [...prev.ids, p.id] : [p.id] }
   return touch(logEvent({ ...f, penalties: [...f.penalties, p], penaltyCall }, 'penalty', {
-    team, player: p.player, minutes: p.minutes, infraction: p.infraction, penaltyId: p.id, kind: p.kind, ...(p.coincidental ? { coincidental: true } : {}),
+    team, player: p.player, minutes: p.minutes, infraction: p.infraction, penaltyId: p.id, kind: p.kind, ...(shot ? { penaltyShot: true } : {}), ...(p.coincidental ? { coincidental: true } : {}),
   }))
 }
 
 export const PENALTY_SHOW_MS = 15000 // Pai: the penalty stays on the scoreboard for 15 s
+
+export function completePenaltyShot(s, id) {
+  const p = s.penalties.find(p => p.id === id)
+  if (!p || !isPenaltyShot(s, p)) return s
+  return touch(logPenaltyEnds({ ...s, penalties: s.penalties.filter(p => p.id !== id) }, [p], 'penalty-shot'))
+}
 const PENALTY_JOIN_MS = 2000
 
 // The penalty just called, for the display: { team, player, at, text } for PENALTY_SHOW_MS after it was
@@ -477,12 +493,13 @@ export function penaltyCallActive(s, now = wallNow()) {
   const items = c.ids.map(id => s.penalties.find(p => p.id === id)).filter(Boolean)
   if (!items.length) return null
   const one = (p, first) => {
+    if (isPenaltyShot(s, p)) return [first ? p.infraction : '', 'PENALTY SHOT'].filter(Boolean).join(' · ')
     if (kindOf(p) === 'game') return first ? (p.infraction && !/game misconduct/i.test(p.infraction) ? `${p.infraction} · GAME MISCONDUCT` : 'GAME MISCONDUCT') : 'GM'
     const time = `${p.minutes}:00`
     return first ? [p.infraction || (kindOf(p) === 'misconduct' ? 'MISCONDUCT' : ''), time].filter(Boolean).join(' ') : time
   }
   const text = [items[0].player ? `#${items[0].player}` : '', items.map((p, i) => one(p, i === 0)).join(' + ')].filter(Boolean).join(' ')
-  return { team: c.team, player: c.player, at: c.at, text: text.toUpperCase() }
+  return { team: c.team, player: c.player, at: c.at, infraction: items[0].infraction, text: text.toUpperCase() }
 }
 
 export function removePenalty(s, id) {
@@ -504,13 +521,15 @@ export function editPenalty(s, id, { player, minutes, infraction, kind, coincide
       if (p.id !== id) return p
       // kind: 'game' | 'auto' (from minutes) | undefined (keep)
       const game = kind === 'game' || (kind == null && minutes == null && p.kind === 'game')
-      const durationMs = game ? 0 : minutes != null ? minutes * MIN : p.durationMs
+      const shot = !game && isThreeOnThree(s) && (minutes ?? p.minutes) !== 10
+      const durationMs = game || shot ? 0 : minutes != null ? minutes * MIN : p.durationMs
       const next = {
         ...p,
         player: player != null ? String(player).trim() : p.player,
         infraction: infraction != null ? String(infraction).trim() : p.infraction,
-        minutes: game ? 20 : minutes ?? p.minutes,
-        kind: game ? 'game' : minutes != null ? penaltyKind(minutes) : p.kind,
+        minutes: game ? 20 : shot ? 0 : minutes ?? p.minutes,
+        kind: game ? 'game' : shot ? 'shot' : minutes != null ? penaltyKind(minutes) : p.kind,
+        penaltyShot: shot,
         durationMs,
         elapsedMs: Math.min(p.elapsedMs, durationMs),
       }
@@ -656,7 +675,7 @@ export function gameSheet(s) {
     const game = e.kind === 'game'
     const pim = game ? 20 : Number(e.minutes) || 0
     const base = { 2: 'Minor', 4: 'Double minor', 5: 'Major', 10: 'Misconduct' }[pim] || ''
-    const offence = game ? `Game misconduct${e.infraction ? ` – ${e.infraction}` : ''}` : e.infraction || base
+    const offence = game ? `Game misconduct${e.infraction ? ` – ${e.infraction}` : ''}` : (e.infraction || base) + (e.penaltyShot ? ' · Penalty shot' : '')
     return {
       period: e.period, time: time(e), team: e.team, teamName: team(e.team).name, player: e.player || '', pim,
       offence: offence + (e.coincidental ? ' (coincidental)' : ''),

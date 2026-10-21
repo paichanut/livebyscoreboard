@@ -25,6 +25,28 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { spawn } = require('node:child_process')
 
+const SITE = 'https://livebyscoreboard.vercel.app'
+const { createHmac } = require('node:crypto')
+const fixedControlKey = () => createHmac('sha256',settings.fixed.key).update('desktop-control-v1:' + settings.fixed.nonce).digest('hex').slice(0,24)
+let fixedTimer = null
+let fixedBusy = false
+let fixedPending = false
+async function fixedApi(body) {
+  const response = await net.fetch(SITE + '/api/desktop-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)})
+  const result = await response.json()
+  if (!response.ok || result.error) throw new Error(result.error || 'Fixed link service unavailable.')
+  return result
+}
+async function publishFixed() {
+  if (!settings.fixed?.key) return
+  if (fixedBusy) { fixedPending = true; return }
+  fixedBusy = true
+  try {
+    const r = await fixedApi({action:'publish',code:settings.fixed.code,machineKey:settings.fixed.key,nonce:settings.fixed.nonce,url:settings.enabled ? status.url : ''})
+    set({fixedStatus:r.ok ? (status.url && settings.enabled ? 'online' : 'offline') : 'error'})
+  } catch(e) { set({fixedStatus:e.message}) }
+  finally { fixedBusy=false; if (fixedPending) { fixedPending=false; publishFixed() } }
+}
 const RETRY_MS = 60_000
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
@@ -73,6 +95,7 @@ function saveSettings() {
 // what the control page may see: never the token itself
 const publicState = () => ({
   enabled: settings.enabled, ...status, local: port ? `http://127.0.0.1:${port}` : '',
+  fixed: settings.fixed?.key ? {code:settings.fixed.code,links:(({watch,run})=>({watch,run}))(links(SITE,settings.fixed.code,false))} : null,
   links: status.url ? (({ watch, run }) => ({ watch, run }))(links(status.url)) : null,
   telegram: { tokenSet: Boolean(settings.telegram.botToken), chatId: settings.telegram.chatId, last: status.telegram },
 })
@@ -335,7 +358,7 @@ async function startTunnel() {
         if (!ok) return restartTunnel(child)
         badTunnels = 0
         set({ state: 'online', url })
-        announce(url)
+        publishFixed().then(() => announce(url))
         watchHealth(child, url)
       })
     }
@@ -364,6 +387,7 @@ function stopTunnel() {
   tunnel = null
   if (t) try { t.kill() } catch {}
   set({ state: 'off', url: '' })
+  publishFixed()
 }
 
 // ---------- Telegram ----------
@@ -378,19 +402,19 @@ async function telegram(method, body) {
 }
 
 // every link of the game: what people watch, and the controllers (they log in with a Live by Scoreboard account)
-function links(url) {
+function links(url, code = 'main', secret = true) {
   const s = games.get('main')
   const small = Boolean(s?.opts?.smallIce && s.rinkB)
   const rA = s?.opts?.labels?.rinkA || 'Rink A', rB = s?.opts?.labels?.rinkB || 'Rink B'
   const watch = small
-    ? [['Center scoreboard', `${url}/b/main`], [`Scoreboard ${rA}`, `${url}/b/main?rink=a`], [`Scoreboard ${rB}`, `${url}/b/main?rink=b`]]
-    : [['Scoreboard', `${url}/b/main`]]
-  if (Number(s?.opts?.shiftMs) > 0) watch.push(['Shift clock', `${url}/b/main?view=shift`])
-  watch.push(...(small ? [[`OBS banner ${rA}`, `${url}/o/main?rink=a`], [`OBS banner ${rB}`, `${url}/o/main?rink=b`]] : [['OBS banner', `${url}/o/main`]]))
-  const k = settings.controlKey
+    ? [[`Display A · ${rA}`, `${url}/b/${code}?rink=a`], [`Display B · ${rB}`, `${url}/b/${code}?rink=b`], ['Display C · CENTER (both rinks)', `${url}/b/${code}`]]
+    : [['Scoreboard', `${url}/b/${code}`]]
+  if (Number(s?.opts?.shiftMs) > 0) watch.push(['Shift clock', `${url}/b/${code}?view=shift`])
+  watch.push(...(small ? [[`OBS banner ${rA}`, `${url}/o/${code}?rink=a`], [`OBS banner ${rB}`, `${url}/o/${code}?rink=b`]] : [['OBS banner', `${url}/o/${code}`]]))
+  const k = secret ? '?key=' + settings.controlKey : ''
   const run = small
-    ? [['Center controller (clock + both rinks)', `${url}/c/main?key=${k}`], [`Controller ${rA}`, `${url}/c/main?rink=a&key=${k}`], [`Controller ${rB}`, `${url}/c/main?rink=b&key=${k}`]]
-    : [['Controller', `${url}/c/main?key=${k}`]]
+    ? [['Center controller (clock + both rinks)', `${url}/c/${code}${k}`], [`Controller ${rA}`, `${url}/c/${code}?rink=a${secret ? '&key=' + settings.controlKey : ''}`], [`Controller ${rB}`, `${url}/c/${code}?rink=b${secret ? '&key=' + settings.controlKey : ''}`]]
+    : [['Controller', `${url}/c/${code}${k}`]]
   return { watch, run, s }
 }
 
@@ -398,7 +422,9 @@ const message = url => {
   const { watch, run, s } = links(url)
   const match = s ? `${s.home?.name || 'HOME'} vs ${s.away?.name || 'AWAY'}${s.rinkB && s.opts?.smallIce ? ` · ${s.rinkB.home?.name} vs ${s.rinkB.away?.name}` : ''}\n` : ''
   const list = rows => rows.map(([label, link]) => `${label}: ${link}`).join('\n')
-  return `🏒 Live by Scoreboard is online\n${match}\nWatch:\n${list(watch)}\n\nRun the game (keep these links private):\n${list(run)}`
+  const fixed = settings.fixed?.key ? links(SITE,settings.fixed.code,false) : null
+  const permanent = fixed ? '\nFIXED VERCEL LINKS:\nWatch:\n' + list(fixed.watch) + '\nRun (operator login):\n' + list(fixed.run) + '\n\nDYNAMIC CLOUDFLARE LINKS:\n' : ''
+  return `🏒 Live by Scoreboard is online\n${match}${permanent}\nWatch:\n${list(watch)}\n\nRun the game (keep these links private):\n${list(run)}`
 }
 
 async function sendTelegram(url) {
@@ -436,7 +462,21 @@ async function initShare({ webDir, license: lic }) {
   license = lic || license
   settingsFile = path.join(app.getPath('userData'), 'share.json')
   loadSettings()
+  if (settings.fixed?.key) settings.controlKey = fixedControlKey()
   await startServer()
+  fixedTimer = setInterval(publishFixed, 60000)
+  ipcMain.handle('share:pair', async (_e, credentials) => {
+    try {
+      if (settings.fixed?.key && settings.fixed.code !== String(credentials?.code || '').trim().toLowerCase()) return {ok:false,error:'This desktop is already paired. Keep its existing machine name.'}
+      const fixed = await fixedApi({action:'register',code:credentials.code,username:credentials.username,password:credentials.password})
+      settings.fixed = fixed
+      settings.controlKey = fixedControlKey()
+      saveSettings(); sessions.clear(); sentUrl=''; set({})
+      await publishFixed()
+      if (status.url) await announce(status.url)
+      return {ok:true}
+    } catch(e) { return {ok:false,error:e.message} }
+  })
 
   ipcMain.on('share:publish', (_e, id, state) => publish(String(id), state))
   ipcMain.handle('share:get', () => publicState())
@@ -464,7 +504,8 @@ async function initShare({ webDir, license: lic }) {
   })
   // new controller key: links sent before stop working, and phones that already opened one are logged out
   ipcMain.handle('share:newKey', () => {
-    settings.controlKey = newKey()
+    if (settings.fixed?.key) { settings.fixed.nonce = require('node:crypto').randomBytes(16).toString('hex'); settings.controlKey = fixedControlKey(); publishFixed() }
+    else settings.controlKey = newKey()
     saveSettings()
     sessions.clear()
     sentUrl = ''
@@ -472,12 +513,13 @@ async function initShare({ webDir, license: lic }) {
     if (status.url) announce(status.url)
     return publicState()
   })
-  ipcMain.handle('share:open', (_e, url) => { if (/^https:\/\/[-a-z0-9]+\.trycloudflare\.com\//.test(url)) shell.openExternal(url) })
+  ipcMain.handle('share:open', (_e, url) => { if (/^https:\/\/(?:[-a-z0-9]+\.trycloudflare\.com|livebyscoreboard\.vercel\.app)\//.test(url)) shell.openExternal(url) })
 
   if (settings.enabled) startTunnel()
 }
 
 function stopShare() {
+  clearInterval(fixedTimer)
   stopTunnel()
 }
 

@@ -28,7 +28,9 @@ export async function addPenalty(page, team, player, minutes) {
   await (team === 'home' ? home(page) : away(page)).getByRole('button', { name: 'add penalty' }).click()
   const sheet = page.locator('.sheet')
   await sheet.getByPlaceholder('#').fill(String(player))
-  await sheet.getByRole('button', { name: `${minutes} min`, exact: true }).click()
+  const shot = sheet.getByRole('button', { name: 'Penalty shot', exact: true })
+  if (minutes !== 10 && await shot.count()) await shot.click()
+  else await sheet.getByRole('button', { name: `${minutes} min`, exact: true }).click()
   await sheet.getByRole('button', { name: 'Add penalty' }).click()
   await expect(sheet).toBeHidden()
 }

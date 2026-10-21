@@ -130,6 +130,8 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters, pr
       <Row label="Skaters per side" as="div">
         <span className="chips">{[3, 4, 5].map(n => <button key={n} className={`btn ${skaters === n ? 'on' : ''}`} onClick={() => setSkaters(n)}>{n}v{n}</button>)}</span>
       </Row>
+      {Number(skaters) === 3 && <p className="hint">IIHF 3x3: playing penalties award a penalty shot; both teams stay at three skaters. Standard overtime uses its separate manpower rules.</p>}
+      {Number(skaters) === 3 && <Row label="3v3 penalty rules"><select value={o.threeOnThreeRules || 'penalty-shot'} onChange={e => set('threeOnThreeRules', e.target.value)}><option value="penalty-shot">IIHF 3x3 · penalty shots</option><option value="overtime">Standard overtime · manpower advantage</option></select></Row>}
       <h4>Timeouts</h4>
       <Num label="Timeout 1 duration (sec)" path="timeout1Sec" get={get} set={set} min={5} max={600} />
       <Num label="Timeout 2 duration (sec)" path="timeout2Sec" get={get} set={set} min={5} max={600} />

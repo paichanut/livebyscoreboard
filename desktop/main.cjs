@@ -34,6 +34,7 @@ function serve(req) {
 const webPreferences = { autoplayPolicy: 'no-user-gesture-required', plugins: true, contextIsolation: true, sandbox: true, backgroundThrottling: false }
 let control = null
 let display = null
+const rinkDisplays = new Map()
 let quitting = false
 
 const external = () => screen.getAllDisplays().find(d => d.id !== screen.getPrimaryDisplay().id)
@@ -87,6 +88,31 @@ function showControl() {
   control.show(); control.focus()
 }
 
+// A and B are independent windows, so operators can put each on its own screen.
+// C keeps the existing center scoreboard and automatic HDMI placement.
+function openRinkDisplay(rink) {
+  if (!['a', 'b'].includes(rink)) return openDisplay()
+  let win = rinkDisplays.get(rink)
+  if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); return win }
+  win = new BrowserWindow({
+    title: `${app.getName()} — Display ${rink.toUpperCase()}`, width: 1280, height: 720,
+    backgroundColor: '#0b0f14', autoHideMenuBar: true,
+    webPreferences: { ...webPreferences, preload: path.join(__dirname, 'display-preload.cjs') },
+  })
+  rinkDisplays.set(rink, win)
+  win.loadURL(`${ORIGIN}/b/${GAME}?rink=${rink}`)
+  win.on('page-title-updated', e => e.preventDefault())
+  win.webContents.on('before-input-event', (e, input) => {
+    if (input.type !== 'keyDown') return
+    if (input.key === 'F11') { win.setFullScreen(!win.isFullScreen()); e.preventDefault() }
+    if (input.key === 'Escape') win.setFullScreen(false)
+    if (input.key === 'F4' && !input.alt) { showControl(); e.preventDefault() }
+  })
+  win.on('close', e => { if (!quitting) { e.preventDefault(); win.hide() } })
+  win.on('closed', () => rinkDisplays.delete(rink))
+  return win
+}
+
 function openControl() {
   const wa = screen.getPrimaryDisplay().workArea
   control = new BrowserWindow({
@@ -102,7 +128,7 @@ function openControl() {
   })
   control.webContents.setWindowOpenHandler(({ url }) => {
     // the Display button (and the OBS banner link) → the scoreboard window
-    if (url.startsWith(`${ORIGIN}/b/`) || url.startsWith(`${ORIGIN}/board`)) { openDisplay(); return { action: 'deny' } }
+    if (url.startsWith(`${ORIGIN}/b/`) || url.startsWith(`${ORIGIN}/board`)) { openRinkDisplay(new URL(url).searchParams.get('rink')); return { action: 'deny' } }
     // our own pages (team logos, referee signals PDF) and print windows open inside the app
     if (url.startsWith(ORIGIN) || url === 'about:blank' || url === '') {
       return { action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true, width: 1000, height: 800, webPreferences } }

@@ -20,10 +20,25 @@ export function ShareSheet({ t, close, Sheet }) {
   const [chatId, setChatId] = useState(null)
   const [note, setNote] = useState('')
   const [copied, setCopied] = useState('')
+  const [machine, setMachine] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [pairing, setPairing] = useState(false)
+  const pair = async () => {
+    setPairing(true); setNote('Pairing desktop…')
+    try {
+      const result = await api.pairFixedLink({code:machine,username,password})
+      setNote(result.ok ? 'Fixed Vercel link paired.' : result.error)
+    } catch { setNote('Could not pair this desktop. Please retry.') }
+    finally { setPassword(''); setPairing(false) }
+  }
   if (!sh) return null
   const chat = chatId ?? sh.telegram.chatId
   // every board and controller (share.cjs links()); the controllers ask for a Live by Scoreboard login
-  const groups = sh.links ? [[t('linksWatch'), sh.links.watch], [t('shareRun'), sh.links.run]] : []
+  const groups = [
+    ...(sh.fixed ? [['Fixed Vercel · ' + t('linksWatch'),sh.fixed.links.watch],['Fixed Vercel · ' + t('shareRun'),sh.fixed.links.run]] : []),
+    ...(sh.links ? [['Dynamic Cloudflare · ' + t('linksWatch'),sh.links.watch],['Dynamic Cloudflare · ' + t('shareRun'),sh.links.run]] : []),
+  ]
   const copy = async url => { try { await navigator.clipboard.writeText(url); setCopied(url) } catch {} }
   const saveTelegram = async () => { await api.setTelegram({ botToken: token, chatId: chat }); setToken(''); setNote(t('saved')) }
   const find = async () => {
@@ -35,7 +50,16 @@ export function ShareSheet({ t, close, Sheet }) {
   return (
     <Sheet close={close}>
       <h3>🌐 {t('shareTitle')}</h3>
-      <p className="hint">{t('shareHelp')}</p>
+      <p className="hint">Keep a permanent Vercel address and the dynamic Cloudflare tunnel. Both link sets are sent to Telegram when the tunnel connects. The desktop must be online for either address to work.</p>
+      <h4>Fixed Vercel link</h4>
+      {sh.fixed ? <p className="hint">Machine: <b>{sh.fixed.code}</b> · {sh.fixedStatus || 'connecting'}<br />Controller links use your existing operator login.</p> : <div>
+        <p className="hint">Pair once with your existing operator account. Choose a unique machine name; it stays the same after restarts.</p>
+        <div className="field">Machine name<input aria-label="Machine name" autoCapitalize="none" value={machine} onChange={e => setMachine(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))} maxLength={40} placeholder="arena-pc" /></div>
+        <div className="field">Operator username<input aria-label="Operator username" autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} /></div>
+        <div className="field">Operator password<input aria-label="Operator password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></div>
+        <button className="btn" onClick={pair} disabled={pairing || machine.length < 3 || !username.trim() || !password}>{pairing ? 'Pairing…' : 'Pair fixed link'}</button>
+        <p className="hint">Your password is used only to pair this machine and is not saved.</p>
+      </div>}
       <div className="row">
         <button className={`btn ${sh.enabled ? 'on' : ''}`} style={{ flex: 1 }} onClick={() => api.enableShare(!sh.enabled)}>
           {sh.enabled ? t('shareOn') : t('shareOff')}

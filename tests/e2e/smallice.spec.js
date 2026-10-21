@@ -9,6 +9,9 @@ test('small ice: two games share the clock; center / A / B controllers and board
   await expect(tabs).toBeVisible()
   await expect(page.getByLabel('shift', { exact: true })).toHaveText('90')
 
+  await expect(page.getByRole('link', { name: 'Display A', exact: true })).toHaveAttribute('href', `${new URL(page.url()).origin}/b/${code}?rink=a`)
+  await expect(page.getByRole('link', { name: 'Display B', exact: true })).toHaveAttribute('href', `${new URL(page.url()).origin}/b/${code}?rink=b`)
+  await expect(page.getByRole('link', { name: 'Display C', exact: true })).toHaveAttribute('href', `${new URL(page.url()).origin}/b/${code}`)
   // Rink A: one goal; Rink B: two goals and a penalty
   await page.locator('.tc').first().getByRole('button', { name: '+ GOAL', exact: true }).click()
   await tabs.getByRole('button', { name: 'rink b' }).click()
@@ -122,4 +125,46 @@ test('New shift asks first', async ({ page }) => {
   page.once('dialog', d => d.accept())
   await page.getByRole('button', { name: 'reset shift' }).click()
   await expect(page.getByLabel('shift', { exact: true })).toHaveText(/^(90|89)$/)
+})
+
+test('four scores align with unequal team names and missing logos; penalty covers only its own score', async ({ page, context }) => {
+  const code = uniqueCode('aligned')
+  await page.goto(`/c/${code}?k=testkey&mode=small`)
+  await expect(page.locator('.rinktabs')).toBeVisible()
+  await page.evaluate(code => {
+    const key = 'rinkboard:' + code
+    const s = JSON.parse(localStorage.getItem(key))
+    const logo = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="240" height="240" rx="30" fill="gold"/><text x="120" y="150" font-size="90" text-anchor="middle">3x3</text></svg>')
+    s.home.name = 'PHOENIX'; s.away.name = 'NAKARAJ JR.'
+    s.rinkB.home.name = 'BANGKOK BEARS'; s.rinkB.away.name = 'JETS'
+    s.opts.homeLogo = logo; s.opts.logoImg = logo; s.opts.shiftMs = 0
+    s.skaters = 3
+    localStorage.setItem(key,JSON.stringify(s))
+  },code)
+  await page.reload()
+  const board = await context.newPage()
+  await board.goto(`/b/${code}`)
+  const scores = board.locator('.board.dual .dscore')
+  await expect(scores).toHaveCount(4)
+  for (const size of [{width:1920,height:1080},{width:1280,height:720},{width:844,height:390}]) {
+    await board.setViewportSize(size)
+    const positions = await scores.evaluateAll(els => els.map(el => el.getBoundingClientRect().y))
+    expect(Math.max(...positions)-Math.min(...positions)).toBeLessThan(1)
+  }
+  await board.setViewportSize({width:1920,height:1080})
+  const logo = await board.locator('.dmid .dlogo').boundingBox()
+  expect(logo.height).toBeGreaterThan(200)
+  await page.locator('.rinktabs').getByRole('button',{name:'rink b'}).click()
+  await page.locator('.tc').last().getByRole('button',{name:'add penalty'}).click()
+  await page.locator('.sheet').getByPlaceholder('#').fill('98')
+  await page.locator('.sheet .templates').getByRole('button',{name:/^Charging/}).click()
+  await page.locator('.sheet').getByRole('button',{name:/^Add penalty/}).click()
+  const announcement = board.locator('.penalty-signal')
+  await expect(announcement).toHaveCount(1)
+  await expect(board.locator('.dgame').first().locator('.penalty-signal')).toHaveCount(0)
+  await expect(announcement).toHaveAttribute('data-team','away')
+  const region = await announcement.boundingBox(), score = await scores.last().boundingBox()
+  expect(region.y).toBeLessThan(score.y + score.height)
+  expect(region.y + region.height).toBeGreaterThan(score.y)
+  if (process.env.LBS_PREVIEW_DIR) await board.screenshot({path:`${process.env.LBS_PREVIEW_DIR}/center-four-team-penalty.png`})
 })

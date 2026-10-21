@@ -6,6 +6,7 @@ import { withDefaults } from './options.js'
 import { now as serverNow } from './clock.js'
 import { useAppearance, useGameSounds, AudioNotice, useSound } from './useOptions.jsx'
 import TimeBadge from './TimeBadge.jsx'
+import PenaltyAnnouncement from './PenaltyAnnouncement.jsx'
 
 // Full screen (TV / projector): double-click anywhere, or the ⛶ button
 function toggleFullscreen() {
@@ -146,7 +147,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
         </div>
       )}
 
-      <Team key={`home-${flash === 'home' ? s.goalFlash.at : 0}`} t={s.home} logo={!minimal && o.homeLogo} logoTop={arena} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null} />
+      <Team key={`home-${flash === 'home' ? s.goalFlash.at : 0}`} t={s.home} logo={!minimal && o.homeLogo} logoTop={arena} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null}><PenaltyAnnouncement s={s} team="home" now={now} /></Team>
 
       <div className="mid">
         {small && RINK && <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} />}
@@ -178,7 +179,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
         {!arena && o.logoImg && <div className="logofill"><img className="centerlogo" src={o.logoImg} alt="" /></div>}
       </div>
 
-      <Team key={`away-${flash === 'away' ? s.goalFlash.at : 0}`} t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null} />
+      <Team key={`away-${flash === 'away' ? s.goalFlash.at : 0}`} t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null}><PenaltyAnnouncement s={s} team="away" now={now} /></Team>
       {arena && ['home', 'away'].map(team => <PenBox key={team} team={team} s={s} />)}
       {!o.logoImg && !clear && <div className="brand">live by scoreboard</div>}
     </div>
@@ -285,6 +286,7 @@ function DualGame({ s, label, rink }) {
                 ))}
                 {more > 0 && <div className="dpen more">+{more}</div>}
               </div>
+              <PenaltyAnnouncement s={s} team={team} />
             </div>
           )
         })}
@@ -321,6 +323,7 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
           ))}
           {pens.length > 3 && <div className="cpen more">+{pens.length - 3}</div>}
         </div>
+        <PenaltyAnnouncement s={s} team={team} />
       </div>
     )
   }
@@ -350,7 +353,7 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
   )
 }
 
-function Team({ t, logo, logoTop, flash, L, showShots, so }) {
+function Team({ t, logo, logoTop, flash, L, showShots, so, children }) {
   return (
     <div className={`team ${flash ? 'flash' : ''}`} style={{ '--c': t.color }}>
       {logo && !logoTop && <img className="bglogo" src={logo} alt="" aria-hidden="true" />}
@@ -358,6 +361,7 @@ function Team({ t, logo, logoTop, flash, L, showShots, so }) {
       <div className="name">{t.name}</div>
       <div className="score tnum">{t.score}</div>
       {so ? <Shootout attempts={so} /> : showShots && <div className="shots">{L.shots} <b className="tnum">{t.shots}</b></div>}
+      {children}
     </div>
   )
 }

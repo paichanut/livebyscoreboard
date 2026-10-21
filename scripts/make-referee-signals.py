@@ -210,6 +210,6 @@ footer {{ margin-top: 1.4mm; font-size: 6.4pt; color: #555; display: flex; justi
 <span>Memory aid · ภาพช่วยจำ<br>Official: IIHF Rule Book, Appendix I</span></footer>
 </body></html>'''
 
-out = pathlib.Path(__file__).resolve().parent.parent / 'public' / 'referee-signals.html'
+out = pathlib.Path(__file__).resolve().parent.parent / 'public' / 'referee-signals-print.html'
 out.write_text(page, encoding='utf-8')
 print('wrote', out, len(SIGNALS), 'cards')

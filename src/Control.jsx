@@ -329,16 +329,17 @@ export default function Control() {
               </div>
               {G.teamPenalties(v, team).map(p => (
                 <div className={`pen ${p.status}`} key={p.id} data-status={p.status}>
-                  <div className="who">{p.player ? `#${p.player}` : t('pen')} <small>{p.infraction || t('kind_' + p.kind)}{p.coincidental ? ` · ${t('coincShort')}` : ''}{!G.onPenaltyClock(p) && p.kind !== 'game' ? ` · ${t('notOnDisplay')}` : ''}</small></div>
-                  <span className="pt tnum">{p.status === 'game'
+                  <div className="who">{p.player ? `#${p.player}` : t('pen')} <small>{p.infraction || (p.status === 'shot' ? 'Penalty shot' : t('kind_' + p.kind))}{p.coincidental ? ` · ${t('coincShort')}` : ''}{!G.onPenaltyClock(p) && !['game', 'shot'].includes(p.status) ? ` · ${t('notOnDisplay')}` : ''}</small></div>
+                  <span className="pt tnum">{p.status === 'shot' ? 'PS' : p.status === 'game'
                     ? `${t('gmShort')} · ${t('restOfGame')}`
                     : `${p.status === 'waiting' ? t('waiting') + ' · ' : ''}${G.fmtClock(p.remainingMs, { tenths: false })}`}</span>
                   <div className="acts">
                     <button aria-label="edit penalty" onClick={() => setSheet(`edit-${team}-${p.id}`)}>✎</button>
                     <button aria-label="remove penalty" onClick={() => { if (ask('removePenalty', t('confirmRemovePenalty'))) ur(x => G.removePenalty(x, p.id)) }}>✕</button>
-                    {p.status !== 'game' && <button aria-label="more" className={openPen === p.id ? 'on' : ''} onClick={() => setOpenPen(openPen === p.id ? null : p.id)}>•••</button>}
+                    {p.status === 'shot' && <button aria-label="Complete penalty shot" title="Penalty shot completed" onClick={() => ur(x => G.completePenaltyShot(x, p.id))}>✓</button>}
+                    {!['game', 'shot'].includes(p.status) && <button aria-label="more" className={openPen === p.id ? 'on' : ''} onClick={() => setOpenPen(openPen === p.id ? null : p.id)}>•••</button>}
                   </div>
-                  {openPen === p.id && (
+                  {openPen === p.id && p.status !== 'shot' && (
                     <div className="nudge">
                       {[-5, -1, 1, 5].map(d => (
                         <button key={d} onClick={() => ur(x => G.nudgePenalty(x, p.id, d * 1000))}>{d > 0 ? `+${d}` : `−${-d}`}</button>
@@ -356,7 +357,9 @@ export default function Control() {
       <div className="bottom">
         {!DESKTOP && <button className="btn" aria-label="home" onClick={() => { if (confirm(t('confirmHome'))) window.location.href = '/' }}>🏠 {t('home')}</button>}
         {!locked && <button className="btn" onClick={() => setSheet('options')}>{t('options')}</button>}
-        <a className="btn" href={locked ? `${boardUrl}?rink=${locked}` : boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>
+        {small ? [['A', 'a'], ['B', 'b'], ['C', null]].map(([label, rink]) => (
+          <a className="btn" key={label} href={rink ? `${boardUrl}?rink=${rink}` : boardUrl} target="_blank" rel="noreferrer" title={rink ? `Rink ${label} only` : 'Center · both rinks'} style={{ textAlign: 'center', textDecoration: 'none' }}>Display {label}</a>
+        )) : <a className="btn" href={locked ? `${boardUrl}?rink=${locked}` : boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>}
         <button className="btn" onClick={() => setSheet('summary')}>{t('summary')}</button>
         {!DESKTOP && <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>}
         {DESKTOP && window.desktop?.getShare && <button className="btn" onClick={() => setSheet('share')}>🌐 {t('shareBtn')}</button>}
@@ -457,6 +460,7 @@ function Sheet({ children, close }) {
 }
 
 function PenaltySheet({ team, s, update, close, t, edit }) {
+  const three = G.isThreeOnThree(s)
   const lens = s.opts.penaltyLengths?.length ? s.opts.penaltyLengths : [2, 4, 5, 10]
   const templates = s.opts.penaltyTemplates || []
   const [player, setPlayer] = useState(edit?.player || '')
@@ -490,6 +494,7 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
   return (
     <Sheet close={close}>
       <h3 style={{ color: s[team].color }}>{s.opts.labels.penalty} · {s[team].name}</h3>
+      {G.isThreeOnThree(s) && <p className="hint">3x3 · Playing penalties award a penalty shot. Both teams stay at three skaters.</p>}
       <label>{s.opts.labels.player}
         <input inputMode="numeric" autoFocus value={player} onChange={e => setPlayer(e.target.value)} placeholder="#" onKeyDown={e => e.key === 'Enter' && add()} />
       </label>
@@ -498,22 +503,23 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
           <div className="templates">
             {templates.map(tp => (
               <button key={tp.name} className={`btn ${infraction === tp.name ? 'on' : ''}`} onClick={() => pick(tp)}>
-                {tp.name} <small>{tp.kind === 'game' ? t('gmShort') : `${tp.minutes}′${tp.alsoGame ? `+${t('gmShort')}` : ''}`}</small>
+                {tp.name} <small>{tp.kind === 'game' ? t('gmShort') : `${three && tp.minutes !== 10 ? 'PS' : `${tp.minutes}′`}${tp.alsoGame ? `+${t('gmShort')}` : ''}`}</small>
               </button>
             ))}
           </div>
         </div>
       )}
       {/* a <div>, not a <label>: label text would "click" the first button */}
-      <div className="field">{t('length')}
+      <div className="field">{three ? 'Penalty decision' : t('length')}
         <div className="choices" style={{ flexWrap: 'wrap' }}>
-          {lens.map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => chooseMins(m)}>{m} {t('min')}</button>)}
+          {three && <button className={`btn ${!game && mins !== 10 ? 'on' : ''}`} onClick={() => chooseMins(2)}>Penalty shot</button>}
+          {(three ? lens.filter(m => m === 10) : lens).map(m => <button key={m} className={`btn ${mins === m ? 'on' : ''}`} onClick={() => chooseMins(m)}>{m} {t('min')}</button>)}
           <button className={`btn ${game ? 'on' : ''}`} aria-label="game misconduct" onClick={() => { setMins('game'); setAlsoGame(false) }}>{t('gmShort')}</button>
         </div>
       </div>
       <div className="field">
         <div className="choices" style={{ flexWrap: 'wrap' }}>
-          {!game && <button className={`btn ${coinc ? 'on' : ''}`} aria-pressed={coinc} onClick={() => setCoinc(!coinc)}>{t('coincidental')}</button>}
+          {!game && !three && <button className={`btn ${coinc ? 'on' : ''}`} aria-pressed={coinc} onClick={() => setCoinc(!coinc)}>{t('coincidental')}</button>}
           {!game && !edit && <button className={`btn ${alsoGame ? 'on' : ''}`} aria-pressed={alsoGame} onClick={() => setAlsoGame(!alsoGame)}>+ {t('kind_game')}</button>}
         </div>
       </div>

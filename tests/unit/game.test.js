@@ -153,8 +153,8 @@ test('strength: 5v5 → 5v4 → 5v3, capped at two penalties', () => {
   assert.equal(G.strengthLabel(s), '4v3')
 })
 
-test('strength in 3v3: one penalty lifts both sides → 4v3', () => {
-  let s = game({ skaters: 3 })
+test('strength in 3v3 overtime: one penalty lifts both sides → 4v3', () => {
+  let s = game({ skaters: 3, period: 'OT', opts: { ...defaultOptions(), threeOnThreeRules: 'overtime' } })
   s = G.addPenalty(s, 'home', '1', 2)
   assert.equal(G.strengthLabel(s), '3v4')
   s = G.addPenalty(s, 'away', '2', 2)

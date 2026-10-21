@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('desktop', {
     ipcRenderer.on('share:remote', h)
     return () => ipcRenderer.removeListener('share:remote', h)
   },
+  pairFixedLink: credentials => ipcRenderer.invoke('share:pair', credentials),
   getShare: () => ipcRenderer.invoke('share:get'),
   onShare: cb => {
     const h = (_e, s) => cb(s)

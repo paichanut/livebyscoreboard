@@ -40,6 +40,7 @@ export default function Home() {
           : <a className="btn primary" href="/login">Operator login</a>}
         {g && <a className="btn" href={`/b/${g}`}>View display for "{g}"</a>}
         <a className="btn ghost" href="/live">Live games</a>
+        <a className="btn ghost" href="/referee-signals">Referee signals · animated</a>
         {canCreate && <a className="btn ghost" href="/teams">Team logos</a>}
       </div>
       {NEEDS_LOGIN && session && (

@@ -1,0 +1,42 @@
+.penalty-signal { position: absolute; z-index: 5; left: calc(.5 * var(--u)); right: calc(.5 * var(--u)); top: 55%; bottom: calc(.5 * var(--u)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: center; gap: calc(.6 * var(--u)); padding: calc(.8 * var(--u)); border: calc(.2 * var(--u)) solid var(--c); border-radius: calc(.8 * var(--u)); background: #111c2b; color: #f5f7fb; box-shadow: 0 0 calc(1.5 * var(--u)) #0006; overflow: hidden; pointer-events: none; text-align: left; }
+.penalty-signal-figure { min-width: 0; min-height: 0; height: 100%; display: grid; place-items: center; background: #edf3fa; border-radius: calc(.5 * var(--u)); overflow: hidden; }
+.penalty-signal .referee-figure { display: block; width: 100%; height: 100%; max-height: 100%; }
+.penalty-signal-copy { min-width: 0; line-height: 1.05; }
+.penalty-signal-label { font-family: var(--font-ui); font-weight: 800; font-size: calc(1.5 * var(--u)); color: #ffd166; letter-spacing: .12em; text-transform: uppercase; }
+.penalty-signal-team { margin-top: calc(.4 * var(--u)); color: #adbed4; font: 700 calc(1.3 * var(--u))/1.15 var(--font-ui); overflow-wrap: anywhere; }
+.penalty-signal-player { font-size: calc(4 * var(--u)); font-weight: 800; color: var(--c); margin-top: calc(.5 * var(--u)); }
+.penalty-signal-name { font-size: calc(2.2 * var(--u)); font-weight: 800; line-height: 1.05; text-transform: uppercase; overflow-wrap: anywhere; margin-top: calc(.35 * var(--u)); }
+.penalty-signal-thai { font-family: var(--font-ui); font-size: calc(1.1 * var(--u)); color: #adbed4; margin-top: calc(.5 * var(--u)); line-height: 1.3; }
+.penalty-signal-detail { font-size: calc(1.45 * var(--u)); font-weight: 700; color: #ffd166; line-height: 1.2; overflow-wrap: anywhere; margin-top: calc(.7 * var(--u)); }
+.penalty-signal-no-gesture { font: 500 calc(1 * var(--u))/1.3 var(--font-ui); color: #a7b8cb; margin-top: calc(.5 * var(--u)); }
+.compactb .cteam { position: relative; }
+.board.dual .penalty-signal { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; top: 40%; gap: calc(.4 * var(--u)); padding: calc(.5 * var(--u)); }
+.board.dual .penalty-signal-copy { text-align: center; }
+.board.dual .penalty-signal-team, .board.dual .penalty-signal-thai, .board.dual .penalty-signal-detail, .board.dual .penalty-signal-no-gesture { display: none; }
+.board.dual .penalty-signal-player { display: inline; font-size: calc(2.5 * var(--u)); margin-right: calc(.4 * var(--u)); }
+.board.dual .penalty-signal-name { font-size: calc(1.4 * var(--u)); margin-top: calc(.2 * var(--u)); }
+.board.dual .penalty-signal-label { font-size: calc(1 * var(--u)); }
+
+/* The announcement replaces the offending team's score temporarily. */
+.penalty-signal { top: 20%; bottom: calc(.5 * var(--u)); }
+.board.dual .penalty-signal { top: calc(15 * var(--u)); bottom: calc(.5 * var(--u)); }
+
+/* Reserve identical logo/name rows so all four scores share one baseline. */
+.board.dual .dlabel { height: calc(5 * var(--u)); flex-shrink: 0; }
+.board.dual .dteams > .dteam { display: grid; grid-template-rows: calc(7 * var(--u)) calc(6.4 * var(--u)) calc(15 * var(--u)) minmax(0, 1fr) auto; justify-items: center; align-content: stretch; }
+.board.dual .dtlogo { grid-row: 1; height: 100%; max-height: 100%; }
+.board.dual .dname { grid-row: 2; align-self: center; max-height: calc(6.4 * var(--u)); overflow: hidden; }
+.board.dual .dscore { grid-row: 3; align-self: center; }
+.board.dual .dpens { grid-row: 5; align-self: end; margin-top: 0; }
+.board.dual .dmid .dlogo { flex: 1 1 0; width: 90%; height: 100%; max-height: none; margin: calc(1 * var(--u)) 0; object-fit: contain; }
+.board.compactb .cllogo > img, .board .logofill > img.centerlogo { max-height: 100%; }
+
+/* Give the illustration the full card width instead of a narrow side column. */
+.penalty-signal { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+.penalty-signal-copy { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: calc(.3 * var(--u)) calc(.7 * var(--u)); }
+.penalty-signal-label { grid-column: 1 / -1; }
+.penalty-signal-team { display: none; }
+.penalty-signal-player { grid-column: 1; grid-row: 2; }
+.penalty-signal-name { grid-column: 2; grid-row: 2; }
+.penalty-signal-thai, .penalty-signal-detail, .penalty-signal-no-gesture { grid-column: 1 / -1; }
+.board.dual .penalty-signal-copy { display: block; }
