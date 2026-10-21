@@ -4,7 +4,7 @@ import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, wai
 import { ONLINE } from './sync.js'
 import { withDefaults } from './options.js'
 import { now as serverNow } from './clock.js'
-import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
+import { useAppearance, useGameSounds, AudioNotice, useSound } from './useOptions.jsx'
 import TimeBadge from './TimeBadge.jsx'
 
 // Full screen (TV / projector): double-click anywhere, or the ⛶ button
@@ -74,8 +74,9 @@ function BoardView({ raw, access, gameId, preview = false }) {
   const small = isSmallIce(raw)
   const s = raw && small && RINK ? rinkView(raw, RINK) : raw
   useAppearance(s)
-  const sound = useSound('rinkboard:sound:board', true)
-  useGameSounds(s, sound.playing && !preview)
+  const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.penaltyCall || s?.showTimeOfDay || s?.penalties?.length))
+  const sound = useSound(!preview)
+  useGameSounds(s, sound.playing, now)
   // see-through page: the board sits on top of video (OBS, camera apps); cards stay solid
   const bgOpacity = Math.min(100, Math.max(0, Number(s?.opts.bgOpacity ?? 50)))
   const clear = Boolean(s) && bgOpacity < 100 && !(s.opts.layout === 'arena' && s.opts.bgImg)
@@ -91,13 +92,14 @@ function BoardView({ raw, access, gameId, preview = false }) {
     document.addEventListener('mousedown', down)
     return () => { document.removeEventListener('dblclick', on); document.removeEventListener('mousedown', down) }
   }, [])
-  useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.penaltyCall || s?.showTimeOfDay || s?.penalties?.length))
 
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
 
-  if (VIEW === 'shift') return <ShiftBoard s={raw} sound={sound} />
-  if (small && !RINK) return <DualBoard s={s} sound={sound} clear={clear} bgOpacity={bgOpacity} />
+  const clockText = fmtClock(clockShown(s, now), { countdown: s.opts.clockDir !== 'up' })
+
+  if (VIEW === 'shift') return <ShiftBoard s={raw} sound={sound} clockText={clockText} now={now} />
+  if (small && !RINK) return <DualBoard s={s} sound={sound} clockText={clockText} now={now} clear={clear} bgOpacity={bgOpacity} />
 
   const o = s.opts
   const L = o.labels
@@ -105,13 +107,13 @@ function BoardView({ raw, access, gameId, preview = false }) {
   // side board: every card frame in its rink's color (the same color as on the center board)
   const rinkStyle = small && RINK ? { '--frame': RINK_COLOR[RINK] } : null
   // the line-change countdown: on every layout when the shift clock is on (side boards too)
-  const shift = shiftInfo(s)
+  const shift = shiftInfo(s, now)
   const arena = o.layout === 'arena'
   const strength = strengthLabel(s)
   const hOn = skatersOnIce(s, 'home'), aOn = skatersOnIce(s, 'away')
   const ppTeam = hOn !== aOn ? (hOn > aOn ? 'home' : 'away') : null
   const ppColor = ppTeam ? s[ppTeam].color : undefined
-  const final = clockRemaining(s) <= 0 && s.period !== 'SO'
+  const final = clockRemaining(s, now) <= 0 && s.period !== 'SO'
   const toRem = timeoutRemaining(s)
   const flash = goalFlashActive(s)
   const isNum = !['OT', 'SO'].includes(s.period)
@@ -120,10 +122,10 @@ function BoardView({ raw, access, gameId, preview = false }) {
   if (o.layout === 'compact') {
     return (
       <div className={`board compactb ${clear ? 'clear' : ''}`} style={{ ...(clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
-        <SoundToggle sound={sound} className="sound" />
+        <AudioNotice sound={sound} className="sound" />
         <FullscreenButton />
         <FullscreenHint />
-        <Compact shift={shift} rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
+        <Compact clockText={clockText} shift={shift} rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
       </div>
     )
   }
@@ -132,7 +134,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
     <div className={`board ${clear ? 'clear' : ''} ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}
       style={{ ...(arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
       {!clear && <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>}
-      <SoundToggle sound={sound} className="sound" />
+      <AudioNotice sound={sound} className="sound" />
       <FullscreenButton />
       <FullscreenHint />
 
@@ -155,7 +157,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
         )}
         {arena && o.logoImg && <img className="centerlogo top" src={o.logoImg} alt="" />}
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
-        <div className={`clock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
+        <div className={`clock tnum ${final ? 'final' : ''}`}>{clockText}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
         {shift && <div className="shiftbox"><span>{L.shift}</span><b className="tnum" aria-label="shift">{shift.seconds}</b></div>}
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
@@ -207,33 +209,33 @@ function EventText({ s, flash, withName }) {
   return null
 }
 
-function ShiftBoard({ s, sound }) {
-  const sh = shiftInfo(s)
+function ShiftBoard({ s, sound, clockText, now }) {
+  const sh = shiftInfo(s, now)
   const L = s.opts.labels
   return (
     <div className="board shiftb">
-      <SoundToggle sound={sound} className="sound" />
+      <AudioNotice sound={sound} className="sound" />
       <FullscreenButton />
       <FullscreenHint />
       <div className="slabel">{L.shift}</div>
       <div className="sbig tnum" aria-label="shift">{sh ? sh.seconds : '—'}</div>
-      <div className="sclock tnum">{L.period} {periodLabel(s)} · {fmtClock(clockShown(s))}</div>
+      <div className="sclock tnum">{L.period} {periodLabel(s)} · {clockText}</div>
       {!sh && <div className="soff">Shift clock is off · Control → Options → Game → Line change buzzer</div>}
     </div>
   )
 }
 
 // Small ice center board: Rink A | clock, period, shift countdown | Rink B (PC Scoreboards' two-game board)
-function DualBoard({ s, sound, clear, bgOpacity }) {
+function DualBoard({ s, sound, clear, bgOpacity, clockText, now }) {
   const o = s.opts
   const L = o.labels
-  const shift = shiftInfo(s)
-  const final = clockRemaining(s) <= 0 && s.period !== 'SO'
+  const shift = shiftInfo(s, now)
+  const final = clockRemaining(s, now) <= 0 && s.period !== 'SO'
   const isNum = !['OT', 'SO'].includes(s.period)
   const toRem = timeoutRemaining(s)
   return (
     <div className={`board dual ${clear ? 'clear' : ''}`} style={clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
-      <SoundToggle sound={sound} className="sound" />
+      <AudioNotice sound={sound} className="sound" />
       <FullscreenButton />
       <FullscreenHint />
       {(o.bannerImg || o.title || o.topLeftImg || o.topRightImg) && (
@@ -246,7 +248,7 @@ function DualBoard({ s, sound, clear, bgOpacity }) {
       <DualGame s={rinkView(s, 'a')} label={L.rinkA} rink="a" />
       <div className="dmid">
         {o.logoImg && <img className="dlogo" src={o.logoImg} alt="" />}
-        <div className={`dclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
+        <div className={`dclock tnum ${final ? 'final' : ''}`}>{clockText}</div>
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
         {toRem > 0 && <div className="timeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
@@ -295,7 +297,7 @@ function DualGame({ s, label, rink }) {
 // Compact layout: one broadcast-style panel (the operator's earlier OBS design). Home | clock box,
 // period, tournament logo | away; scores in team colors; penalties under each team only when there
 // are any (space is reserved so nothing moves); date + time of day along the bottom when it is on.
-function Compact({ shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isSO }) {
+function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isSO }) {
   const o = s.opts
   const L = o.labels
   const side = team => {
@@ -328,7 +330,7 @@ function Compact({ shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, t
       {side('home')}
       <div className="cmid">
         {rinkTag}
-        <div className={`cclock tnum ${final ? 'final' : ''}`}>{fmtClock(clockShown(s))}</div>
+        <div className={`cclock tnum ${final ? 'final' : ''}`}>{clockText}</div>
         <div className="clabel">{isNum ? L.period : ''}</div>
         <div className="cperiod">{periodLabel(s)}</div>
         {shift && <div className="cshift"><span className="clabel">{L.shift}</span><b className="tnum" aria-label="shift">{shift.seconds}</b></div>}

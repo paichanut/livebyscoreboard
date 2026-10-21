@@ -13,7 +13,7 @@ export default function Banner() {
   const rink = new URLSearchParams(window.location.search).get('rink') === 'b' ? 'b' : 'a'
   const s = raw && isSmallIce(raw) ? rinkView(raw, rink) : raw
   useAppearance(s)
-  useClockTick(s, Boolean(s?.clock.running || s?.showTimeOfDay))
+  const now = useClockTick(s, Boolean(s?.clock.running || s?.showTimeOfDay))
   const chroma = Boolean(s?.opts.banner.useChroma)
   useEffect(() => {
     document.documentElement.classList.toggle('clearbg', !chroma)
@@ -61,7 +61,7 @@ export default function Banner() {
         {(sh.period || sh.clock) && (
           <div className="bclock">
             {sh.period && <div className="bperiod">{['OT', 'SO'].includes(s.period) ? periodLabel(s) : `${L.period} ${periodLabel(s)}`}{strength ? ` · ${strength}` : ''}</div>}
-            {sh.clock && <div className="btime tnum">{fmtClock(clockShown(s))}</div>}
+            {sh.clock && <div className="btime tnum">{fmtClock(clockShown(s, now), { countdown: s.opts.clockDir !== 'up' })}</div>}
             {s.showTimeOfDay && <div className="btod tnum">{fmtTimeOfDay()}</div>}
           </div>
         )}

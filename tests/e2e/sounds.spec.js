@@ -15,7 +15,13 @@ test('sound samples are served and decode in the browser', async ({ page, reques
     const out = {}
     for (const n of names) {
       const ab = await (await fetch(`/sounds/${n}.mp3`)).arrayBuffer()
-      out[n] = (await ctx.decodeAudioData(ab)).duration
+      const buffer = await ctx.decodeAudioData(ab)
+      out[n] = buffer.duration
+      if (n === 'buzzer') {
+        const channel = buffer.getChannelData(0)
+        const first = channel.findIndex(sample => Math.abs(sample) > 0.001)
+        out.buzzerOnsetMs = first / buffer.sampleRate * 1000
+      }
     }
     return out
   }, SAMPLES)
@@ -25,6 +31,8 @@ test('sound samples are served and decode in the browser', async ({ page, reques
   expect(durations['horn-short']).toBeGreaterThan(1)
   expect(durations['horn-loop']).toBeGreaterThan(0.5)
   expect(durations.buzzer).toBeGreaterThan(1.2)
+  expect(durations.buzzerOnsetMs).toBeGreaterThanOrEqual(0)
+  expect(durations.buzzerOnsetMs).toBeLessThan(5) // no silent lead-in after the zero-time trigger
 })
 
 test('Sounds tab offers the samples; the horn defaults to the NHL horn', async ({ page }) => {
@@ -35,7 +43,7 @@ test('Sounds tab offers the samples; the horn defaults to the NHL horn', async (
   await expect(selects.nth(0)).toHaveValue('horn-nhl') // horn button
   await expect(selects.nth(2)).toHaveValue('buzzer') // end of period
   await expect(selects.nth(4)).toHaveValue('horn-short') // timeout warning
-  await expect(selects.nth(0).locator('option')).toHaveText(['NHL goal horn (4 s)', 'NHL horn, short', 'Horn', 'Horn, long (3 s loop)', 'Horn, short', 'Buzzer', 'Beep ×3', 'Synth horn', 'Synth buzzer', 'None'])
+  await expect(selects.nth(0).locator('option')).toHaveText(['NHL goal horn (4 s)', 'NHL horn, short', 'Horn', 'Horn, long (3 s loop)', 'Horn, short', 'Buzzer', 'Beep ×3', 'Synth horn', 'Synth buzzer'])
   // preview button runs without errors
   const errors = []
   page.on('pageerror', e => errors.push(e.message))

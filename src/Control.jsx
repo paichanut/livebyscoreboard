@@ -4,7 +4,7 @@ import * as G from './game.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
 import { ShareSheet } from './DesktopShare.jsx'
 import { ONLINE, DESKTOP, NEEDS_LOGIN, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
-import { useAppearance, useGameSounds, SoundToggle, useSound } from './useOptions.jsx'
+import { useAppearance, useGameSounds, AudioNotice, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
 import { saveTeam } from './teamLibrary.js'
 import TimeBadge from './TimeBadge.jsx'
@@ -51,7 +51,7 @@ export default function Control() {
   // the single-game link to share with a helper; fetched once the game exists on the server
   const [shareKey, setShareKey] = useState(usingSession ? '' : key)
   useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
-  useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
+  const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
   const [sheet, setSheet] = useState(null)
   // desktop app past its licence date: "Contact for license" opens by itself 30 s after the screen is free
   const lic = useLicense()
@@ -74,7 +74,7 @@ export default function Control() {
   lockRef.current = locked
   const v = s && r === 'b' ? G.rinkView(s, 'b') : s
   const ur = fn => update(x => G.onRink(x, rinkRef.current, fn))
-  const shift = s ? G.shiftInfo(s) : null
+  const shift = s ? G.shiftInfo(s, now) : null
   // IIHF Rule 16: a power-play goal ends the opponent's minor. Ask first (Options → Other can turn the question off).
   const askRelease = (x, team) => x.opts.confirm?.releaseOnGoal !== false && G.releaseCandidate(G.foldPenalties(x), team)
   const scoreGoal = (team, horn = false) => {
@@ -82,16 +82,15 @@ export default function Control() {
     ur(x => { const n = G.addScore(x, team, 1); return horn ? G.fireHorn(n) : n })
   }
   const [openPen, setOpenPen] = useState(null) // penalty row showing its ±1/±5 s buttons
-  // optional: play horn/buzzer on this device too (phone speaker / laptop plugged into the PA)
-  // horn / buzzer play here too, not only on the display (new key so everyone starts with sound on)
-  const sound = useSound('rinkboard:sound:ctl', true)
-  useGameSounds(s, sound.playing)
+  // Arena audio is always enabled on the operator page as well as the display.
+  const sound = useSound()
+  useGameSounds(s, sound.playing, now)
   const t = translator(s?.opts?.uiLang)
 
   const ask = (key, msg) => !s.opts.confirm[key] || confirm(msg)
 
   // Operator is the authority: stop clock at 0, prune expired penalties, end timeouts
-  const remainingNow = s ? G.clockRemaining(s) : 0
+  const remainingNow = s ? G.clockRemaining(s, now) : 0
   useEffect(() => {
     if (s?.clock.running && remainingNow <= 0) update(G.stopClock)
   }, [s?.clock.running, remainingNow <= 0])
@@ -163,7 +162,7 @@ export default function Control() {
   if (!s) return <div className="loading">{t('connecting')}</div>
 
   const o = s.opts
-  const remaining = G.clockRemaining(s)
+  const remaining = G.clockRemaining(s, now)
   const running = s.clock.running
   const strength = G.strengthLabel(v)
   const origin = window.location.origin
@@ -200,7 +199,7 @@ export default function Control() {
           {!locked && <div className="adj">
             {[-5, -1].map(d => <button key={d} className="btn sm minus" aria-label={`clock ${d} s`} onClick={() => update(x => G.adjustClock(x, d * 1000))}>−{-d}</button>)}
           </div>}
-          <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s))}</div>
+          <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s, now), { countdown: s.opts.clockDir !== 'up' })}</div>
           {!locked && <div className="adj">
             {[1, 5].map(d => <button key={d} className="btn sm plus" aria-label={`clock +${d} s`} onClick={() => update(x => G.adjustClock(x, d * 1000))}>+{d}</button>)}
           </div>}
@@ -363,7 +362,7 @@ export default function Control() {
         {DESKTOP && window.desktop?.getShare && <button className="btn" onClick={() => setSheet('share')}>🌐 {t('shareBtn')}</button>}
         {!locked && <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>}
         {!locked && <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>}
-        <SoundToggle sound={sound} className="btn csound" />
+        <AudioNotice sound={sound} className="btn csound" />
         <button className="btn keysbtn" onClick={() => setSheet('keys')} aria-label="keyboard shortcuts">⌨ {t('help')}</button>
       </div>
       <div className="status">

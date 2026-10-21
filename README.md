@@ -26,7 +26,7 @@ Mirrors the PC Scoreboards options dialog:
 - **Teams** — names, colors, logos (upload or URL)
 - **Keys** — rebind every keyboard shortcut (click, press key)
 - **Colors** — theme presets + per-element colors (background, clock, scores, period, shots, penalty player/time, goal)
-- **Sounds** — real arena samples (horn, long looping horn, short horn, buzzer) or synth / beep / none for: horn, buzzer, end of period, timeout start, timeout warning, timeout end. Samples are in `public/sounds/`; the synth plays if a file can't load.
+- **Sounds** — real arena samples (horn, long looping horn, short horn, buzzer) or synth / beep for: horn, buzzer, end of period, timeout start, timeout warning, timeout end. Samples are in `public/sounds/`; the synth plays if a file can't load.
 - **Text** — control page language (English / ไทย), rename every display label (Thai etc.), font, 7-segment digit style
 - **Banner** — OBS overlay at `/banner?g=CODE`: choose fields, mirror, chroma-key color, banner/clock colors
 - **Other** — scoreboard title or banner image, top-left/right pictures, logo, confirm toggles, new game, reset options
@@ -71,7 +71,7 @@ npm run dev
 
 ## Use it at the rink
 
-- TV/laptop: open `/board?g=yourcode`, press F11, tap **"tap to enable horn"** once (browsers need a tap before playing sound).
+- TV/laptop: open `/board?g=yourcode`, press F11. Arena audio is always enabled on the control and display pages. If the browser asks, tap once on each page to allow audio; the prompt disappears when ready. Desktop audio starts automatically.
 - Phone: open `/control?g=yourcode`. Settings → team names, colors, period length, 3v3/5v5, theme.
 - QR button on the control page shows a QR for spectators to follow on their phones.
 - OBS / stream overlay: add `/board?g=yourcode` as a Browser Source (1920×1080).

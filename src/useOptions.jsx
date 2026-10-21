@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { unlockAudio, playSound, audioReady } from './horn.js'
 import { timeoutRemaining, clockRemaining, shiftInfo } from './game.js'
+import { now as wallNow } from './clock.js'
 
 // fonts that come with the app (index.html / fonts-offline.js / styles.css); any other name is fetched from Google Fonts
 const BUILT_IN_FONTS = ['Barlow Condensed', 'Share Tech Mono', 'Arial', 'Oswald', 'Anton', 'LCD Digital', 'LCD Digital Italic']
@@ -35,89 +36,85 @@ export function useAppearance(s) {
   }, [s?.theme, s?.opts])
 }
 
-// Play configured sounds on game events (display side)
-export function useGameSounds(s, enabled) {
+// Check sounds in the same commit that draws the clock. A separate polling timer can lose
+// the expiry when the operator stops the clock, or sound after the display has shown zero.
+export function useGameSounds(s, enabled, now = wallNow()) {
   const prev = useRef(null)
   const warned = useRef(false)
-  useEffect(() => {
-    if (!s) return
+  const zeroFired = useRef(false)
+  const shiftFired = useRef(null)
+  useLayoutEffect(() => {
     const p = prev.current
     prev.current = s
-    if (!p || !enabled) return
+    if (!s) return
+    const rem = clockRemaining(s, now)
+    const sh = shiftInfo(s, now)
+    const shiftKey = sh ? `${s.period}:${s.shift?.period === s.period ? s.shift.atMs : 0}:${sh.count}` : null
+    if (rem > 0) zeroFired.current = false
+    if (!enabled) {
+      shiftFired.current = sh?.seconds === 0 ? shiftKey : null
+      return
+    }
     const snd = s.opts.sounds
-    if (s.horn !== p.horn) playSound(snd.horn)
-    if (s.buzzer !== p.buzzer) playSound(snd.buzzer)
-    if (s.timeout && (!p.timeout || s.timeout.since !== p.timeout.since)) { playSound(snd.timeoutStart); warned.current = false }
-    if (p.timeout && !s.timeout && timeoutRemaining(p) <= 1200) playSound(snd.timeoutEnd)
-  }, [s, enabled])
-
-  // tick-driven checks: clock hits zero, shift clock hits zero, timeout warning
-  const zeroFired = useRef(false)
-  // shift: every screen works it out from the game clock and buzzes by itself the moment it shows 0
-  // (no waiting for a message over the network); once per shift, never when the page opens on a 0
-  const shiftFired = useRef(undefined)
-  const shiftTimer = useRef(null)
-  const first = useRef(true)
-  useEffect(() => {
-    if (!s || !enabled) return
-    const id = setInterval(() => {
-      const rem = clockRemaining(s)
-      if (s.clock.running && rem <= 0 && !zeroFired.current) { zeroFired.current = true; playSound(s.opts.sounds.endPeriod) }
-      if (rem > 0) zeroFired.current = false
-      const sh = shiftInfo(s)
-      if (shiftFired.current === undefined) shiftFired.current = null // a page opened on a 0 doesn't buzz
-      if (sh && s.clock.running) {
-        // this shift's 0 shows when less than a second is left; the key stays the same until the shift starts over
-        const key = `${s.period}:${s.shift?.period === s.period ? s.shift.atMs : 0}:${sh.count}`
-        const toZero = sh.remainingMs - 1000
-        const fire = () => { if (shiftFired.current !== key) { shiftFired.current = key; playSound(s.opts.sounds.buzzer) } }
-        if (toZero < 0) { if (first.current) shiftFired.current = key; else fire() }
-        else if (toZero <= SOUND_TICK_MS && shiftTimer.current?.key !== key) {
-          // due before the next check: schedule it for the exact moment the 0 appears
-          clearTimeout(shiftTimer.current?.id)
-          shiftTimer.current = { key, id: setTimeout(fire, toZero) }
-        }
+    if (p) {
+      if (s.horn !== p.horn) playSound(snd.horn)
+      if (s.buzzer !== p.buzzer) playSound(snd.buzzer)
+      if (s.timeout && (!p.timeout || s.timeout.since !== p.timeout.since)) {
+        playSound(snd.timeoutStart)
+        warned.current = false
       }
-      first.current = false
-      if (s.timeout) {
-        const tr = timeoutRemaining(s)
-        const warnMs = (s.opts.timeoutWarnSec || 0) * 1000
-        if (warnMs > 0 && tr > 0 && tr <= warnMs && !warned.current) { warned.current = true; playSound(s.opts.sounds.timeoutWarn) }
+      if (p.timeout && !s.timeout && timeoutRemaining(p, now) <= 1200) playSound(snd.timeoutEnd)
+    }
+    // The final state may already be stopped when it reaches this screen. Check the
+    // authority's expiry marker or the previous deadline; manual corrections stay silent.
+    const expired = s.clock.running || (p?.clock.running && p.period === s.period && (s.clock.expiredAt != null || clockRemaining(p, now) <= 0))
+    if (rem <= 0 && expired && !zeroFired.current) {
+      zeroFired.current = true
+      playSound(snd.endPeriod)
+    }
+    // A shift shows 0 for its last second. Buzz once on that same render, without
+    // sounding when a page is first opened on an existing 0.
+    if (sh && s.clock.running && sh.seconds === 0 && shiftFired.current !== shiftKey) {
+      if (p) playSound(snd.buzzer)
+      shiftFired.current = shiftKey
+    } else if (!p || !sh) shiftFired.current = sh?.seconds === 0 ? shiftKey : null
+    if (s.timeout) {
+      const tr = timeoutRemaining(s, now)
+      const warnMs = (s.opts.timeoutWarnSec || 0) * 1000
+      if (warnMs > 0 && tr > 0 && tr <= warnMs && !warned.current) {
+        warned.current = true
+        playSound(snd.timeoutWarn)
       }
-    }, SOUND_TICK_MS)
-    return () => { clearInterval(id); clearTimeout(shiftTimer.current?.id); shiftTimer.current = null }
-  }, [s, enabled])
-}
-const SOUND_TICK_MS = 50
-
-// Sound setting for one page. On by default where `defaultOn` (the display): the page unlocks audio
-// by itself where the browser allows it (OBS browser sources do), otherwise on the first tap or key
-// anywhere on the page. The choice to mute is remembered on this device.
-export function useSound(storageKey, defaultOn) {
-  const [on, setOnState] = useState(() => {
-    try { const v = localStorage.getItem(storageKey); return v == null ? defaultOn : v === '1' } catch { return defaultOn }
+    }
   })
-  const [ready, setReady] = useState(false)
-  const setOn = v => { setOnState(v); try { localStorage.setItem(storageKey, v ? '1' : '0') } catch {} }
-  useEffect(() => {
-    if (!on) return
-    unlockAudio()
-    const unlock = () => unlockAudio()
-    const evs = ['pointerdown', 'keydown', 'touchstart']
-    evs.forEach(e => document.addEventListener(e, unlock, { passive: true }))
-    const id = setInterval(() => setReady(audioReady()), 300)
-    setReady(audioReady())
-    return () => { evs.forEach(e => document.removeEventListener(e, unlock)); clearInterval(id) }
-  }, [on])
-  return { on, ready, playing: on && ready, setOn }
 }
 
-export function SoundToggle({ sound, className }) {
-  const { on, ready, setOn } = sound
-  const label = !on ? '🔇 sound off' : ready ? '🔊 sound on' : '🔈 tap anywhere to enable sound'
-  return (
-    <button className={`${className} ${on && ready ? 'on' : ''}`} onClick={() => {
-      if (!on) { setOn(true); unlockAudio() } else if (!ready) { unlockAudio() } else { setOn(false) }
-    }}>{label}</button>
-  )
+// Always enabled. Browser autoplay restrictions are lifted by the first tap/key;
+// old saved mute preferences are deliberately ignored. Desktop/OBS can start immediately.
+export function useSound(active = true) {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    if (!active) return
+    const audio = unlockAudio()
+    const syncReady = () => setReady(audioReady())
+    const unlock = () => { unlockAudio(); syncReady() }
+    const visible = () => { if (document.visibilityState === 'visible') unlock() }
+    const evs = ['pointerdown', 'keydown', 'touchstart', 'click']
+    evs.forEach(e => document.addEventListener(e, unlock, { passive: true, capture: true }))
+    audio?.addEventListener('statechange', syncReady)
+    document.addEventListener('visibilitychange', visible)
+    syncReady()
+    return () => {
+      evs.forEach(e => document.removeEventListener(e, unlock, true))
+      audio?.removeEventListener('statechange', syncReady)
+      document.removeEventListener('visibilitychange', visible)
+    }
+  }, [active])
+  return { playing: active && ready, blocked: active && !ready }
+}
+
+// Only shown while the browser requires a gesture; this cannot mute audio.
+export function AudioNotice({ sound, className }) {
+  if (!sound.blocked) return null
+  return <button className={className} onClick={unlockAudio}>Tap to allow arena audio</button>
 }

@@ -52,7 +52,6 @@ export const SOUND_CHOICES = [
   ['beep', 'Beep ×3'],
   ['synth-horn', 'Synth horn'],
   ['synth-buzzer', 'Synth buzzer'],
-  ['none', 'None'],
 ]
 export const FONT_CHOICES = [
   ['Barlow Condensed', 'Arena (Barlow Condensed)'],
@@ -169,6 +168,10 @@ export function withDefaults(state) {
     const old = { horn: 'horn-loop', timeoutStart: 'horn', timeoutEnd: 'horn' }
     const nhl = defaultOptions().sounds
     for (const [k, v] of Object.entries(old)) if (opts.sounds[k] === v) opts.sounds[k] = nhl[k]
+  }
+  // Arena audio is always enabled, including games previously saved with a silent event.
+  for (const [event, fallback] of Object.entries(defaultOptions().sounds)) {
+    if (!opts.sounds[event] || opts.sounds[event] === 'none') opts.sounds[event] = fallback
   }
   // games saved when correction was on ` (the language key on some computers): F2 now
   if (!state.opts?.keysV && opts.keys.correction === 'Backquote') opts.keys.correction = 'F2'
