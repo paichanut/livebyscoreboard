@@ -104,4 +104,5 @@ test('simultaneous windows share a single download and malformed responses canno
   assert.deepEqual(await cache.list(), lists[0])
   const pkg = JSON.parse(await readFile(new URL('../../desktop/package.json', import.meta.url), 'utf8'))
   assert.ok(pkg.build.files.includes('teams.cjs'))
+  assert.ok(pkg.build.files.includes('teams-preload.cjs'))
 })

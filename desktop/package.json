@@ -27,6 +27,7 @@
       "preload.cjs",
       "share.cjs",
       "teams.cjs",
+      "teams-preload.cjs",
       "license.cjs",
       "display-preload.cjs",
       "web/**/*"

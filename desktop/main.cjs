@@ -132,7 +132,12 @@ function openControl() {
     if (url.startsWith(`${ORIGIN}/b/`) || url.startsWith(`${ORIGIN}/board`)) { openRinkDisplay(new URL(url).searchParams.get('rink')); return { action: 'deny' } }
     // our own pages (team logos, referee signals PDF) and print windows open inside the app
     if (url.startsWith(ORIGIN) || url === 'about:blank' || url === '') {
-      return { action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true, width: 1000, height: 800, webPreferences } }
+      const target = new URL(url || 'about:blank')
+      const childPreferences = { ...webPreferences }
+      if (target.protocol === 'app:' && target.hostname === 'scoreboard' && target.pathname === '/teams') {
+        childPreferences.preload = path.join(__dirname, 'teams-preload.cjs')
+      }
+      return { action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true, width: 1000, height: 800, webPreferences: childPreferences } }
     }
     // tel:, mailto:, WhatsApp, LINE, IIHF links → the system
     shell.openExternal(url)
