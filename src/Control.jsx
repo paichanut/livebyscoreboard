@@ -4,6 +4,7 @@ import * as G from './game.js'
 import StatsMode from './StatsMode.jsx'
 import { correctEvent, eventDetails } from './statistics.js'
 import './stats-mode.css'
+import { captureUndo, undoAction } from './undo.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
 import { ShareSheet } from './DesktopShare.jsx'
 import { ONLINE, DESKTOP, NEEDS_LOGIN, statsSyncReady, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
@@ -87,7 +88,25 @@ export default function Control() {
   const lockRef = useRef(null)
   lockRef.current = locked
   const v = s && r === 'b' ? G.rinkView(s, 'b') : s
-  const ur = fn => update(x => G.onRink(x, rinkRef.current, fn))
+  const undoStacks=useRef({a:[],b:[]})
+  const [,refreshUndo]=useState(0)
+  const recordAction=(current,fn)=>{
+    const next=fn(current)??current
+    const action=captureUndo(current,next)
+    if(action){const side=rinkRef.current;undoStacks.current[side]=[...undoStacks.current[side],action].slice(-30);refreshUndo(n=>n+1)}
+    return next
+  }
+  const ur = fn => update(x => G.onRink(x, rinkRef.current, current=>recordAction(current,fn)))
+  const undoCandidate=[...undoStacks.current[r]].reverse().find(action=>action.epoch===(v?.undoEpoch??null)&&(!action.correctionId||(v?.corrections?.some(c=>c.id===action.correctionId)&&!v?.corrections?.some(c=>c.undoOf===action.correctionId))))
+  const undoLast=()=>{
+    if(!undoCandidate)return
+    let failure=''
+    update(x=>G.onRink(x,rinkRef.current,current=>{try{return undoAction(current,undoCandidate,sessionUser()||'Operator')}catch(e){failure=e.message;return current}}))
+    if(failure){setSyncError(failure);return}
+    undoStacks.current[r]=undoStacks.current[r].filter(action=>action.id!==undoCandidate.id)
+    refreshUndo(n=>n+1)
+    setSheet(null)
+  }
   const shift = s ? G.shiftInfo(s, now) : null
   // IIHF Rule 16: a power-play goal ends the opponent's minor. Ask first (Options → Other can turn the question off).
   const askRelease = (x, team) => x.opts.confirm?.releaseOnGoal !== false && G.releaseCandidate(G.foldPenalties(x), team)
@@ -166,7 +185,7 @@ export default function Control() {
         newGame: x => (ask('newGame', t('confirmNewGame')) ? G.resetGame(x) : x),
       }
       const fn = lockRef.current && !RINK_KEYS.includes(act) ? null : map[act]
-      if (fn) update(x => G.onRink(x, rinkRef.current, y => fn(y) ?? y))
+      if (fn) update(x => G.onRink(x, rinkRef.current, y => recordAction(y,fn)))
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
@@ -380,6 +399,7 @@ export default function Control() {
         <button className="btn workspace-toggle" onClick={changeWorkspace}>{workspace==='stats'?'Scoreboard mode':'Stats mode'}</button>
         {!DESKTOP && <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>}
         {DESKTOP && window.desktop?.getShare && <button className="btn" onClick={() => setSheet('share')}>🌐 {t('shareBtn')}</button>}
+        <button className="btn" aria-label="Undo last action" title="Undo your last game entry or correction on this device" disabled={!undoCandidate} onClick={undoLast}>↶ Undo</button>
         {!locked && <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>}
         {!locked && <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>}
         <AudioNotice sound={sound} className="btn csound" />
@@ -656,8 +676,10 @@ function GoalSheet({ s, id, update, close, t }) {
   const [en, setEn] = useState(Boolean(e?.en))
   if (!e) return null
   const save = () => {
-    const values={scorer,a1,a2,situation,en,detailsComplete:Boolean(scorer)}
-    const patch=Object.fromEntries(Object.entries(values).filter(([k,v])=>JSON.stringify(v??null)!==JSON.stringify(original[k]??null)))
+    const values={scorer,a1,a2,situation,en}
+    const baseline={scorer:original.scorer||'',a1:original.a1||'',a2:original.a2||'',situation:original.situation||'EQ',en:Boolean(original.en)}
+    const patch=Object.fromEntries(Object.entries(values).filter(([k,v])=>v!==baseline[k]))
+    if('scorer' in patch)patch.detailsComplete=Boolean(scorer)
     let failure=''
     update(x=>{try{return correctEvent(x,id,patch,original,sessionUser()||'Scorekeeper')}catch(e){failure=e.message;return x}})
     if(failure){setEditError(failure);return}

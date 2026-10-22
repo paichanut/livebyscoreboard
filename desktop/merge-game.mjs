@@ -1,5 +1,22 @@
 // Three-way merge: disjoint fields/events combine; concurrent edits to one field fail visibly.
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+export function sameGameValue(a, b) {
+  if (a === b) return true
+  if (Array.isArray(a) || Array.isArray(b))
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((value, i) => sameGameValue(value, b[i]))
+    )
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false
+  const ak = Object.keys(a).filter((k) => a[k] !== undefined),
+    bk = Object.keys(b).filter((k) => b[k] !== undefined)
+  return (
+    ak.length === bk.length &&
+    ak.every((k) => Object.hasOwn(b, k) && sameGameValue(a[k], b[k]))
+  )
+}
+const same = sameGameValue
 const object = (x) => x && typeof x === 'object' && !Array.isArray(x)
 const identified = (a) =>
   Array.isArray(a) && a.every((x) => object(x) && typeof x.id === 'string')

@@ -588,6 +588,7 @@ export function setOptions(s, opts) {
 
 export function resetGame(s) {
   return newGame({
+    undoEpoch: crypto.randomUUID(),
     home: { ...s.home, score: 0, shots: 0, offsides: 0 },
     away: { ...s.away, score: 0, shots: 0, offsides: 0 },
     periodLengthMs: s.periodLengthMs,

@@ -29,7 +29,7 @@ export default function StatsMode({
   const deferred = useRef(new Set())
   const events = s.events || []
   const pending = events.filter(
-    (e) => e.type === 'goal' && !e.detailsComplete && !e.scorer
+    (e) => e.type === 'goal' && !e.scorer
   )
   useEffect(() => {
     if (editing || blocked) return
@@ -287,7 +287,7 @@ export default function StatsMode({
                   .map((e) => {
                     const p = e.type === 'penalty' && active[e.penaltyId]
                     const needs =
-                      e.type === 'goal' && !e.scorer && !e.detailsComplete
+                      e.type === 'goal' && !e.scorer
                     return (
                       <tr key={e.id} data-event-id={e.id}>
                         <td>{G.periodLabel({ ...s, period: e.period })}</td>
@@ -426,7 +426,7 @@ function EventEditor({ s, event, apply, close }) {
         form.period !== original.period
       )
         Object.assign(patch, time)
-      if (event.type === 'goal') patch.detailsComplete = Boolean(form.scorer)
+      if (event.type === 'goal' && 'scorer' in patch) patch.detailsComplete = Boolean(form.scorer)
       apply(event.id, patch, original)
       close()
     } catch (err) {
