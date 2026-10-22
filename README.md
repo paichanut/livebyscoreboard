@@ -96,3 +96,5 @@ src/styles.css   layout + themes
 supabase.sql     table + policies + realtime
 tests/unit       game.js unit tests · tests/e2e  Playwright flows
 ```
+
+Undo / Redo is available in both Scoreboard and Stats modes: **Ctrl+Z** undoes your last entry or correction; **Ctrl+Shift+Z** restores it. Redo appears after Undo and clears when you make another entry. History is per device and rink during the current visit (up to 30 actions). Neither action changes the game clock; use the existing clock back/forward controls. Penalty restoration is refused if the clock has advanced, so time served cannot be silently rewound.

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as G from '../../src/game.js'
 import { mergeGame } from '../../desktop/merge-game.mjs'
-import { captureUndo, undoAction } from '../../src/undo.js'
+import { captureUndo, undoAction, redoAction } from '../../src/undo.js'
 import { correctEvent, eventDetails } from '../../src/statistics.js'
 
 test('undo adds and removals without rewinding a running clock', () => {
@@ -164,4 +164,30 @@ test('concurrent first offsides treat older games’ missing counters as zero', 
     merged.state.events.filter((e) => e.type === 'offside').length,
     2
   )
+})
+
+test('redo and repeated undo preserve the running clock and other operator entries', () => {
+  const initial=G.startClock(G.newGame())
+  const goal=G.addScore(initial,'home',1)
+  const action=captureUndo(initial,goal)
+  const undone=undoAction(G.addScore(goal,'away',1),action)
+  const replay=redoAction(undone,action)
+  assert.equal(replay.home.score,1)
+  assert.equal(replay.away.score,1)
+  assert.deepEqual(replay.clock,undone.clock)
+  const again=undoAction(replay,captureUndo(undone,replay))
+  assert.equal(again.home.score,0)
+  assert.equal(again.away.score,1)
+  assert.deepEqual(again.clock,replay.clock)
+})
+test('redo correction creates a fresh undoable correction', () => {
+  const goal=G.addScore(G.newGame(),'home',1)
+  const edit=correctEvent(goal,goal.events[0].id,{scorer:'17'},eventDetails(goal.events[0]),'Operator')
+  const action=captureUndo(goal,edit)
+  const undone=undoAction(edit,action)
+  const replay=redoAction(undone,action)
+  assert.equal(replay.events[0].scorer,'17')
+  const again=undoAction(replay,captureUndo(undone,replay))
+  assert.notEqual(again.events[0].scorer,'17')
+  assert.deepEqual(again.clock,goal.clock)
 })

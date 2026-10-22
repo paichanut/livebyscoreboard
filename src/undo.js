@@ -1,7 +1,7 @@
 import * as G from './game.js'
 import { now } from './clock.js'
 import { mergeGame, sameGameValue } from '../desktop/merge-game.mjs'
-import { undoCorrection } from './statistics.js'
+import { undoCorrection, correctEvent } from './statistics.js'
 
 const same = sameGameValue
 const compact = (e) =>
@@ -72,6 +72,8 @@ export function captureUndo(before, after) {
     playLive: before.playLive,
     penalties: before.penalties,
     events: before.events || [],
+    afterPenalties: after.penalties,
+    afterEvents: after.events || [],
     flash: after.goalFlash,
     offside: after.offside,
     correctionId:
@@ -152,4 +154,23 @@ export function undoAction(s, action, actor = 'Operator') {
       : {}),
     updatedAt: now(),
   }
+}
+
+// Redo replays ledger changes through the same conflict checks; clock state is never restored.
+export function redoAction(s, action, actor = 'Operator') {
+  if (!action || (s.undoEpoch ?? null) !== action.epoch)
+    throw Error('This redo belongs to the previous game.')
+  if (action.correctionId) {
+    const entry = s.corrections?.find(c => c.id === action.correctionId)
+    if (!entry) throw Error('The correction is no longer available.')
+    return correctEvent(s, entry.eventId, entry.after, entry.before, actor)
+  }
+  return undoAction(s, {
+    ...action,
+    before: action.after,
+    after: action.before,
+    penalties: action.afterPenalties,
+    events: action.afterEvents,
+    correctionId: null,
+  }, actor)
 }

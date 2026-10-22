@@ -4,7 +4,7 @@ import * as G from './game.js'
 import StatsMode from './StatsMode.jsx'
 import { correctEvent, eventDetails } from './statistics.js'
 import './stats-mode.css'
-import { captureUndo, undoAction } from './undo.js'
+import { captureUndo, undoAction, redoAction } from './undo.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
 import { ShareSheet } from './DesktopShare.jsx'
 import { ONLINE, DESKTOP, NEEDS_LOGIN, statsSyncReady, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
@@ -89,11 +89,12 @@ export default function Control() {
   lockRef.current = locked
   const v = s && r === 'b' ? G.rinkView(s, 'b') : s
   const undoStacks=useRef({a:[],b:[]})
+  const redoStacks=useRef({a:[],b:[]})
   const [,refreshUndo]=useState(0)
   const recordAction=(current,fn)=>{
     const next=fn(current)??current
     const action=captureUndo(current,next)
-    if(action){const side=rinkRef.current;undoStacks.current[side]=[...undoStacks.current[side],action].slice(-30);refreshUndo(n=>n+1)}
+    if(action){const side=rinkRef.current;redoStacks.current[side]=[];undoStacks.current[side]=[...undoStacks.current[side],action].slice(-30);refreshUndo(n=>n+1)}
     return next
   }
   const ur = fn => update(x => G.onRink(x, rinkRef.current, current=>recordAction(current,fn)))
@@ -104,9 +105,33 @@ export default function Control() {
     update(x=>G.onRink(x,rinkRef.current,current=>{try{return undoAction(current,undoCandidate,sessionUser()||'Operator')}catch(e){failure=e.message;return current}}))
     if(failure){setSyncError(failure);return}
     undoStacks.current[r]=undoStacks.current[r].filter(action=>action.id!==undoCandidate.id)
+    redoStacks.current[r]=[...redoStacks.current[r],undoCandidate].slice(-30)
     refreshUndo(n=>n+1)
     setSheet(null)
   }
+  const redoCandidate=[...redoStacks.current[r]].reverse().find(action=>action.epoch===(v?.undoEpoch??null))
+  const redoLast=()=>{
+    if(!redoCandidate)return
+    let failure='', replay=null
+    update(x=>G.onRink(x,rinkRef.current,current=>{
+      try{const next=redoAction(current,redoCandidate,sessionUser()||'Operator');replay=captureUndo(current,next);return next}
+      catch(e){failure=e.message;return current}
+    }))
+    if(failure){setSyncError(failure);return}
+    redoStacks.current[r]=redoStacks.current[r].filter(action=>action.id!==redoCandidate.id)
+    if(replay)undoStacks.current[r]=[...undoStacks.current[r],replay].slice(-30)
+    refreshUndo(n=>n+1)
+    setSheet(null)
+  }
+  useEffect(()=>{
+    const on=e=>{
+      if(!(e.ctrlKey||e.metaKey)||e.altKey||e.code!=='KeyZ'||e.repeat||sheet||e.target.closest?.('input,textarea,select,[contenteditable="true"],.sheet-bg'))return
+      e.preventDefault()
+      if(e.shiftKey)redoLast();else undoLast()
+    }
+    window.addEventListener('keydown',on)
+    return()=>window.removeEventListener('keydown',on)
+  })
   const shift = s ? G.shiftInfo(s, now) : null
   // IIHF Rule 16: a power-play goal ends the opponent's minor. Ask first (Options → Other can turn the question off).
   const askRelease = (x, team) => x.opts.confirm?.releaseOnGoal !== false && G.releaseCandidate(G.foldPenalties(x), team)
@@ -152,7 +177,7 @@ export default function Control() {
   useEffect(() => {
     if (!s) return
     const on = e => {
-      if (workspace === 'stats' || sheet || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return
+      if (e.ctrlKey || e.metaKey || e.altKey || workspace === 'stats' || sheet || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return
       const k = s.opts.keys
       const code = e.code
       const act = Object.keys(k).find(name => k[name] && k[name] === code)
@@ -399,7 +424,8 @@ export default function Control() {
         <button className="btn workspace-toggle" onClick={changeWorkspace}>{workspace==='stats'?'Scoreboard mode':'Stats mode'}</button>
         {!DESKTOP && <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>}
         {DESKTOP && window.desktop?.getShare && <button className="btn" onClick={() => setSheet('share')}>🌐 {t('shareBtn')}</button>}
-        <button className="btn" aria-label="Undo last action" title="Undo your last game entry or correction on this device" disabled={!undoCandidate} onClick={undoLast}>↶ Undo</button>
+        <button className="btn" aria-label="Undo last action" title="Undo last game entry or correction (Ctrl+Z)" aria-keyshortcuts="Control+Z" disabled={!undoCandidate} onClick={undoLast}>↶ Undo</button>
+        {redoCandidate&&<button className="btn" aria-label="Redo last action" title="Redo last undone entry (Ctrl+Shift+Z)" aria-keyshortcuts="Control+Shift+Z" onClick={redoLast}>↷ Redo</button>}
         {!locked && <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>}
         {!locked && <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>}
         <AudioNotice sound={sound} className="btn csound" />
