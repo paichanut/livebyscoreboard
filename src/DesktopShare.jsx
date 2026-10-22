@@ -9,8 +9,34 @@ export function useShare() {
     if (!api?.getShare) return
     api.getShare().then(setSh)
     return api.onShare(setSh)
-  }, [api])
+  }, [api, api?.getShare])
   return api?.getShare ? sh : null
+}
+
+export function DesktopLinkStatus({ openSettings }) {
+  const sh = useShare()
+  const [copied, setCopied] = useState('')
+  if (!sh) return null
+  const online = sh.enabled && sh.state === 'online'
+  const status = !sh.enabled ? 'Off' : online ? 'Online' : ({ starting: 'Connecting', verifying: 'Verifying', downloading: 'Preparing', offline: 'Reconnecting' }[sh.state] || 'Connecting')
+  const groups = [
+    ...(sh.fixed ? [{ name: 'Permanent link', links: sh.fixed.links, status: !sh.enabled ? 'Off' : sh.fixedStatus === 'online' && online ? 'Online' : sh.fixedStatus === 'error' ? 'Connection error' : 'Connecting' }] : []),
+    ...(sh.links ? [{ name: 'Cloudflare', links: sh.links, status }] : []),
+  ]
+  const copy = async url => {
+    try { await navigator.clipboard.writeText(url); setCopied(url) } catch { setCopied('') }
+  }
+  return <section className="desktop-link-status" aria-label="Desktop online links">
+    <div className="desktop-link-heading"><strong className={online ? 'live' : 'local'}>Online link · {status}</strong><button className="linkbtn" onClick={openSettings}>Manage links</button></div>
+    {!groups.length && <span>Turn on Online link to get Controller and Display URLs.</span>}
+    {groups.map(group => <div className="desktop-link-group" key={group.name}>
+      <span className="desktop-link-label">{group.name} · {group.status}</span>
+      {[...(group.links.run || []).map(([label,url])=>[label,url]), ...(group.links.watch || []).filter(([,url])=>new URL(url).pathname.startsWith('/b/')).map(([label,url])=>[label === 'Scoreboard' ? 'Display' : label,url])].map(([label,url])=><div className="desktop-link-row" key={url}>
+        <span>{label}</span><a href={url} onClick={e=>{e.preventDefault();window.desktop.openLink(url)}}>{url}</a>
+        <button className="linkbtn" aria-label={`Copy ${group.name} ${label} URL`} onClick={()=>copy(url)}>{copied===url?'Copied':'Copy'}</button>
+      </div>)}
+    </div>)}
+  </section>
 }
 
 export function ShareSheet({ t, close, Sheet }) {

@@ -6,7 +6,7 @@ import { correctEvent, eventDetails } from './statistics.js'
 import './stats-mode.css'
 import { captureUndo, undoAction, redoAction } from './undo.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
-import { ShareSheet } from './DesktopShare.jsx'
+import { ShareSheet, DesktopLinkStatus } from './DesktopShare.jsx'
 import { ONLINE, DESKTOP, NEEDS_LOGIN, statsSyncReady, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
 import { useAppearance, useGameSounds, AudioNotice, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
@@ -439,6 +439,7 @@ export default function Control() {
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : DESKTOP ? t('offlineApp') : t('local')}<TimeBadge /></span>
         {DESKTOP && <DesktopUpdate t={t} />}
         <button className={`linkbtn who ${lic?.unlicensed ? 'unlic' : ''}`} onClick={() => setSheet('contact')}>💬 {t('contactDev')}</button>
+        {DESKTOP && <DesktopLinkStatus openSettings={()=>setSheet('share')} />}
       </div>
 
       {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={v} update={ur} close={() => setSheet(null)} t={t} />}

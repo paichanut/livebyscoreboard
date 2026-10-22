@@ -756,3 +756,15 @@ html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .bo
 .fontchip .fsample { display: flex; flex-direction: column; align-items: center; font-size: 26px; line-height: 1.15; white-space: nowrap; max-width: 100%; overflow: hidden; }
 .fontchip .fsample em { font-style: inherit; font-size: .6em; }
 .fontchip small { font-family: var(--font-ui); font-size: 12px; color: var(--muted); }
+
+/* Desktop link addresses remain in the bottom status area in both workspaces. */
+.control .status:has(.desktop-link-status) { flex-wrap: wrap; row-gap: 8px; }
+.desktop-link-status { flex: 1 0 100%; min-width: 0; padding: 10px 12px; background: var(--card); border: 1px solid var(--dim); border-radius: 10px; text-transform: none; letter-spacing: 0; }
+.desktop-link-heading { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+.desktop-link-group + .desktop-link-group { margin-top: 8px; }
+.desktop-link-label { font-weight: 600; }
+.desktop-link-row { display: flex; gap: 10px; align-items: baseline; margin-top: 4px; }
+.desktop-link-row > span { min-width: 70px; }
+.desktop-link-row a { color: var(--go); overflow-wrap: anywhere; min-width: 0; }
+.desktop-link-row .linkbtn { flex-shrink: 0; margin-left: auto; }
+@media(max-width:600px) { .desktop-link-row { flex-wrap: wrap; } .desktop-link-row a { flex: 1 1 65%; } }

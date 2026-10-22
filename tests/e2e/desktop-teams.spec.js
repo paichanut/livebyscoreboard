@@ -140,16 +140,21 @@ test('Online link shows permanent owner URLs alongside unchanged Cloudflare link
     await openControl(page, uniqueCode('online-links'))
     await page.evaluate(() => {
       const state = {
-        enabled:true,state:'online',telegram:{chatId:'',tokenSet:false,last:''},
+        enabled:true,state:'online',fixedStatus:'online',telegram:{chatId:'',tokenSet:false,last:''},
         fixed:{version:2,username:'owner',code:'arena-pc',links:{watch:[['Scoreboard','https://livebyscoreboard.vercel.app/b/owner/arena-pc']],run:[['Controller','https://livebyscoreboard.vercel.app/c/owner/arena-pc']]}},
         links:{watch:[['Scoreboard','https://fixture.trycloudflare.com/b/main']],run:[['Controller','https://fixture.trycloudflare.com/c/main?key=fixture-key']]},
       }
       window.desktop.getShare = async () => state
-      window.desktop.onShare = listener => { window.shareListener=listener; return ()=>{} }
-      window.desktop.enableShare = async enabled => { state.enabled=enabled; window.shareListener?.({...state}) }
+      const listeners=new Set()
+      window.desktop.onShare = listener => { listeners.add(listener); return ()=>listeners.delete(listener) }
+      window.desktop.enableShare = async enabled => { state.enabled=enabled; listeners.forEach(listener=>listener({...state})) }
     })
     // A normal game update rerenders the toolbar after installing the mock native transport.
     await page.getByRole('button',{name:'START',exact:true}).click()
+    const footer=page.getByRole('region',{name:'Desktop online links'})
+    await expect(footer).toContainText('Online link · Online')
+    await expect(footer.getByRole('link',{name:'https://livebyscoreboard.vercel.app/c/owner/arena-pc',exact:true})).toBeVisible()
+    await expect(footer.getByRole('link',{name:'https://livebyscoreboard.vercel.app/b/owner/arena-pc',exact:true})).toBeVisible()
     await page.getByRole('button',{name:'🌐 Online link',exact:true}).click()
     const sheet = page.locator('.sheet')
     await expect(sheet.getByText('https://livebyscoreboard.vercel.app/b/owner/arena-pc',{exact:true})).toBeVisible()
@@ -158,7 +163,13 @@ test('Online link shows permanent owner URLs alongside unchanged Cloudflare link
     await expect(sheet.getByText('Only Cloudflare links are sent to Telegram.',{exact:false})).toBeVisible()
     await sheet.getByRole('button',{name:'● Online link is ON (tap to turn off)',exact:true}).click()
     await expect(sheet.getByRole('button',{name:'Turn on the online link',exact:true})).toBeVisible()
+    await expect(footer).toContainText('Online link · Off')
     await expect(sheet.getByText('https://livebyscoreboard.vercel.app/b/owner/arena-pc',{exact:true})).toBeVisible()
+    await sheet.getByRole('button',{name:'Close',exact:true}).click()
+    await page.getByRole('button',{name:'Stats mode',exact:true}).click()
+    await expect(footer).toBeVisible()
+    await expect(footer).toContainText('Online link · Off')
+    await expect(footer.getByRole('link',{name:'https://livebyscoreboard.vercel.app/c/owner/arena-pc',exact:true})).toBeVisible()
   } finally { await native.dispose() }
 })
 
