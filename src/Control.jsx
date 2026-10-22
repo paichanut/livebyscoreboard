@@ -656,7 +656,7 @@ function GoalSheet({ s, id, update, close, t }) {
   const [en, setEn] = useState(Boolean(e?.en))
   if (!e) return null
   const save = () => {
-    const values={scorer,a1,a2,situation,en,detailsComplete:true}
+    const values={scorer,a1,a2,situation,en,detailsComplete:Boolean(scorer)}
     const patch=Object.fromEntries(Object.entries(values).filter(([k,v])=>JSON.stringify(v??null)!==JSON.stringify(original[k]??null)))
     let failure=''
     update(x=>{try{return correctEvent(x,id,patch,original,sessionUser()||'Scorekeeper')}catch(e){failure=e.message;return x}})

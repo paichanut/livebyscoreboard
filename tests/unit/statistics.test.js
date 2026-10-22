@@ -50,6 +50,7 @@ test('active penalty correction updates the scoreboard and summary while retaini
     'Stats keeper'
   )
   assert.equal(edited.penalties[0].player, '55')
+  assert.equal(G.penaltyCallActive(edited).player, '55')
   assert.equal(edited.penalties[0].elapsedMs, 45000)
   assert.equal(edited.penalties[0].durationMs, 240000)
   assert.match(G.summaryText(edited), /#55 +4 +Hooking/)

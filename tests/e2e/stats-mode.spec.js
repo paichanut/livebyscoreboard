@@ -109,6 +109,7 @@ test('running penalty edits reach the scoreboard and summary without restarting 
   await editor.getByLabel('Infraction', { exact: true }).fill('Hooking')
   await editor.getByRole('button', { name: 'Save changes' }).click()
   await expect(board.locator('.board')).toContainText('#55')
+  await expect(board.locator('.penalty-signal-player')).toHaveText('#55')
   await expect(home(page)).toContainText('Hooking')
   await expect(stats.locator('.stats-event-list')).toContainText('Hooking')
   await expect(

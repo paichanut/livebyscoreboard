@@ -499,7 +499,7 @@ export function penaltyCallActive(s, now = wallNow()) {
     return first ? [p.infraction || (kindOf(p) === 'misconduct' ? 'MISCONDUCT' : ''), time].filter(Boolean).join(' ') : time
   }
   const text = [items[0].player ? `#${items[0].player}` : '', items.map((p, i) => one(p, i === 0)).join(' + ')].filter(Boolean).join(' ')
-  return { team: c.team, player: c.player, at: c.at, infraction: items[0].infraction, text: text.toUpperCase() }
+  return { team: c.team, player: items[0].player, at: c.at, infraction: items[0].infraction, text: text.toUpperCase() }
 }
 
 export function removePenalty(s, id) {

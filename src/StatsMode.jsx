@@ -426,7 +426,7 @@ function EventEditor({ s, event, apply, close }) {
         form.period !== original.period
       )
         Object.assign(patch, time)
-      if (event.type === 'goal') patch.detailsComplete = true
+      if (event.type === 'goal') patch.detailsComplete = Boolean(form.scorer)
       apply(event.id, patch, original)
       close()
     } catch (err) {
