@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import vm from 'node:vm'
+import { mergeGame } from '../../desktop/merge-game.mjs'
 import { controllerKey } from '../../lib/desktop-links.js'
 
 test('desktop exposes account-scoped A/B/C links but sends only Cloudflare links to Telegram', () => {
@@ -48,8 +49,8 @@ test('installation identity survives restarts and failed pairing leaves Cloudfla
         return {ok:true,json:async()=>data}
       }},
     }
-    const context = {module:{exports:{}},require:name=>name==='electron'?electron:require(name),process,Buffer,URL,AbortSignal,setInterval:()=>0,clearInterval(){},setTimeout,clearTimeout}
-    vm.runInNewContext(source + '\nstartServer = async () => {}; module.exports.inspect = () => ({...settings});',context)
+    const context = {importMerge:{mergeGame},module:{exports:{}},require:name=>name==='electron'?electron:require(name),process,Buffer,URL,AbortSignal,setInterval:()=>0,clearInterval(){},setTimeout,clearTimeout}
+    vm.runInNewContext(source.replace("await import('./merge-game.mjs')",'importMerge') + '\nstartServer = async () => {}; module.exports.inspect = () => ({...settings});',context)
     await context.module.exports.initShare({webDir:directory})
     return {handlers,inspect:context.module.exports.inspect}
   }
@@ -79,4 +80,30 @@ test('installation identity survives restarts and failed pairing leaves Cloudfla
     assert.equal(paired.fixed.username,'owner')
     assert.equal(paired.fixed.links.run[0][1],'https://livebyscoreboard.vercel.app/c/owner/arena-pc')
   } finally { fs.rmSync(directory,{recursive:true,force:true}) }
+})
+
+test('desktop serializes remote corrections and rejects stale edits before publishing',async()=>{
+  const require=createRequire(import.meta.url),{EventEmitter}=require('node:events')
+  const source=readFileSync(new URL('../../desktop/share.cjs',import.meta.url),'utf8')
+  let state={home:{score:1},events:[{id:'goal',type:'goal',scorer:''}]}
+  let api
+  const electron={BrowserWindow:{getAllWindows:()=>[{webContents:{send:(name,id,patch)=>{
+    if(name!=='share:remote')return
+    setTimeout(()=>{state={...state,...patch};api.publish(id,state)},5)
+  }}}]}}
+  const context={importMerge:{mergeGame},module:{exports:{}},require:name=>name==='electron'?electron:require(name),process,Buffer,URL,AbortSignal,setInterval,clearInterval,setTimeout,clearTimeout}
+  vm.runInNewContext(source+"\nmergeGame=importMerge.mergeGame;module.exports={receiveState,publish};",context)
+  api=context.module.exports;api.publish('main',state)
+  const post=(patch,base)=>new Promise(resolve=>{
+    const req=new EventEmitter();req.headers={}
+    const res={status:200,writeHead(code){this.status=code;return this},end(body){resolve({status:this.status,body})}}
+    api.receiveState(req,res,'main');req.emit('data',Buffer.from(JSON.stringify({patch,base})));req.emit('end')
+  })
+  const base={events:state.events}
+  const [a,b]=await Promise.all([post({events:[{id:'goal',type:'goal',scorer:'17'}]},base),post({events:[{id:'goal',type:'goal',scorer:'88'}]},base)])
+  assert.equal(a.status,200);assert.equal(b.status,409);assert.equal(state.events[0].scorer,'17')
+  const add=await post({events:[...base.events,{id:'shot',type:'shot'}]},base)
+  assert.equal(add.status,200)
+  assert.equal(state.events.find(e=>e.id==='goal').scorer,'17')
+  assert.ok(state.events.some(e=>e.id==='shot'))
 })

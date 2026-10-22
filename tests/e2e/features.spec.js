@@ -69,8 +69,10 @@ test('game summary (IIHF style): scorer and assists after a goal, penalties, sho
   expect(text).toMatch(/15:00 +AWAY +\? +SH1 +1:1/) // period 2 starts at 15:00 game time; AWAY is a man down
   expect(text).toMatch(/04:30 +AWAY +#12 +2 +Minor/)
   expect(text).toMatch(/TIMELINE\nPERIOD 1\n  04:30  SHOT     HOME +Shot on goal/)
-  // edit the away goal from the list
-  await page.getByRole('button', { name: 'edit goal 2' }).click()
+  // Summary is read-only. Existing scoreboard goal details remain available separately.
+  await expect(page.getByRole('button', { name: 'edit goal 2' })).toHaveCount(0)
+  await page.locator('.sheet').getByRole('button', { name:'Close',exact:true }).click()
+  await page.getByRole('button', { name: 'goal details away' }).click()
   await page.locator('.sheet').getByLabel('Goal #').fill('8')
   await page.locator('.sheet').getByRole('button', { name: 'Save' }).click()
   await page.getByRole('button', { name: '📋 Summary' }).click()

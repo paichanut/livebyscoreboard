@@ -59,6 +59,7 @@ const CLOUDFLARED = {
   'linux-x64': 'cloudflared-linux-amd64', 'linux-arm64': 'cloudflared-linux-arm64',
 }
 
+let mergeGame = null
 let WEB = ''
 let settingsFile = ''
 let settings = { enabled: false, controlKey: '', telegram: { botToken: '', chatId: '' } }
@@ -169,16 +170,31 @@ function receiveState(req, res, id) {
   let size = 0
   const chunks = []
   req.on('data', c => { size += c.length; if (size > MAX_BODY) req.destroy(); else chunks.push(c) })
-  req.on('end', () => {
-    let patch
-    try { patch = JSON.parse(Buffer.concat(chunks).toString('utf8')).patch } catch {}
+  req.on('end', async () => {
+    let patch, base
+    try { const body=JSON.parse(Buffer.concat(chunks).toString('utf8')); patch=body.patch; base=body.base } catch {}
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) { res.writeHead(400).end(); return }
+    // Serialize remote writes through the authoritative renderer's acknowledgement.
+    while (acks.get(id)?.size) await Promise.all([...acks.get(id)].map(a=>a.finished))
+    let applyBase
     delete patch.updatedAt
+    if (base && typeof base==='object' && mergeGame) {
+      const current=games.get(id)
+      if (!current) {res.writeHead(409).end();return}
+      const currentParts=Object.fromEntries(Object.keys(patch).map(k=>[k,current[k]]))
+      applyBase=currentParts
+      const merged=mergeGame(fatValue(base),fatValue(patch),currentParts)
+      if(merged.conflicts.length){res.writeHead(409,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Another operator changed these details. Review the latest event.'}));return}
+      patch=merged.state
+    }
     if (!acks.has(id)) acks.set(id, new Set())
-    const done = () => { clearTimeout(a.timer); acks.get(id)?.delete(a); if (slim.has(id)) sendState(res, id); else sendJson(res, { now: Date.now() }) }
-    const a = { done, timer: setTimeout(() => done(), 3000) }
+    let finish
+    const finished = new Promise(resolve=>{finish=resolve})
+    const done = (rejected=false) => { finish(); clearTimeout(a.timer); acks.get(id)?.delete(a); if(rejected){res.writeHead(409).end();return} if (slim.has(id)) sendState(res, id); else sendJson(res, { now: Date.now() }) }
+    const requestId=require('node:crypto').randomUUID()
+    const a = { done, finished, requestId, timer: setTimeout(() => done(true), 3000) }
     acks.get(id).add(a)
-    for (const w of BrowserWindow.getAllWindows()) w.webContents.send('share:remote', id, fatValue(patch))
+    for (const w of BrowserWindow.getAllWindows()) w.webContents.send('share:remote', id, fatValue(patch), {base:applyBase,requestId})
   })
 }
 
@@ -458,6 +474,7 @@ async function findChatId(token) {
 
 // ---------- setup ----------
 async function initShare({ webDir, license: lic }) {
+  ;({mergeGame}=await import('./merge-game.mjs'))
   WEB = webDir
   license = lic || license
   settingsFile = path.join(app.getPath('userData'), 'share.json')
@@ -478,6 +495,7 @@ async function initShare({ webDir, license: lic }) {
     } catch(e) { return {ok:false,error:e.message} }
   })
 
+  ipcMain.on('share:reject',(_e,id,requestId)=>{for(const ack of acks.get(id)||[])if(ack.requestId===requestId)ack.done(true)})
   ipcMain.on('share:publish', (_e, id, state) => publish(String(id), state))
   ipcMain.handle('share:get', () => publicState())
   ipcMain.handle('share:enable', (_e, on) => {

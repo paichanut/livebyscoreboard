@@ -515,7 +515,7 @@ export function removePenalty(s, id) {
 // Fix a penalty after the fact: player, infraction, or length (time already served is kept)
 export function editPenalty(s, id, { player, minutes, infraction, kind, coincidental }) {
   const f = foldPenalties(s)
-  return touch({
+  const next = touch({
     ...f,
     penalties: f.penalties.map(p => {
       if (p.id !== id) return p
@@ -537,6 +537,10 @@ export function editPenalty(s, id, { player, minutes, infraction, kind, coincide
       return next
     }),
   })
+  const edited = next.penalties.find(p => p.id === id)
+  return edited ? { ...next, events: (next.events || []).map(e => e.type === 'penalty' && e.penaltyId === id
+    ? { ...e, player: edited.player, infraction: edited.infraction, minutes: edited.minutes, kind: edited.kind,
+      penaltyShot: edited.penaltyShot, coincidental: Boolean(edited.coincidental) } : e) } : next
 }
 
 // ±1 s / ±5 s on one penalty, to match the rink's official board. +deltaMs = more time to serve.
@@ -647,7 +651,7 @@ const periodShort = (s, p) => (p === 'OT' ? s.opts?.otLabel || 'OT' : p === 'SO'
 
 // Everything the game sheet needs, in one structure (text, CSV and the printable page all use it)
 export function gameSheet(s) {
-  const events = s.events || []
+  const events = [...(s.events || [])].sort((a,b) => (eventGameTimeMs(s,a) ?? Infinity) - (eventGameTimeMs(s,b) ?? Infinity) || a.t - b.t)
   const used = new Set(events.map(e => e.period))
   used.add(s.period)
   const periods = periodList(s).filter(p => /^\d+$/.test(p) || used.has(p))
@@ -806,7 +810,7 @@ ${g.timeline.length ? g.timeline.map(x => { const c = `<b>${esc(x.kind)}</b> ${e
 // Rink B lives in s.rinkB with the same fields. rinkView() turns Rink B into an ordinary state, so every
 // rule above (penalties, strength, goal release, game sheet) works for it unchanged; onRink() applies a
 // mutation to one rink and puts the result back.
-const RINK_FIELDS = ['home', 'away', 'penalties', 'penFoldAt', 'events', 'goalFlash', 'offside', 'penaltyCall', 'shootout']
+const RINK_FIELDS = ['home', 'away', 'penalties', 'penFoldAt', 'events', 'goalFlash', 'offside', 'penaltyCall', 'shootout', 'corrections']
 const pickRink = x => Object.fromEntries(RINK_FIELDS.map(k => [k, x[k]]))
 
 export function newRinkB(old) {

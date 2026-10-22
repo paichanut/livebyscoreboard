@@ -3,6 +3,7 @@
 //
 // Access model: reads are public; writes need the game's operator key.
 import { createClient } from '@supabase/supabase-js'
+import { mergeGame } from '../desktop/merge-game.mjs'
 import { newGame } from './game.js'
 import { setTimeOffset } from './clock.js'
 
@@ -203,6 +204,15 @@ function startTimeSync() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncServerTime(2) })
 }
 
+let atomicStatsReady=false
+export async function statsSyncReady() {
+  if (!ONLINE || atomicStatsReady) return true
+  const {data,error}=await supabase.rpc('stats_sync_ready')
+  atomicStatsReady=!error && data===true
+  return atomicStatsReady
+}
+const syncConflict = message => window.dispatchEvent(new CustomEvent('game-sync-conflict',{detail:message}))
+
 // ---------- Supabase ----------
 function supabaseStore(gameId, { key = '', canWrite = false } = {}) {
   let state = null
@@ -211,18 +221,22 @@ function supabaseStore(gameId, { key = '', canWrite = false } = {}) {
   const emit = () => listeners.forEach(fn => fn(state, access))
   let saveTimer = null
   let pending = null
+  let confirmed = null
+  let saving = false
 
   async function load() {
     const { data, error } = await supabase.from('games').select('state').eq('id', gameId).maybeSingle()
     if (error) console.error('load failed', error)
     if (data?.state) {
       state = data.state
+      confirmed = data.state
       if (canWrite) {
         const { data: ok } = await supabase.rpc('check_key', { p_id: gameId, p_key: key })
         access = ok ? 'ok' : 'locked'
       } else access = 'ok'
     } else if (canWrite && key) {
       state = newGame()
+      confirmed = state
       const { data: ok, error: e2 } = await supabase.rpc('create_game', { p_id: gameId, p_key: key, p_state: state })
       if (e2) console.error('create failed', e2)
       access = ok ? 'ok' : 'locked'
@@ -239,7 +253,12 @@ function supabaseStore(gameId, { key = '', canWrite = false } = {}) {
       const incoming = payload.new?.state
       if (!incoming) return
       if (state && incoming.updatedAt < state.updatedAt) return
-      state = incoming
+      if (pending || saving) {
+        const merged=mergeGame(confirmed,state,incoming)
+        if (!merged.conflicts.length) state=merged.state
+      } else state=incoming
+      // Keep the original confirmed base until pending changes have been checked by the server.
+      if (!pending && !saving) confirmed=incoming
       if (access === 'missing') access = 'ok'
       emit()
     })
@@ -247,15 +266,38 @@ function supabaseStore(gameId, { key = '', canWrite = false } = {}) {
 
   load()
 
-  function flush() {
-    saveTimer = null
-    const s = pending
-    pending = null
-    if (!s) return
-    supabase.rpc('save_game', { p_id: gameId, p_key: key, p_state: s }).then(({ data, error }) => {
-      if (error) console.error('save failed', error)
-      if (data === false && access !== 'locked') { access = 'locked'; emit() }
-    })
+  async function flush() {
+    saveTimer=null
+    if(saving)return
+    const sent=pending
+    pending=null
+    if(!sent)return
+    saving=true
+    let candidate=sent,base=confirmed
+    try {
+      if(await statsSyncReady()) {
+        let saved=false
+        for(let attempt=0;attempt<5;attempt++) {
+          const {data,error}=await supabase.rpc('save_game_checked',{p_id:gameId,p_key:key,p_base:base,p_state:candidate})
+          if(error)throw error
+          if(data?.error){access='locked';emit();return}
+          if(data?.ok){confirmed=data.state;saved=true;break}
+          if(!data?.state)throw Error('Could not confirm the game update.')
+          const merged=mergeGame(base,candidate,data.state)
+          if(merged.conflicts.length){confirmed=data.state;state=data.state;pending=null;emit();syncConflict('Another operator changed the same details. Your conflicting update was not saved. Review the latest event and try again.');return}
+          base=data.state;candidate=merged.state
+        }
+        if(!saved)throw Error('The game is busy. Please retry your correction.')
+        const rebased=mergeGame(sent,state,confirmed)
+        if(rebased.conflicts.length){state=confirmed;pending=null;syncConflict('Overlapping edits were not saved. Review the latest game details.')}else{state=rebased.state;if(pending)pending=state}
+        emit()
+      } else {
+        const {data,error}=await supabase.rpc('save_game',{p_id:gameId,p_key:key,p_state:sent})
+        if(error)throw error
+        if(data===false){access='locked';emit()}else confirmed=sent
+      }
+    }catch(error){state=confirmed;pending=null;emit();syncConflict('Game update could not be saved. Check your connection and retry.');console.error('save failed',error)}
+    finally{saving=false;if(pending&&!saveTimer)saveTimer=setTimeout(flush,0)}
   }
 
   return {
@@ -290,6 +332,7 @@ function viewerStore(gameId) {
   const api = `/api/state/${encodeURIComponent(gameId)}`
   let server = null // the desktop's game
   let seq = 0
+  const bases = {}
   const local = {} // parts changed here that the desktop has not confirmed yet
   const dirty = new Set() // ...and not sent yet
   let state = null
@@ -319,12 +362,18 @@ function viewerStore(gameId) {
   async function send() {
     sendTimer = null
     if (sending || !dirty.size) return
+    const base = Object.fromEntries([...dirty].map(k=>[k,bases[k] ?? server?.[k]]))
     const patch = {}
     for (const k of dirty) patch[k] = k in local ? local[k] ?? null : server?.[k] ?? null
     dirty.clear()
     sending = true
     try {
-      const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch }) })
+      const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch, base }) })
+      if(r.status===409){
+        for(const k of Object.keys(patch)){delete local[k];delete bases[k];dirty.delete(k)}
+        const latest=await fetch(`${api}?v=0&b=`).then(r=>r.json());take(latest);rebuild()
+        syncConflict('Another operator changed these details. Your correction was not saved. Review the latest event and try again.');return
+      }
       if (r.status === 401) { window.location.reload(); return } // logged out (12 h): the page sends you to log in again
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       take(await r.json())
@@ -382,6 +431,7 @@ function viewerStore(gameId) {
       const cur = state || {}
       for (const k of new Set([...Object.keys(cur), ...Object.keys(next)])) {
         if (k === 'updatedAt' || same(cur[k], next[k])) continue
+        if(!dirty.has(k))bases[k]=cur[k]
         local[k] = next[k]
         dirty.add(k)
       }
@@ -408,9 +458,15 @@ function localStore(gameId) {
   const publish = () => { try { window.desktop?.publishState?.(gameId, state) } catch {} }
   // ...and take changes made on controllers opened through the online link: the parts they changed,
   // merged into this game (newest wins, whatever the phone's clock says)
-  const offRemote = window.desktop?.onRemoteState?.((id, patch) => {
+  const offRemote = window.desktop?.onRemoteState?.((id, patch, metadata) => {
     if (id !== gameId || !patch || typeof patch !== 'object') return
-    const { updatedAt: _, ...parts } = patch
+    let { updatedAt: _, ...parts } = patch
+    if(metadata?.base){
+      const current=Object.fromEntries(Object.keys(parts).map(k=>[k,state[k]]))
+      const merged=mergeGame(metadata.base,parts,current)
+      if(merged.conflicts.length){window.desktop?.rejectRemote?.(id,metadata.requestId);syncConflict('A remote correction overlapped another update and was not saved.');return}
+      parts=merged.state
+    }
     api.set({ ...state, ...parts, updatedAt: Math.max(Date.now(), (state?.updatedAt || 0) + 1) })
   })
   const emit = () => { listeners.forEach(fn => fn(state, 'ok')); publish() }
@@ -424,7 +480,7 @@ function localStore(gameId) {
   window.addEventListener('storage', onStorage)
 
   const api = {
-    get: () => state,
+    get: () => {try{const latest=JSON.parse(localStorage.getItem(key));if(latest&&latest.updatedAt>=state.updatedAt)state=latest}catch{}return state},
     getAccess: () => 'ok',
     subscribe(fn) { listeners.add(fn); fn(state, 'ok'); return () => listeners.delete(fn) },
     set(next) {

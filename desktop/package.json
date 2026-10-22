@@ -26,6 +26,7 @@
       "updater.cjs",
       "preload.cjs",
       "share.cjs",
+      "merge-game.mjs",
       "teams.cjs",
       "teams-preload.cjs",
       "license.cjs",

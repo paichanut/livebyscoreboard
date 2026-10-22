@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useGame, useGameId, useTick, useClockTick, useUrlKey } from './useGame.js'
 import * as G from './game.js'
+import StatsMode from './StatsMode.jsx'
+import { correctEvent, eventDetails } from './statistics.js'
+import './stats-mode.css'
 import DesktopUpdate from './DesktopUpdate.jsx'
 import { ShareSheet } from './DesktopShare.jsx'
-import { ONLINE, DESKTOP, NEEDS_LOGIN, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
+import { ONLINE, DESKTOP, NEEDS_LOGIN, statsSyncReady, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
 import { useAppearance, useGameSounds, AudioNotice, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
 import { saveTeam } from './teamLibrary.js'
@@ -53,6 +56,17 @@ export default function Control() {
   useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
   const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
   const [sheet, setSheet] = useState(null)
+  const [workspace,setWorkspace] = useState(()=>{try{return localStorage.getItem(`rinkboard:workspace:${gameId}`)==='stats'?'stats':'scoreboard'}catch{return 'scoreboard'}})
+  const [syncError,setSyncError]=useState('')
+  useEffect(()=>{if(ONLINE&&workspace==='stats')statsSyncReady().then(ok=>{if(!ok){setWorkspace('scoreboard');setSyncError('Stats mode needs the Supabase stats-mode.sql migration.')}})},[])
+  useEffect(()=>{const on=e=>setSyncError(e.detail||'Another operator changed this event. Review the latest details.');window.addEventListener('game-sync-conflict',on);return()=>window.removeEventListener('game-sync-conflict',on)},[])
+  const changeWorkspace=async()=>{
+    if(workspace!=='stats' && !await statsSyncReady()){setSyncError('Stats mode needs the Supabase stats-mode.sql migration before two operators can edit safely.');return}
+    setSheet(null)
+    const next=workspace==='stats'?'scoreboard':'stats'
+    setWorkspace(next)
+    try{localStorage.setItem(`rinkboard:workspace:${gameId}`,next)}catch{}
+  }
   // desktop app past its licence date: "Contact for license" opens by itself 30 s after the screen is free
   const lic = useLicense()
   useEffect(() => {
@@ -119,7 +133,7 @@ export default function Control() {
   useEffect(() => {
     if (!s) return
     const on = e => {
-      if (sheet || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return
+      if (workspace === 'stats' || sheet || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return
       const k = s.opts.keys
       const code = e.code
       const act = Object.keys(k).find(name => k[name] && k[name] === code)
@@ -156,7 +170,7 @@ export default function Control() {
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [sheet, s?.opts?.keys, s?.opts?.confirm, s?.opts?.uiLang])
+  }, [workspace, sheet, s?.opts?.keys, s?.opts?.confirm, s?.opts?.uiLang])
 
   if (access === 'locked' || access === 'missing' || (NEEDS_LOGIN && !key)) return <LockedScreen gameId={gameId} t={t} />
   if (!s) return <div className="loading">{t('connecting')}</div>
@@ -173,8 +187,10 @@ export default function Control() {
   const isSO = s.period === 'SO'
 
   return (
-    <div className={`control ${small ? 'small' : ''}`} style={small ? { '--rk': RINK_COLOR[r] } : undefined}>
+    <div className={`control ${small ? 'small' : ''} workspace-${workspace}`} style={small ? { '--rk': RINK_COLOR[r] } : undefined}>
 
+      {syncError&&<div className="stats-sync-error" role="alert">{syncError}<button className="btn sm" onClick={()=>setSyncError('')}>Dismiss</button></div>}
+      {workspace==='stats'&&<StatsMode s={v} update={ur} now={now} actor={sessionUser()||'Operator'} addGoal={scoreGoal} addPenalty={team=>setSheet(`pen-${team}`)} blocked={Boolean(sheet)} small={small} rink={r} setRink={setRink} locked={locked}/>}
       <div className="card clockcard">
         {locked && <div className="rinkctlbig" style={{ '--rk': RINK_COLOR[locked] }}>{o.labels[locked === 'a' ? 'rinkA' : 'rinkB']}</div>}
         {locked && <div className="rinkctl">🎮 {t('rinkController', { rink: o.labels[locked === 'a' ? 'rinkA' : 'rinkB'] })}</div>}
@@ -361,6 +377,7 @@ export default function Control() {
           <a className="btn" key={label} href={rink ? `${boardUrl}?rink=${rink}` : boardUrl} target="_blank" rel="noreferrer" title={rink ? `Rink ${label} only` : 'Center · both rinks'} style={{ textAlign: 'center', textDecoration: 'none' }}>Display {label}</a>
         )) : <a className="btn" href={locked ? `${boardUrl}?rink=${locked}` : boardUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>{t('display')}</a>}
         <button className="btn" onClick={() => setSheet('summary')}>{t('summary')}</button>
+        <button className="btn workspace-toggle" onClick={changeWorkspace}>{workspace==='stats'?'Scoreboard mode':'Stats mode'}</button>
         {!DESKTOP && <button className="btn" onClick={() => setSheet('qr')}>{t('qr')}</button>}
         {DESKTOP && window.desktop?.getShare && <button className="btn" onClick={() => setSheet('share')}>🌐 {t('shareBtn')}</button>}
         {!locked && <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>}
@@ -416,7 +433,7 @@ export default function Control() {
         </Sheet>
       )}
       {sheet === 'options' && <Options s={s} update={update} close={() => setSheet(null)} />}
-      {sheet === 'summary' && <SummarySheet s={v} gameId={gameId} close={() => setSheet(null)} t={t} editGoal={id => setSheet(`goal-${id}`)} />}
+      {sheet === 'summary' && <SummarySheet s={v} gameId={gameId} close={() => setSheet(null)} t={t} />}
       {sheet === 'contact' && (
         <Sheet close={() => setSheet(null)}>
           <h3>{t('contactDev')} · {DEV.name}</h3>
@@ -460,6 +477,8 @@ function Sheet({ children, close }) {
 }
 
 function PenaltySheet({ team, s, update, close, t, edit }) {
+  const [editError,setEditError]=useState('')
+  const [originalEvent]=useState(()=>edit ? s.events?.find(e=>e.type==='penalty'&&e.penaltyId===edit.id) : null)
   const three = G.isThreeOnThree(s)
   const lens = s.opts.penaltyLengths?.length ? s.opts.penaltyLengths : [2, 4, 5, 10]
   const templates = s.opts.penaltyTemplates || []
@@ -472,12 +491,20 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
   const game = mins === 'game'
   const add = () => {
     const kind = game ? 'game' : undefined
+    let failure=''
     update(x => {
+      if (edit && originalEvent) {
+        const values={player,minutes:game?20:mins,infraction,coincidental:coinc,...(game?{kind:'game'}:originalEvent.kind==='game'?{kind:'auto'}:{})}
+        const patch=Object.fromEntries(Object.entries(values).filter(([k,v])=>JSON.stringify(v??null)!==JSON.stringify(originalEvent[k]??null)))
+        try{return correctEvent(x,originalEvent.id,patch,eventDetails(originalEvent),sessionUser()||'Scorekeeper')}
+        catch(e){failure=e.message;return x}
+      }
       if (edit) return G.editPenalty(x, edit.id, { player, minutes: game ? null : mins, infraction, kind: kind || 'auto', coincidental: coinc })
       let next = G.addPenalty(x, team, player, game ? 0 : mins, infraction, { kind, coincidental: coinc })
       if (alsoGame && !game) next = G.addPenalty(next, team, player, 0, infraction, { kind: 'game' })
       return next
     })
+    if(failure){setEditError(failure);return}
     close()
   }
   const pick = tp => {
@@ -494,6 +521,7 @@ function PenaltySheet({ team, s, update, close, t, edit }) {
   return (
     <Sheet close={close}>
       <h3 style={{ color: s[team].color }}>{s.opts.labels.penalty} · {s[team].name}</h3>
+      {editError&&<p role="alert" className="stats-error">{editError}</p>}
       {G.isThreeOnThree(s) && <p className="hint">3x3 · Playing penalties award a penalty shot. Both teams stay at three skaters.</p>}
       <label>{s.opts.labels.player}
         <input inputMode="numeric" autoFocus value={player} onChange={e => setPlayer(e.target.value)} placeholder="#" onKeyDown={e => e.key === 'Enter' && add()} />
@@ -585,9 +613,8 @@ function download(name, text, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-function SummarySheet({ s, gameId, close, t, editGoal }) {
+function SummarySheet({ s, gameId, close, t }) {
   const text = G.summaryText(s)
-  const sheet = G.gameSheet(s)
   const [copied, setCopied] = useState(false)
   const stamp = new Date().toISOString().slice(0, 10)
   const base = `${gameId}-${stamp}`
@@ -604,15 +631,6 @@ function SummarySheet({ s, gameId, close, t, editGoal }) {
   return (
     <Sheet close={close}>
       <h3>{t('summaryTitle')}</h3>
-      {sheet.goals.length > 0 && (
-        <div className="goallist">
-          {sheet.goals.map(g => (
-            <button key={g.id} className="btn sm" aria-label={`edit goal ${g.no}`} onClick={() => editGoal(g.id)}>
-              <span className="tnum">{g.time}</span> <b>{g.teamName}</b> {g.scorer ? `#${g.scorer}` : '?'}{g.a1 ? ` (${[g.a1, g.a2].filter(Boolean).map(n => '#' + n).join(', ')})` : ''} <small>{g.situation}</small> <span className="tnum">{g.score}</span> ✎
-            </button>
-          ))}
-        </div>
-      )}
       <pre className="summary">{text}</pre>
       <div className="row">
         <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>{copied ? t('copied') : t('copy')}</button>
@@ -629,17 +647,27 @@ function SummarySheet({ s, gameId, close, t, editGoal }) {
 const SITUATIONS = ['EQ', 'PP1', 'PP2', 'SH1', 'SH2', 'PS']
 function GoalSheet({ s, id, update, close, t }) {
   const e = (s.events || []).find(x => x.id === id && x.type === 'goal')
+  const [original]=useState(()=>eventDetails(e))
+  const [editError,setEditError]=useState('')
   const [scorer, setScorer] = useState(e?.scorer || '')
   const [a1, setA1] = useState(e?.a1 || '')
   const [a2, setA2] = useState(e?.a2 || '')
   const [situation, setSituation] = useState(e?.situation || 'EQ')
   const [en, setEn] = useState(Boolean(e?.en))
   if (!e) return null
-  const save = () => { update(x => G.editGoal(x, id, { scorer, a1, a2, situation, en })); close() }
+  const save = () => {
+    const values={scorer,a1,a2,situation,en,detailsComplete:true}
+    const patch=Object.fromEntries(Object.entries(values).filter(([k,v])=>JSON.stringify(v??null)!==JSON.stringify(original[k]??null)))
+    let failure=''
+    update(x=>{try{return correctEvent(x,id,patch,original,sessionUser()||'Scorekeeper')}catch(e){failure=e.message;return x}})
+    if(failure){setEditError(failure);return}
+    close()
+  }
   const enter = ev => ev.key === 'Enter' && save()
   return (
     <Sheet close={close}>
       <h3 style={{ color: s[e.team].color }}>{t('goalDetails')} · {s[e.team].name} · <span className="tnum">{G.fmtGameTime(G.eventGameTimeMs(s, e))}</span></h3>
+      {editError&&<p role="alert" className="stats-error">{editError}</p>}
       <div className="grid3">
         <label>{t('scorer')}<input inputMode="numeric" autoFocus value={scorer} onChange={ev => setScorer(ev.target.value)} placeholder="#" onKeyDown={enter} /></label>
         <label>{t('assist1')}<input inputMode="numeric" value={a1} onChange={ev => setA1(ev.target.value)} placeholder="#" onKeyDown={enter} /></label>

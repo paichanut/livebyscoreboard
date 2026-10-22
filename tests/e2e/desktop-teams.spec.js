@@ -161,3 +161,22 @@ test('Online link shows permanent owner URLs alongside unchanged Cloudflare link
     await expect(sheet.getByText('https://livebyscoreboard.vercel.app/b/owner/arena-pc',{exact:true})).toBeVisible()
   } finally { await native.dispose() }
 })
+
+test('desktop Stats mode edits the original goal through the shared-state transport', async ({page,context}) => {
+  const native=await setup(context)
+  try {
+    await openControl(page,uniqueCode('desktop-stats'))
+    await page.getByRole('button',{name:'score +1',exact:true}).first().click()
+    await page.getByRole('button',{name:'Stats mode',exact:true}).click()
+    const editor=page.getByRole('form',{name:'Edit live event'})
+    await editor.getByLabel('Goal #',{exact:true}).fill('17')
+    await editor.getByRole('button',{name:'Save changes',exact:true}).click()
+    await expect(page.locator('.stats-event-list')).toContainText('#17')
+    await page.getByRole('button',{name:'📋 Summary',exact:true}).click()
+    await expect(page.locator('.sheet pre.summary')).toContainText('#17')
+    await expect(page.locator('.sheet pre.summary')).toContainText('HOME 1 – 0 AWAY')
+    await page.locator('.sheet').getByRole('button',{name:'Close',exact:true}).click()
+    await page.getByRole('button',{name:'Scoreboard mode',exact:true}).click()
+    await expect(page.locator('.control .tc .s').first()).toHaveText('1')
+  } finally {await native.dispose()}
+})

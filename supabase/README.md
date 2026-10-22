@@ -15,3 +15,11 @@ The desktop still serves game `main` through Cloudflare. Permanent addresses res
 The new table denies direct anonymous/authenticated access. RPCs enforce ownership in PostgreSQL, independently of the website. Public lookup cannot return the pairing key. Pairing passwords are not saved, and temporary login sessions are logged out after registration.
 
 Regression checks: `npm run test:unit`; run `tests/sql/desktop-machines.sql` using `psql -v ON_ERROR_STOP=1` against a **disposable** database with both schemas installed. That test creates fixtures inside a rolled-back transaction. Browser routing smoke checks use `scripts/check-desktop-routing.mjs` against a cloud-configured build with mocked registry/tunnel responses; they do not register production machines.
+
+## Two-operator Stats mode
+
+Run `stats-mode.sql` in the same SQL Editor after `supabase.sql`. It adds an authenticated, atomic compare-and-save RPC. Existing games and passwords are unchanged. All participating controller devices should reload to the current app version before using Stats mode.
+
+Until this migration is applied, cloud Scoreboard mode continues working and the Stats mode button explains the required setup. Local desktop Stats mode works without Supabase. The desktop's remote controllers use the same three-way conflict checks through its existing Cloudflare connection.
+
+Different fields/events can merge; conflicting edits are rejected with a visible warning. Corrections update the original event, retain the live game clock and penalty time served, and record an undoable history. Summary is a read-only preview with explicit copy/download/print actions. Mode selection is saved per game on each device.

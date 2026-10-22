@@ -203,7 +203,7 @@ function EventText({ s, flash, withName }) {
     <div className="pencall" style={{ '--c': s[pen.team].color }}>
       <div className="pclabel"><Pointed team={pen.team}>{L.penalty || 'PENALTY'}</Pointed></div>
       {/* long infractions ("#24 CHECKING FROM BEHIND 2:00") get smaller so the line always fits the middle */}
-      <div className="pctext" style={{ fontSize: `calc(${Math.min(3.6, 72 / pen.text.length).toFixed(2)} * var(--u))` }}>{pen.text}</div>
+      <div className="pctext" style={{ fontSize: `calc(${Math.min(3.6, 60 / pen.text.length).toFixed(2)} * var(--u))` }}>{pen.text}</div>
     </div>
   )
   if (off) return <div className="goalflash offside" style={{ '--c': s[off].color }}><Pointed team={off}>{L.offside || 'OFFSIDE'}</Pointed></div>

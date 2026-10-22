@@ -1,0 +1,312 @@
+/* The existing scoreboard grid stays intact. Only the stats workspace changes toolbar placement. */
+.control.workspace-stats {
+  display: flex;
+  flex-direction: column;
+  max-width: 1600px;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  gap: 12px;
+}
+.control.workspace-stats > .clockcard,
+.control.workspace-stats > .teams {
+  display: none;
+}
+.control.workspace-stats > .bottom {
+  order: -2;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  padding: 8px 0;
+}
+.control.workspace-stats > .bottom .btn {
+  flex: 1 1 auto;
+}
+.control.workspace-stats > .status {
+  margin-top: auto;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.workspace-toggle {
+  border: 1px solid var(--go) !important;
+  color: var(--go);
+}
+.stats-workspace {
+  overflow-y: auto;
+  min-height: 0;
+  animation: stats-slide-up 0.28s ease-out;
+  min-width: 0;
+  flex: 1;
+}
+.workspace-scoreboard > .clockcard,
+.workspace-scoreboard > .teams {
+  animation: stats-slide-down 0.28s ease-out;
+}
+@keyframes stats-slide-up {
+  from {
+    opacity: 0.3;
+    transform: translateY(45px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes stats-slide-down {
+  from {
+    opacity: 0.3;
+    transform: translateY(-45px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.stats-score {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 20px;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 14px 20px;
+  margin-bottom: 12px;
+}
+.stats-score > div {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+.stats-score > div:last-child {
+  justify-content: flex-end;
+}
+.stats-score strong {
+  font: 44px var(--font-display);
+  color: var(--text);
+}
+.stats-score .stats-clock {
+  flex-direction: column;
+  gap: 1px;
+  text-align: center;
+}
+.stats-clock b {
+  font: 32px var(--font-display);
+}
+.stats-clock span,
+.stats-clock small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.stats-columns {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr);
+  gap: 14px;
+}
+.stats-columns aside {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.stats-workspace h2,
+.stats-workspace h3 {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stats-workspace table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: left;
+}
+.stats-workspace th,
+.stats-workspace td {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--dim);
+}
+.stats-workspace thead {
+  color: var(--muted);
+}
+.stats-workspace td small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.stats-workspace td b {
+  text-transform: capitalize;
+}
+.stats-totals {
+  table-layout: fixed;
+  font-size: 12px !important;
+  overflow-wrap: anywhere;
+}
+.stats-totals td {
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+.stats-penalty {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  text-align: left;
+  width: 100%;
+  gap: 5px;
+  background: var(--card2);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 8px;
+}
+.stats-penalty b {
+  color: var(--accent);
+}
+.stats-penalty small {
+  grid-column: 1/-1;
+  color: var(--muted);
+}
+.stats-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.stats-add .row {
+  flex-wrap: wrap;
+}
+.stats-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.stats-filters .on {
+  background: var(--go);
+  color: #06201d;
+}
+.stats-event-list {
+  overflow: auto;
+  max-height: 58vh;
+}
+.stats-badge {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--go);
+  white-space: nowrap;
+}
+.stats-badge.pending {
+  color: var(--accent);
+}
+.stats-history {
+  margin-top: 14px;
+}
+.stats-history > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-top: 1px solid var(--dim);
+}
+.stats-error,
+.stats-sync-error {
+  padding: 12px;
+  border: 1px solid var(--stop);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+}
+.stats-sync-error {
+  grid-column: 1/-1;
+  order: -3;
+}
+.stats-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.stats-checkbox input {
+  width: auto !important;
+}
+.stats-editor .choices {
+  flex-wrap: wrap;
+}
+.stats-editor label {
+  display: block;
+  margin-bottom: 8px;
+}
+@media (max-width: 850px) {
+  .stats-columns {
+    grid-template-columns: 1fr;
+  }
+  .stats-columns aside {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .stats-score {
+    gap: 10px;
+    padding: 12px;
+  }
+  .stats-score > div {
+    gap: 8px;
+  }
+  .stats-score b {
+    font-size: 14px;
+  }
+  .stats-score .stats-clock b {
+    font-size: 28px;
+  }
+  .stats-score strong {
+    font-size: 34px;
+  }
+}
+@media (max-width: 500px) {
+  .stats-columns aside,
+  .stats-add {
+    grid-template-columns: 1fr;
+  }
+  .stats-score {
+    grid-template-columns: 1fr auto 1fr;
+  }
+  .stats-score > div {
+    flex-direction: column;
+    text-align: center;
+  }
+  .stats-score > div:last-child {
+    flex-direction: column-reverse;
+  }
+  .stats-workspace th,
+  .stats-workspace td {
+    padding: 8px 5px;
+  }
+  .control.workspace-stats > .bottom {
+    position: static;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stats-workspace,
+  .workspace-scoreboard > .clockcard,
+  .workspace-scoreboard > .teams {
+    animation: none;
+  }
+}
+.stats-minus {
+  margin-left: 5px;
+  background: var(--btn);
+  color: var(--muted);
+  border: 1px solid var(--dim);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+.stats-minus:disabled {
+  opacity: 0.3;
+}
+.stats-columns > *, .stats-columns .card, .stats-add > div {min-width:0}
+@media(max-width:850px){.stats-columns{grid-template-columns:minmax(0,1fr)}.stats-columns .stats-events{order:-1}}
