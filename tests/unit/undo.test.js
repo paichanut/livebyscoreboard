@@ -130,3 +130,38 @@ test('undoing a shot preserves raw fields so an unseen scorer correction can mer
   assert.equal(merged.state.events[0].scorer, '17')
   assert.equal(merged.state.home.shots, 0)
 })
+
+test('undo does not subtract another goal when its own goal was already replaced', () => {
+  const original = G.newGame(),
+    own = G.addScore(original, 'home', 1),
+    action = captureUndo(original, own)
+  const other = G.addScore(G.addScore(own, 'home', -1), 'home', 1)
+  const result = undoAction(other, action)
+  assert.equal(result.home.score, 1)
+  assert.deepEqual(result.events, other.events)
+})
+
+test('a stale Undo save keeps a replacement goal added before the server confirms it', () => {
+  const original = G.newGame(),
+    own = G.addScore(original, 'home', 1),
+    action = captureUndo(original, own)
+  const pendingUndo = undoAction(own, action)
+  const replacement = G.addScore(G.addScore(own, 'home', -1), 'home', 1)
+  const merged = mergeGame(own, pendingUndo, replacement)
+  assert.deepEqual(merged.conflicts, [])
+  assert.equal(merged.state.home.score, 1)
+  assert.deepEqual(merged.state.events, replacement.events)
+})
+
+test('concurrent first offsides treat older games’ missing counters as zero', () => {
+  const base = G.newGame(),
+    a = G.addOffside(base, 'home', 1),
+    b = G.addOffside(base, 'home', 1)
+  const merged = mergeGame(base, a, b)
+  assert.deepEqual(merged.conflicts, [])
+  assert.equal(merged.state.home.offsides, 2)
+  assert.equal(
+    merged.state.events.filter((e) => e.type === 'offside').length,
+    2
+  )
+})

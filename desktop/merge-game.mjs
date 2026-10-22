@@ -23,9 +23,17 @@ const identified = (a) =>
 export function mergeGame(base, local, current) {
   const conflicts = []
   function visit(b, l, c, path) {
+    const counter = /^(rinkB\.)?(home|away)\.(score|shots|offsides)$/.exec(path)
+    if (
+      counter &&
+      [b, l, c].every((value) => value == null || Number.isFinite(value))
+    ) {
+      b ??= 0
+      l ??= 0
+      c ??= 0
+    }
     if (same(l, b)) return c
     if (same(c, b)) return l
-    const counter = /^(rinkB\.)?(home|away)\.(score|shots|offsides)$/.exec(path)
     if (counter && [b, l, c].every(Number.isFinite)) {
       const scope = (x) => (counter[1] ? x?.rinkB : x)
       const type = { score: 'goal', shots: 'shot', offsides: 'offside' }[
@@ -103,6 +111,49 @@ export function mergeGame(base, local, current) {
     conflicts.push(path)
     return c
   }
-  const state = visit(base, local, current, '')
+  let state = visit(base, local, current, '')
+  // Equal totals can hide different event IDs (one operator removed an entry and
+  // added another). Reconcile counters from the merged ledger, retaining any
+  // pre-existing offset between a saved total and its historical event count.
+  for (const scope of ['', 'rinkB']) {
+    const b = scope ? base?.[scope] : base,
+      l = scope ? local?.[scope] : local,
+      c = scope ? current?.[scope] : current
+    if (![b, l, c].every((x) => Array.isArray(x?.events))) continue
+    for (const team of ['home', 'away'])
+      for (const [field, type] of [
+        ['score', 'goal'],
+        ['shots', 'shot'],
+        ['offsides', 'offside'],
+      ]) {
+        const values = [
+          b[team]?.[field],
+          l[team]?.[field],
+          c[team]?.[field],
+        ].map((value) => value ?? 0)
+        if (!values.every(Number.isFinite)) continue
+        const count = (x) =>
+          new Set(
+            (x?.events || [])
+              .filter((e) => e.type === type && e.team === team)
+              .map((e) => e.id)
+          ).size
+        const bc = count(b)
+        if (
+          values[1] - values[0] !== count(l) - bc ||
+          values[2] - values[0] !== count(c) - bc
+        )
+          continue
+        const output = scope ? state?.[scope] : state
+        if (!output?.[team]) continue
+        const expected = Math.max(0, values[0] + count(output) - bc)
+        if (output[team][field] === expected) continue
+        const fixed = {
+          ...output,
+          [team]: { ...output[team], [field]: expected },
+        }
+        state = scope ? { ...state, [scope]: fixed } : fixed
+      }
+  }
   return { state, conflicts }
 }
