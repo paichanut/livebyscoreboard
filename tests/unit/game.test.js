@@ -223,7 +223,7 @@ test('withDefaults deep-merges new options into an old saved game', () => {
   const old = { ...game(), opts: { labels: { period: 'ช่วง' } } }
   const s = withDefaults(old)
   assert.equal(s.opts.labels.period, 'ช่วง')
-  assert.equal(s.opts.labels.shots, 'SHOTS')
+  assert.equal(s.opts.labels.shots, 'SHOT ON GOAL')
   assert.equal(s.opts.periods, 3)
   assert.deepEqual(s.opts.penaltyLengths, [2, 4, 5, 10])
 })
@@ -670,4 +670,9 @@ test('a game copied online by the desktop app is shown with the desktop computer
   assert.ok(Math.abs(G.clockRemaining(game, clockNow()) - 50000) < 50)
   setGameSkew(undefined); setTimeOffset(0)
   assert.ok(Math.abs(clockNow() - Date.now()) < 5)
+})
+
+test('the shots label reads SHOT ON GOAL; a label the operator typed stays', () => {
+  assert.equal(withDefaults({ ...G.newGame(), opts: { labels: { shots: 'SHOTS' } } }).opts.labels.shots, 'SHOT ON GOAL')
+  assert.equal(withDefaults({ ...G.newGame(), opts: { labels: { shots: 'ยิง' } } }).opts.labels.shots, 'ยิง')
 })

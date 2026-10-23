@@ -305,7 +305,8 @@ test('compact layout follows the theme preset and the Background / Number backgr
   const frame = page.frameLocator('iframe.optpreview')
   const panel = frame.locator('.cpanel')
   await expect(panel).toBeVisible()
-  const bg = () => panel.evaluate(e => getComputedStyle(e).backgroundImage + '|' + getComputedStyle(e).backgroundColor)
+  // see-through by default (Background opacity 50): the panel's color sits on its ::before layer
+  const bg = () => panel.evaluate(e => getComputedStyle(e, '::before').backgroundImage + '|' + getComputedStyle(e, '::before').backgroundColor)
   const navy = await bg()
   await page.getByRole('button', { name: 'theme LED classic' }).click()
   await expect.poll(bg).toContain('rgb(0, 0, 0)')
@@ -323,7 +324,7 @@ test('compact layout follows the theme preset and the Background / Number backgr
   await saveOptions(page)
   const board = await context.newPage()
   await board.goto(`/b/${code}`)
-  await expect.poll(() => board.locator('.cpanel').evaluate(e => getComputedStyle(e).backgroundColor)).toBe('rgb(0, 0, 0)')
+  await expect.poll(() => board.locator('.cpanel').evaluate(e => getComputedStyle(e, '::before').backgroundColor)).toBe('rgb(0, 0, 0)')
 })
 
 test('OBS banner: transparent by default, and on a narrow screen it shrinks so both teams show', async ({ page, context }) => {
@@ -400,4 +401,32 @@ test('a game run by the desktop app is watch-only on the web controller', async 
   await expect(page.getByText('arena-pc', { exact: false }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: 'Open its controller' })).toHaveAttribute('href', '/c/owner/arena-pc')
   await expect(page.getByRole('button', { name: /^(START|STOP)$/ })).toHaveCount(0)
+})
+
+test('compact layout is see-through for OBS at Background opacity < 100; SHOT ON GOAL sits above its number', async ({ page, context }) => {
+  const code = uniqueCode('obs')
+  await openControl(page, code)
+  await openOptions(page, 'Game')
+  await page.locator('.opts').getByRole('button', { name: /^Compact —/ }).click()
+  await saveOptions(page)
+  const board = await context.newPage()
+  await board.goto(`/b/${code}`)
+  await expect(board.locator('.cpanel')).toBeVisible()
+  const alphaAt = async (x, y) => {
+    const png = await board.screenshot({ omitBackground: true }) // like an OBS browser source: transparent canvas
+    return board.evaluate(async ([src, x, y]) => {
+      const img = new Image(); img.src = src; await img.decode()
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
+      const g = c.getContext('2d'); g.drawImage(img, 0, 0)
+      return g.getImageData(x, y, 1, 1).data[3]
+    }, ['data:image/png;base64,' + png.toString('base64'), x, y])
+  }
+  const panel = await board.locator('.cpanel').boundingBox()
+  expect(await alphaAt(Math.round(panel.x + panel.width / 2), Math.round(panel.y + panel.height - 20))).toBeLessThan(160) // default 50 %
+  const clock = await board.locator('.cclock').boundingBox()
+  expect(await alphaAt(Math.round(clock.x + 6), Math.round(clock.y + clock.height / 2))).toBe(255) // the clock box stays solid
+  const label = await board.locator('.cteam .clabel').first().boundingBox()
+  const value = await board.locator('.cteam .cshots').first().boundingBox()
+  await expect(board.locator('.cteam .clabel').first()).toHaveText(/shot on goal/i)
+  expect(value.y).toBeGreaterThan(label.y + label.height - 2) // top / bottom, not side by side
 })

@@ -95,7 +95,9 @@ input, select { font-family: inherit; }
 }
 .board .team .name { font-size: calc(4.6 * var(--u)); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #dfe5ec; text-align: center; line-height: 1; overflow-wrap: normal; word-break: normal; max-width: 100%; }
 .board .team .score { font-size: calc(24 * var(--u)); font-weight: 800; line-height: .9; margin: 1vh 0 2vh; }
-.board .team .shots { font-family: var(--font-display); font-size: calc(3.2 * var(--u)); font-weight: 700; color: #c9d3de; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: baseline; gap: .6vw; }
+/* label above the number on every layout (Pai 2026-10-23: "SHOT ON GOAL", top/bottom, never side by side) */
+.board .team .shots { font-family: var(--font-display); font-size: calc(3.2 * var(--u)); font-weight: 700; color: #c9d3de; letter-spacing: .08em; text-transform: uppercase; display: flex; flex-direction: column; align-items: center; gap: 0; line-height: 1.05; text-align: center; }
+.board .team .shots > span { font-size: .72em; white-space: nowrap; }
 .board .team .shots b { color: var(--text); font-size: calc(5.6 * var(--u)); font-weight: 800; }
 .board .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; min-width: 0; }
 .board .period { font-size: calc(3.2 * var(--u)); font-weight: 600; letter-spacing: .2em; color: var(--muted); }
@@ -465,6 +467,9 @@ input, select { font-family: inherit; }
 
 /* ---------- See-through display (default 50%): page background at opts.bgOpacity, cards solid ---------- */
 html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !important; }
+/* a normal browser window (a TV) paints a dark canvas behind the see-through page instead of white; OBS and
+   other overlay hosts give the page a transparent canvas, which this does not change */
+html.clearbg { color-scheme: dark; }
 .board.clear { background: color-mix(in srgb, var(--bg) var(--bgop, 50%), transparent) !important; padding-bottom: 4vh; }
 .board.clear .mid, .board.arena .mid { background: var(--card); border-radius: calc(1.6 * var(--u)); padding: 2vh calc(1.5 * var(--u)); }
 .board.clear .pens:empty { display: none; }
@@ -538,7 +543,11 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 [data-theme="led"] .board.compactb { --cp-bg: #000; --cp-text: #ffb000; --cp-label: #ff2a2a; --cp-clock: #ff2a2a; --cp-clockbg: #000; --cp-pen: rgba(255,42,42,.12); }
 [data-theme="ice"] .board.compactb { --cp-bg: linear-gradient(180deg, #eef5fb 0%, #d8e8f4 100%); --cp-text: #0b2340; --cp-label: #4a6a8a; --cp-clock: #0b5fb0; --cp-clockbg: #ffffff; --cp-pen: rgba(11,35,64,.07); }
 .board.compactb { display: flex; align-items: stretch; justify-content: stretch; padding: 1.2vh calc(1 * var(--u)); --u: min(1vw, 1.8vh); }
-.board.compactb.clear { padding: 0; }
+.board.compactb.clear { padding: 0; background: transparent !important; }
+/* see-through (Background opacity < 100, OBS / camera overlays): the compact panel fills the whole page, so its own
+   background follows the opacity too (Pai 2026-10-23: it stayed solid); the clock box stays solid */
+.board.compactb.clear .cpanel { background: none; isolation: isolate; }
+.board.compactb.clear .cpanel::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--u-bg, var(--cp-bg)); opacity: var(--bgop, 50%); }
 .compactb .cpanel { position: relative; flex: 1; display: grid; grid-template-columns: 1fr 1.15fr 1fr; grid-template-rows: 1fr auto; column-gap: calc(1.5 * var(--u));
   background: var(--u-bg, var(--cp-bg)); border: calc(.35 * var(--u)) solid var(--frame); border-radius: calc(1.6 * var(--u));
   padding: calc(1.6 * var(--u)) calc(2 * var(--u)) calc(1 * var(--u)); color: var(--u-text, var(--cp-text)); font-family: var(--font-display); overflow: hidden; }

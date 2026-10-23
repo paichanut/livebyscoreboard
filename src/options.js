@@ -130,7 +130,7 @@ export function defaultOptions() {
     keysV: 2, // 2 = correction on F2; older games still on ` are moved over once
     bannerV: 2, // 2 = transparent banner by default; older games (green by default then) are moved over once
     // Text
-    labels: { period: 'PERIOD', shots: 'SHOTS', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE', shift: 'SHIFT CLOCK', rinkA: 'RINK A', rinkB: 'RINK B' },
+    labels: { period: 'PERIOD', shots: 'SHOT ON GOAL', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE', shift: 'SHIFT CLOCK', rinkA: 'RINK A', rinkB: 'RINK B' },
     font: 'Barlow Condensed',
     digits: 'normal', // 'normal' | 'segments'
     // Score banner (OBS overlay)
@@ -180,6 +180,8 @@ export function withDefaults(state) {
   if (!state.opts?.bannerV) opts.banner.useChroma = false
   // the shift label was "SHIFT" for a few hours; it reads "SHIFT CLOCK" now (a label typed by the operator stays)
   if (opts.labels.shift === 'SHIFT') opts.labels.shift = 'SHIFT CLOCK'
+  // "SHOTS" reads "SHOT ON GOAL" now (Pai 2026-10-23); a label typed by the operator stays
+  if (opts.labels.shots === 'SHOTS') opts.labels.shots = 'SHOT ON GOAL'
   // fields added after v2 games were first saved
   const events = Array.isArray(state.events) ? state.events : []
   const shootout = state.shootout && Array.isArray(state.shootout.home) ? state.shootout : { home: [], away: [] }

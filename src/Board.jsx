@@ -365,7 +365,7 @@ function Team({ t, logo, logoTop, flash, L, showShots, so, children }) {
       <div className="name">{t.name}</div>
       <div className="score tnum">{t.score}</div>
       <div className="team-lower">
-        {so ? <Shootout attempts={so} /> : showShots && <div className="shots">{L.shots} <b className="tnum">{t.shots}</b></div>}
+        {so ? <Shootout attempts={so} /> : showShots && <div className="shots"><span>{L.shots}</span><b className="tnum">{t.shots}</b></div>}
         {children}
       </div>
     </div>
