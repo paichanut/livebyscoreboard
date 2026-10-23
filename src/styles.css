@@ -136,7 +136,7 @@ input, select { font-family: inherit; }
 /* ---------- Control (phone) ---------- */
 .control { max-width: 520px; margin: 0 auto; padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 12px; min-height: 100%; }
 .control .status { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; padding: 4px 2px; }
-.control .status .live { color: var(--go); }
+.control .status .live { color: var(--go); max-width: none; margin: 0; padding: 0; display: inline; }
 .control .status .local { color: var(--accent); }
 .control .status .who { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); }
 .control .status a.who { color: var(--accent); }
@@ -759,12 +759,14 @@ html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .bo
 
 /* Desktop link addresses remain in the bottom status area in both workspaces. */
 .control .status:has(.desktop-link-status) { flex-wrap: wrap; row-gap: 8px; }
-.desktop-link-status { flex: 1 0 100%; min-width: 0; padding: 10px 12px; background: var(--card); border: 1px solid var(--dim); border-radius: 10px; text-transform: none; letter-spacing: 0; }
-.desktop-link-heading { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
-.desktop-link-group + .desktop-link-group { margin-top: 8px; }
-.desktop-link-label { font-weight: 600; }
-.desktop-link-row { display: flex; gap: 10px; align-items: baseline; margin-top: 4px; }
-.desktop-link-row > span { min-width: 70px; }
-.desktop-link-row a { color: var(--go); overflow-wrap: anywhere; min-width: 0; }
+/* one line per address (Permanent / Cloudflare) so the whole control page still fits the window */
+.desktop-link-status { flex: 1 0 100%; min-width: 0; padding: 6px 10px; background: var(--card); border: 1px solid var(--dim); border-radius: 10px; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.desktop-link-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.desktop-link-heading .on { color: var(--go); }
+.desktop-link-heading .off { color: var(--accent); }
+.desktop-link-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin-top: 4px; }
+.desktop-link-label { font-weight: 600; flex: 0 0 auto; min-width: 150px; }
+.desktop-link-row { display: flex; gap: 6px; align-items: baseline; flex: 1 1 260px; min-width: 0; }
+.desktop-link-row > span { flex-shrink: 0; color: var(--muted); }
+.desktop-link-row a { color: var(--go); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .desktop-link-row .linkbtn { flex-shrink: 0; margin-left: auto; }
-@media(max-width:600px) { .desktop-link-row { flex-wrap: wrap; } .desktop-link-row a { flex: 1 1 65%; } }
