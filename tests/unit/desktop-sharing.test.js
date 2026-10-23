@@ -135,3 +135,76 @@ test('desktop serializes remote corrections and rejects stale edits before publi
   assert.equal(state.events.find(e=>e.id==='goal').scorer,'17')
   assert.ok(state.events.some(e=>e.id==='shot'))
 })
+
+test('logged in with a machine name, every change of the game is copied online with the desktop clock skew', async () => {
+  const require = createRequire(import.meta.url)
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path')
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(),'lbs-cloud-'))
+  const source = readFileSync(new URL('../../desktop/share.cjs',import.meta.url),'utf8')
+  const rpcs = []
+  let online = true, exists = false, sessionEnded = false
+  const SKEW = 4000 // this computer's clock is 4 s ahead of the server
+  const handlers = new Map()
+  const electron = {
+    app:{getPath:()=>directory}, BrowserWindow:{getAllWindows:()=>[]},
+    ipcMain:{handle:(name,fn)=>handlers.set(name,fn),on(){}},
+    net:{fetch:async (url, options) => {
+      if (!online) throw new Error('offline')
+      const body = JSON.parse(options.body)
+      const json = data => ({ok:true,status:200,json:async()=>data})
+      if (url.endsWith('/api/desktop-link')) {
+        if (body.action === 'config') return json({url:'https://db.example',anonKey:'anon'})
+        if (body.action === 'login') return json({token:'owner-session',username:'owner'})
+        if (body.action === 'register') return json({version:2,machineId:body.machineId,username:'owner',code:body.code,gameId:body.code,key:'private-key',nonce:'a'.repeat(32),created:true})
+        if (body.action === 'session') return sessionEnded ? {ok:false,status:401,json:async()=>({error:'Operator login required.'})} : json({username:'owner'})
+        return json({ok:true})
+      }
+      const name = url.split('/').at(-1)
+      rpcs.push([name, body])
+      if (name === 'server_now') return json(Date.now() - SKEW)
+      if (name === 'save_game') return json(exists && !sessionEnded)
+      if (name === 'create_game') { const ok = !exists && !sessionEnded; exists = true; return json(ok) }
+      throw new Error('unexpected ' + url)
+    }},
+  }
+  const context = {importMerge:{mergeGame},module:{exports:{}},require:name=>name==='electron'?electron:require(name),process,Buffer,URL,AbortSignal,setInterval:()=>0,clearInterval(){},setTimeout,clearTimeout}
+  vm.runInNewContext(source.replace("await import('./merge-game.mjs')",'importMerge') + '\nstartServer = async () => {}; module.exports.publish = publish;',context)
+  const share = context.module.exports
+  await share.initShare({webDir:directory})
+  const wait = async test => { for (let i = 0; i < 100 && !(await test()); i++) await new Promise(r => setTimeout(r, 10)) }
+  try {
+    share.publish('main',{home:{score:0},away:{score:0},updatedAt:1})
+    await new Promise(r => setTimeout(r, 30))
+    assert.equal(rpcs.length,0,'nothing goes online before the login and a machine name')
+    await handlers.get('share:login')(null,{username:'owner',password:'x'})
+    await handlers.get('share:pair')(null,{code:'arena-pc'})
+    await wait(() => rpcs.some(([name]) => name === 'create_game'))
+    const created = rpcs.find(([name]) => name === 'create_game')[1]
+    assert.equal(created.p_id,'arena-pc')
+    assert.equal(created.p_key,'owner-session')
+    assert.equal(created.p_state.desktop.machine,'arena-pc')
+    assert.ok(Math.abs(created.p_state.desktop.skew - SKEW) < 200, 'web viewers get this computer\'s clock skew')
+    assert.equal((await handlers.get('share:get')()).cloudStatus,'synced')
+    // a burst of taps: one save at a time, the newest state last
+    for (let score = 1; score <= 5; score++) share.publish('main',{home:{score},away:{score:0},updatedAt:1 + score})
+    await wait(() => rpcs.filter(([name]) => name === 'save_game').at(-1)?.[1].p_state.home.score === 5)
+    const saves = rpcs.filter(([name]) => name === 'save_game')
+    assert.ok(saves.length < 6, 'taps made during a save go together in the next one')
+    assert.equal(saves.at(-1)[1].p_state.home.score,5)
+    // offline: waits, then sends the newest state again
+    online = false
+    share.publish('main',{home:{score:6},away:{score:0},updatedAt:9})
+    await wait(async () => (await handlers.get('share:get')()).cloudStatus === 'offline')
+    assert.equal((await handlers.get('share:get')()).cloudStatus,'offline')
+    online = true
+    await new Promise(r => setTimeout(r, 10_200))
+    assert.equal(rpcs.filter(([name]) => name === 'save_game').at(-1)[1].p_state.home.score,6)
+    // the login ended on the server: stops and asks for it again
+    sessionEnded = true
+    share.publish('main',{home:{score:7},away:{score:0},updatedAt:10})
+    await wait(() => false)
+    const after = await handlers.get('share:get')()
+    assert.equal(after.cloudStatus,'login')
+    assert.equal(after.account,null)
+  } finally { fs.rmSync(directory,{recursive:true,force:true}) }
+})

@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as G from '../../src/game.js'
 import { withDefaults, defaultOptions } from '../../src/options.js'
+import { now as clockNow, setGameSkew, setTimeOffset } from '../../src/clock.js'
 
 const MIN = G.MIN
 const game = (over = {}) => G.newGame(over)
@@ -659,4 +660,14 @@ test('stopping at expiry marks the deadline for other screens; pause and correct
   assert.equal(G.stopClock(running, 3000).clock.expiredAt, 3000)
   assert.equal(G.stopClock(running, 4000).clock.expiredAt, 3000)
   assert.equal(G.setClock(G.stopClock(running, 4000), 2000).clock.expiredAt, undefined)
+})
+
+test('a game copied online by the desktop app is shown with the desktop computer\'s clock', () => {
+  setTimeOffset(-1500) // this phone is 1.5 s ahead of the server
+  setGameSkew(4000)    // the desktop's clock is 4 s ahead of the server
+  const game = G.startClock({ ...G.newGame(), periodLengthMs: 60000, clock: { remainingMs: 60000, running: false, since: null } }, { now: Date.now() + 2500 - 10000 })
+  // started 10 s ago on the desktop's clock: every viewer shows 0:50, whatever its own clock says
+  assert.ok(Math.abs(G.clockRemaining(game, clockNow()) - 50000) < 50)
+  setGameSkew(undefined); setTimeOffset(0)
+  assert.ok(Math.abs(clockNow() - Date.now()) < 5)
 })

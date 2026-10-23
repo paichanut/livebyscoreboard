@@ -29,6 +29,8 @@ export default function DesktopLink({ children }) {
           if (namespaced) throw new Error('Desktop not found.')
           setState('game'); return
         }
+        // the desktop's online copy of its game: show it like any web game (/b/<game>, /o/<game>), same options
+        if (kind !== 'c' && result.game && /^[a-z0-9-]{1,32}$/.test(result.game)) { window.location.replace(`/${kind}/${result.game}${window.location.search}`); return }
         if (kind === 'c' && !getSession()) { window.location.replace(login); return }
         let url = result.url
         if (kind === 'c') {

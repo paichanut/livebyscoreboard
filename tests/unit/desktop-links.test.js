@@ -114,6 +114,17 @@ test('account-scoped API protects controllers, publishes with installation ident
     assert.equal(r.body.machineId,machineId)
     assert.equal(calls.at(-1)[0],'operator_logout')
     assert.equal((await call('POST',{version:2,action:'register',...address,machineId,password:'wrong'})).statusCode,401)
+    // a desktop that copies its game online: watchers get that game, controllers still the desktop itself
+    relay.seenAt = Date.now(); relay.gameId = 'arena-pc'; relay.synced = true
+    r = await call('GET',{...address,kind:'b',rink:'a'})
+    assert.equal(r.body.game,'arena-pc')
+    assert.equal(r.body.url,undefined)
+    r = await call('POST',{version:2,...address,action:'resolve',kind:'c',token:'owner-token'})
+    assert.equal(new URL(r.body.url).hostname,'current.trycloudflare.com')
+    relay.synced = false
+    assert.equal((await call('GET',{...address,kind:'b'})).body.url,'https://current.trycloudflare.com/b/main')
+    r = await call('POST',{action:'config'})
+    assert.deepEqual(r.body,{url:'https://db.example',anonKey:'anon'})
     // the desktop logs in once and keeps that session until its Log out
     r = await call('POST',{version:2,action:'login',username:'Owner',password:'correct'})
     assert.deepEqual(r.body,{token:'owner-token',username:'owner'})

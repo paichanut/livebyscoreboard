@@ -5,7 +5,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { mergeGame } from '../desktop/merge-game.mjs'
 import { newGame } from './game.js'
-import { setTimeOffset } from './clock.js'
+import { setTimeOffset, setGameSkew } from './clock.js'
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -218,7 +218,7 @@ function supabaseStore(gameId, { key = '', canWrite = false } = {}) {
   let state = null
   let access = 'reading'
   const listeners = new Set()
-  const emit = () => listeners.forEach(fn => fn(state, access))
+  const emit = () => { setGameSkew(state?.desktop?.skew); listeners.forEach(fn => fn(state, access)) }
   let saveTimer = null
   let pending = null
   let confirmed = null

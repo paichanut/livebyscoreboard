@@ -218,6 +218,8 @@ export default function Control() {
 
   if (access === 'locked' || access === 'missing' || (NEEDS_LOGIN && !key)) return <LockedScreen gameId={gameId} t={t} />
   if (!s) return <div className="loading">{t('connecting')}</div>
+  // a game the desktop app copies online: run on that computer; a change made here would be overwritten
+  if (!DESKTOP && s.desktop?.machine) return <DesktopGameScreen gameId={gameId} desktop={s.desktop} t={t} />
 
   const o = s.opts
   const remaining = G.clockRemaining(s, now)
@@ -775,6 +777,20 @@ function QrSheet({ boardUrl, bannerUrl, controlUrl, close, t, small, labels }) {
       </div>
       <button className="btn ghost" onClick={close}>{t('close')}</button>
     </Sheet>
+  )
+}
+
+function DesktopGameScreen({ gameId, desktop, t }) {
+  const address = `${encodeURIComponent(desktop.username)}/${encodeURIComponent(desktop.machine)}`
+  return (
+    <div className="home">
+      <h1>{t('desktopGameTitle')}</h1>
+      <p>{t('desktopGameText', { machine: desktop.machine })}</p>
+      <div className="links">
+        <a className="btn primary" href={`/c/${address}`}>{t('desktopGameControl')}</a>
+        <a className="btn" href={`/b/${gameId}`}>{t('openDisplay')}</a>
+      </div>
+    </div>
   )
 }
 

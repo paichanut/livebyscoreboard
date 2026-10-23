@@ -3,8 +3,12 @@
 // sync.js has measured the offset to the server. Pure: no React, no network.
 let offset = 0
 let synced = false
+// A game copied online by the desktop app keeps the desktop computer's times (state.desktop.skew = its clock
+// − the server's), so the pages showing it add that too and derive the same clock as its HDMI screen.
+let gameSkew = 0
 
-export const now = () => Date.now() + offset
+export const now = () => Date.now() + offset + gameSkew
+export const setGameSkew = ms => { gameSkew = Number.isFinite(ms) ? Math.round(ms) : 0 }
 // the wall-clock time of an input event (e.timeStamp): the clock stops at the instant of the press,
 // even when the page was busy for a moment before the handler ran
 export const nowAt = timeStamp => Math.round(now() - (Number.isFinite(timeStamp) ? Math.max(0, performance.now() - timeStamp) : 0))

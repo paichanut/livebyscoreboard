@@ -1,4 +1,5 @@
 import zlib from 'node:zlib'
+import { newGame } from '../../src/game.js'
 import { test, expect } from '@playwright/test'
 import { uniqueCode, openControl, openBoard, openOptions, saveOptions, home, away, boardHome, boardAway, addPenalty } from './helpers.js'
 
@@ -387,4 +388,16 @@ test('referee signals and keyboard shortcuts PDFs are served and linked from Hel
   await page.getByRole('button', { name: 'keyboard shortcuts' }).click()
   await expect(page.locator('.sheet a[href="/referee-signals.pdf"]')).toBeVisible()
   await expect(page.locator('.sheet a[href="/keyboard-shortcuts.pdf"]')).toBeVisible()
+})
+
+test('a game run by the desktop app is watch-only on the web controller', async ({ page }) => {
+  const code = uniqueCode('dsk')
+  await page.goto('/')
+  await page.evaluate(([code, state]) => localStorage.setItem('rinkboard:' + code, JSON.stringify(state)),
+    [code, { ...newGame(), desktop: { username: 'owner', machine: 'arena-pc', skew: 0 } }])
+  await page.goto(`/c/${code}?k=testkey`)
+  await expect(page.getByRole('heading', { name: 'Runs on the desktop app' })).toBeVisible()
+  await expect(page.getByText('arena-pc', { exact: false }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open its controller' })).toHaveAttribute('href', '/c/owner/arena-pc')
+  await expect(page.getByRole('button', { name: /^(START|STOP)$/ })).toHaveCount(0)
 })

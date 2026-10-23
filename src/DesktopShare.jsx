@@ -13,6 +13,8 @@ export function useShare() {
   return api?.getShare ? sh : null
 }
 
+const CLOUD = { synced: 'Synced', offline: 'Sync waits for internet', login: 'Log in to sync', error: 'Sync error' }
+
 export function DesktopLinkStatus({ openSettings }) {
   const sh = useShare()
   const [copied, setCopied] = useState('')
@@ -20,7 +22,8 @@ export function DesktopLinkStatus({ openSettings }) {
   const online = sh.enabled && sh.state === 'online'
   const status = !sh.enabled ? 'Off' : online ? 'Online' : ({ starting: 'Connecting', verifying: 'Verifying', downloading: 'Preparing', offline: 'Reconnecting' }[sh.state] || 'Connecting')
   const groups = [
-    ...(sh.fixed ? [{ name: 'Permanent link', links: sh.fixed.links, status: !sh.enabled ? 'Off' : sh.fixedStatus === 'online' && online ? 'Online' : sh.fixedStatus === 'error' ? 'Connection error' : 'Connecting' }] : []),
+    // the online game (share.cjs syncCloud) keeps the permanent Display working without the Cloudflare link
+    ...(sh.fixed ? [{ name: 'Permanent link', links: sh.fixed.links, status: CLOUD[sh.cloudStatus] || (!sh.enabled ? 'Off' : sh.fixedStatus === 'online' && online ? 'Online' : sh.fixedStatus === 'error' ? 'Connection error' : 'Connecting') }] : []),
     ...(sh.links ? [{ name: 'Cloudflare', links: sh.links, status }] : []),
   ]
   const copy = async url => {
@@ -34,7 +37,7 @@ export function DesktopLinkStatus({ openSettings }) {
       <span className="desktop-link-row">Turn on Online link to get Controller and Display URLs.</span>{manage}
     </div>}
     {groups.map((group, i) => <div className="desktop-link-group" key={group.name}>
-      <span className={`desktop-link-label ${group.status === 'Online' ? 'on' : 'off'}`}>{group.name} · {group.status}</span>
+      <span className={`desktop-link-label ${['Online', 'Synced'].includes(group.status) ? 'on' : 'off'}`}>{group.name} · {group.status}</span>
       {[...(group.links.run || []).map(([label,url])=>[label,url]), ...(group.links.watch || []).filter(([,url])=>new URL(url).pathname.startsWith('/b/')).map(([label,url])=>[label === 'Scoreboard' ? 'Display' : label,url])].map(([label,url])=><div className="desktop-link-row" key={url}>
         <span>{label}</span><a href={url} title={url} onClick={e=>{e.preventDefault();window.desktop.openLink(url)}}>{url}</a>
         <button className="linkbtn" aria-label={`Copy ${group.name} ${label} URL`} onClick={()=>copy(url)}>{copied===url?'Copied':'Copy'}</button>
@@ -108,6 +111,7 @@ export function ShareSheet({ t, close, Sheet, onNewAddress }) {
         <p className="hint">A name you don’t have yet creates a new address and a new game. A name you already have moves to this computer.</p>
       </div>}
       {sh.fixed?.version === 2 && <p className="hint">Now: <b>{sh.fixed.username}/{sh.fixed.code}</b> · {sh.fixedStatus || 'connecting'}. Controller links ask for this account’s operator login.</p>}
+      {sh.fixed?.gameId && <p className="hint">Online game: <b>livebyscoreboard.vercel.app/b/{sh.fixed.gameId}</b> · {CLOUD[sh.cloudStatus] || (sh.account ? 'Syncing…' : 'Log in to sync')}. Every change here is copied online and listed on Live games; the displays work without the Cloudflare link.</p>}
       {acctNote && <div className="sharestatus">{acctNote}</div>}
       <div className="row">
         <button className={`btn ${sh.enabled ? 'on' : ''}`} style={{ flex: 1 }} onClick={() => api.enableShare(!sh.enabled)}>

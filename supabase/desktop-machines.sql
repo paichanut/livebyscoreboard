@@ -6,7 +6,9 @@
 -- One row per account + machine name. A machine name works like a game code (Pai 2026-10-23): typing a name
 -- this account doesn't have yet creates it; typing one it already has moves that address to this computer
 -- (a new key, so the computer that had it before stops publishing to it). machine_id = the computer that
--- holds the name now (its installation UUID in share.json).
+-- holds the name now (its installation UUID in share.json). game_id = the online game the desktop copies its
+-- game to (save_game/create_game with the operator session): the machine name when that game code is free,
+-- else the name + 4 hex; it never changes, so /live and /b/<game_id> stay the same for this name.
 begin;
 
 create table if not exists public.desktop_machines (
@@ -21,6 +23,8 @@ create table if not exists public.desktop_machines (
   primary key (owner_username, machine)
 );
 create index if not exists desktop_machines_machine_id on public.desktop_machines (machine_id);
+-- the online copy of this machine's game (public.games id), made on the first registration (Pai 2026-10-23)
+alter table public.desktop_machines add column if not exists game_id text unique;
 alter table public.desktop_machines enable row level security;
 revoke all on public.desktop_machines from public, anon, authenticated;
 
@@ -35,10 +39,15 @@ returns jsonb language sql volatile security definer set search_path = public, e
   ),
   had as (select d.machine_id from public.desktop_machines d join req on d.owner_username = req.u and d.machine = req.m),
   up as (
-    insert into public.desktop_machines as d (owner_username, machine, machine_id, key, nonce)
-    select u, m, p_machine_id, encode(gen_random_bytes(32), 'hex'), encode(gen_random_bytes(16), 'hex') from req
+    insert into public.desktop_machines as d (owner_username, machine, machine_id, key, nonce, game_id)
+    select u, m, p_machine_id, encode(gen_random_bytes(32), 'hex'), encode(gen_random_bytes(16), 'hex'),
+      case when not exists (select 1 from public.games g where g.id = left(m, 32))
+            and not exists (select 1 from public.desktop_machines x where x.game_id = left(m, 32))
+        then left(m, 32) else left(m, 27) || '-' || encode(gen_random_bytes(2), 'hex') end
+    from req
     on conflict (owner_username, machine) do update set
       machine_id = excluded.machine_id,
+      game_id = coalesce(d.game_id, excluded.game_id),
       key = case when d.machine_id = excluded.machine_id then d.key else excluded.key end,
       nonce = case when d.machine_id = excluded.machine_id then d.nonce else excluded.nonce end,
       url = case when d.machine_id = excluded.machine_id then d.url else '' end,
@@ -49,7 +58,7 @@ returns jsonb language sql volatile security definer set search_path = public, e
     when (select u from acct) is null then jsonb_build_object('error', 'login')
     when not exists (select 1 from req) then jsonb_build_object('error', 'invalid_machine')
     else (select jsonb_build_object('version', 2, 'machineId', machine_id, 'username', owner_username, 'code', machine,
-      'key', key, 'nonce', nonce, 'created', not exists (select 1 from had),
+      'key', key, 'nonce', nonce, 'gameId', game_id, 'created', not exists (select 1 from had),
       'moved', exists (select 1 from had where had.machine_id <> p_machine_id)) from up)
   end;
 $$;
@@ -58,8 +67,9 @@ $$;
 create or replace function public.desktop_machine_lookup(p_username text, p_machine text)
 returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object('version', 2, 'machineId', machine_id, 'username', owner_username,
-    'machine', machine, 'nonce', nonce, 'url', url, 'seenAt', extract(epoch from seen_at) * 1000)
-  from public.desktop_machines
+    'machine', machine, 'nonce', nonce, 'url', url, 'seenAt', extract(epoch from seen_at) * 1000,
+    'gameId', game_id, 'synced', exists (select 1 from public.games g where g.id = d.game_id))
+  from public.desktop_machines d
   where owner_username = lower(trim(p_username)) and machine = lower(trim(p_machine));
 $$;
 

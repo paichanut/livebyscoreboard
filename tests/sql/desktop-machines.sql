@@ -7,6 +7,7 @@ insert into public.operator_sessions(token, username, expires_at) values
  ('fixture-owner', 'desktop-test-owner', now() + interval '1 hour'),
  ('fixture-other', 'desktop-test-other', now() + interval '1 hour'),
  ('fixture-expired', 'desktop-test-owner', now() - interval '1 hour');
+insert into public.games (id, state) values ('taken-code', '{}');
 set local role anon;
 do $$
 declare
@@ -22,9 +23,12 @@ begin
   assert first->>'code' = 'arena-pc';
   assert (first->>'created')::boolean, 'a name this account does not have yet is created';
   assert length(first->>'key') = 64;
+  assert first->>'gameId' = 'arena-pc', 'the online game takes the machine name when that code is free';
   again := public.desktop_machine_register('fixture-owner', id, 'arena-pc');
   assert not (again->>'created')::boolean and again->>'key' = first->>'key', 're-pairing the same name keeps its key';
   assert (public.desktop_machine_register('fixture-owner', id, 'rink-two')->>'created')::boolean, 'a second name is a new address';
+  assert public.desktop_machine_register('fixture-owner', id, 'taken-code')->>'gameId' ~ '^taken-code-[0-9a-f]{4}$', 'a used game code gets a suffix';
+  assert not (public.desktop_machine_lookup('desktop-test-owner', 'arena-pc')->>'synced')::boolean;
   assert public.desktop_machine_lookup('desktop-test-owner', 'arena-pc') is not null, 'the first name stays';
   assert public.desktop_machine_register('fixture-other', '22345678-1234-1234-1234-123456789012', 'arena-pc')->>'code' = 'arena-pc', 'different accounts can use the same name';
   assert public.desktop_machine_lookup('desktop-test-other', 'arena-pc')->>'machineId' = '22345678-1234-1234-1234-123456789012';
@@ -44,6 +48,7 @@ begin
   assert public.desktop_machine_control('fixture-owner', 'desktop-test-owner', 'arena-pc')->>'nonce' = repeat('b',32);
   again := public.desktop_machine_register('fixture-owner', '32345678-1234-1234-1234-123456789012', 'arena-pc');
   assert (again->>'moved')::boolean and not (again->>'created')::boolean and again->>'key' <> first->>'key';
+  assert again->>'gameId' = 'arena-pc', 'moving a name keeps its online game';
   assert public.desktop_machine_lookup('desktop-test-owner', 'arena-pc')->>'url' = '', 'a moved name waits for its new computer';
   assert not public.desktop_machine_publish(id, first->>'key', repeat('c',32), 'https://fixture.trycloudflare.com'), 'the old computer lost the name';
   assert public.desktop_machine_publish('32345678-1234-1234-1234-123456789012', again->>'key', repeat('c',32), 'https://next.trycloudflare.com');

@@ -47,6 +47,71 @@ async function publishFixed() {
   } catch(e) { set({fixedStatus:e.message}) }
   finally { fixedBusy=false; if (fixedPending) { fixedPending=false; publishFixed() } }
 }
+
+// ---------- online game (Pai 2026-10-23) ----------
+// Logged in + a machine name: every change of game "main" is also saved to the website as the online game
+// settings.fixed.gameId (save_game / create_game with the kept operator session), so /live lists it and
+// livebyscoreboard.vercel.app/b/<gameId> (and /b/<user>/<machine>) shows it, Cloudflare link or not.
+// The desktop stays the only place the game is run. The copy carries desktop: { username, machine, skew }:
+// skew = this computer's clock − the server's, so web viewers derive the same clock as the HDMI screen.
+// One save at a time, always the newest state; offline → retried every 10 s.
+let cloud = null
+let cloudSending = false
+let cloudNext = null
+let cloudRetry = null
+let skew = 0
+let skewAt = 0
+async function cloudRpc(name, args) {
+  if (!cloud) cloud = await fixedApi({ action: 'config' })
+  const r = await net.fetch(cloud.url + '/rest/v1/rpc/' + name, { method: 'POST', headers: { apikey: cloud.anonKey, Authorization: 'Bearer ' + cloud.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify(args), signal: AbortSignal.timeout(20000) })
+  if (!r.ok) throw Object.assign(new Error('Online game: server error ' + r.status), { status: r.status })
+  return r.json()
+}
+async function measureSkew() {
+  let best = null
+  for (let i = 0; i < 3; i++) {
+    const t0 = Date.now()
+    const server = Number(await cloudRpc('server_now', {}))
+    const t1 = Date.now()
+    if (Number.isFinite(server) && (!best || t1 - t0 < best.rtt)) best = { rtt: t1 - t0, skew: Math.round((t0 + t1) / 2 - server) }
+  }
+  if (best) { skew = best.skew; skewAt = Date.now() }
+}
+const cloudReady = () => Boolean(settings.fixed?.gameId && settings.account?.token)
+function syncCloud() {
+  const state = games.get('main')
+  if (!cloudReady() || !state) return
+  cloudNext = state
+  if (!cloudSending && !cloudRetry) sendCloud()
+}
+async function sendCloud() {
+  cloudSending = true
+  try {
+    while (cloudNext && cloudReady()) {
+      const state = cloudNext
+      cloudNext = null
+      if (Date.now() - skewAt > 5 * 60_000) await measureSkew()
+      const { gameId, username, code } = settings.fixed
+      const copy = { ...state, desktop: { username, machine: code, skew } }
+      const args = { p_id: gameId, p_key: settings.account.token, p_state: copy }
+      const ok = await cloudRpc('save_game', args) || await cloudRpc('create_game', args)
+      if (!ok) {
+        // neither saved nor created: the login ended (or the code belongs to a game this account may not change)
+        const session = await fixedApi({ version: 2, action: 'session', token: settings.account.token }).catch(e => e)
+        if (session?.status === 401) { delete settings.account; saveSettings() }
+        set({ cloudStatus: session?.status === 401 ? 'login' : 'error' })
+        return
+      }
+      if (status.cloudStatus !== 'synced') set({ cloudStatus: 'synced' })
+    }
+  } catch (e) {
+    if (!cloudNext) cloudNext = games.get('main')
+    if (status.cloudStatus !== 'offline') set({ cloudStatus: 'offline' })
+    clearTimeout(cloudRetry)
+    cloudRetry = setTimeout(() => { cloudRetry = null; if (!cloudSending) sendCloud() }, 10_000)
+  } finally { cloudSending = false }
+}
+
 const RETRY_MS = 60_000
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
@@ -100,7 +165,7 @@ const publicState = () => ({
   enabled: settings.enabled, ...status, local: port ? `http://127.0.0.1:${port}` : '',
   // the operator login kept by this app (share.json) until Log out; the session token itself never leaves this file
   account: settings.account?.token ? { username: settings.account.username } : null,
-  fixed: settings.fixed?.key ? {version:settings.fixed.version || 1,username:settings.fixed.username || '',code:settings.fixed.code,links:(({watch,run})=>({watch,run}))(links(SITE,settings.fixed.version === 2 ? encodeURIComponent(settings.fixed.username)+'/'+encodeURIComponent(settings.fixed.code) : settings.fixed.code,false))} : null,
+  fixed: settings.fixed?.key ? {version:settings.fixed.version || 1,username:settings.fixed.username || '',code:settings.fixed.code,gameId:settings.fixed.gameId || '',links:(({watch,run})=>({watch,run}))(links(SITE,settings.fixed.version === 2 ? encodeURIComponent(settings.fixed.username)+'/'+encodeURIComponent(settings.fixed.code) : settings.fixed.code,false))} : null,
   links: status.url ? (({ watch, run }) => ({ watch, run }))(links(status.url)) : null,
   telegram: { tokenSet: Boolean(settings.telegram.botToken), chatId: settings.telegram.chatId, last: status.telegram },
 })
@@ -258,6 +323,7 @@ function serve(req, res) {
 function publish(id, state) {
   if (!/^[\w-]+$/.test(id) || !state) return
   games.set(id, state)
+  if (id === 'main') syncCloud()
   slim.set(id, { seq: ++seq, json: JSON.stringify(slimValue(state)) })
   for (const a of [...(acks.get(id) || [])]) a.done()
   const ws = waiters.get(id)
@@ -485,12 +551,13 @@ async function initShare({ webDir, license: lic }) {
   await startServer()
   fixedTimer = setInterval(publishFixed, 60000)
   // Operator login (Pai 2026-10-23): once, then this app stays logged in (30-day server session) until Log out.
-  const loggedOut = () => { delete settings.account; saveSettings(); set({}) }
+  const loggedOut = () => { delete settings.account; saveSettings(); set({ cloudStatus: settings.fixed?.gameId ? 'login' : '' }) }
   ipcMain.handle('share:login', async (_e, credentials) => {
     try {
       const r = await fixedApi({version:2,action:'login',username:String(credentials?.username || ''),password:String(credentials?.password || '')})
       settings.account = { username: r.username, token: r.token }
-      saveSettings(); set({})
+      saveSettings(); set({ cloudStatus: '' })
+      syncCloud()
       return {ok:true,username:r.username}
     } catch(e) { return {ok:false,error:e.message} }
   })
@@ -514,7 +581,8 @@ async function initShare({ webDir, license: lic }) {
       const { created, moved, ...saved } = fixed
       settings.fixed = saved
       settings.controlKey = fixedControlKey()
-      saveSettings(); sessions.clear(); sentUrl=''; set({})
+      saveSettings(); sessions.clear(); sentUrl=''; set({ cloudStatus: '' })
+      syncCloud()
       await publishFixed()
       if (status.url) await announce(status.url)
       return {ok:true,code:fixed.code,created:Boolean(created),moved:Boolean(moved)}

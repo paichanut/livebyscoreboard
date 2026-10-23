@@ -8,6 +8,8 @@ Then type a **machine name** (Pai 2026-10-23: it works like a game code):
 - a name this account doesn't have yet is created online, and the control page offers **a new game** for it (the usual New game question);
 - a name the account already has moves to this computer (new private key, so the computer that had it stops publishing to it).
 
+**Online game:** while logged in, the desktop copies every change of its game online as the game `game_id` of that machine name (the name itself when that game code is free, else the name + 4 hex; never changes). It shows on Live games and at `/b/<game_id>`; `/b|o/<username>/<machine>` open it too, with or without the Cloudflare link. The web controller for that game only shows that it runs on the desktop app. Timestamps stay in the desktop's clock; `state.desktop.skew` lets web pages show the same clock.
+
 One row per account + machine name (`desktop_machines`, primary key `(owner_username, machine)`); `machine_id` is the installation UUID of the computer holding the name, kept in `share.json`. Keep the app's data folder when moving or reinstalling the app to keep that identity.
 
 - Public display: `https://livebyscoreboard.vercel.app/b/<username>/<machine>`

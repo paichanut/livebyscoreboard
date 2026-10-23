@@ -63,6 +63,8 @@ async function machineRequest(req, res, rpc) {
     if (relay?.error) return fail(relay.error)
   } else relay = await rpc('desktop_machine_lookup', { p_username: username, p_machine: code })
   if (!relay) return res.status(404).json({ desktop: false, error: 'Desktop not found.' })
+  // the desktop copies its game online (desktop_machines.game_id): watchers get that game, no tunnel needed
+  if (kind !== 'c' && relay.gameId && relay.synced) return res.status(200).json({ desktop: true, online: true, machine: code, username, game: relay.gameId })
   if (!online(relay)) return res.status(200).json({ desktop: true, online: false, machine: code, username })
   const url = destination(relay, kind, input, kind === 'c' ? relay.key : '')
   if (!url) return res.status(400).json({ error: 'Invalid desktop connection.' })
@@ -92,6 +94,8 @@ export default async function handler(req, res) {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {}
     if (!['GET','POST'].includes(req.method)) return res.status(405).json({error:'Method not allowed.'})
+    // the public Supabase address + anon key (the same the web app ships): the desktop saves its online game with them
+    if (req.method === 'POST' && body.action === 'config') return res.status(200).json({ url: base, anonKey: key })
     if (body.version === 2 || body.machineId != null || req.method === 'GET' && req.query.username != null || body.action === 'resolve' && body.username != null) {
       return await machineRequest(req, res, rpc)
     }
