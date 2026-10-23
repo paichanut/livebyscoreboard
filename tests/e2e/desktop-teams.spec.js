@@ -152,7 +152,7 @@ test('Online link shows permanent owner URLs alongside unchanged Cloudflare link
     // A normal game update rerenders the toolbar after installing the mock native transport.
     await page.getByRole('button',{name:'START',exact:true}).click()
     const footer=page.getByRole('region',{name:'Desktop online links'})
-    await expect(footer).toContainText('Online link · Online')
+    await expect(footer).toContainText('Cloudflare · Online')
     await expect(footer.getByRole('link',{name:'https://livebyscoreboard.vercel.app/c/owner/arena-pc',exact:true})).toBeVisible()
     await expect(footer.getByRole('link',{name:'https://livebyscoreboard.vercel.app/b/owner/arena-pc',exact:true})).toBeVisible()
     await page.getByRole('button',{name:'🌐 Online link',exact:true}).click()
@@ -163,13 +163,64 @@ test('Online link shows permanent owner URLs alongside unchanged Cloudflare link
     await expect(sheet.getByText('Only Cloudflare links are sent to Telegram.',{exact:false})).toBeVisible()
     await sheet.getByRole('button',{name:'● Online link is ON (tap to turn off)',exact:true}).click()
     await expect(sheet.getByRole('button',{name:'Turn on the online link',exact:true})).toBeVisible()
-    await expect(footer).toContainText('Online link · Off')
+    await expect(footer).toContainText('Cloudflare · Off')
     await expect(sheet.getByText('https://livebyscoreboard.vercel.app/b/owner/arena-pc',{exact:true})).toBeVisible()
     await sheet.getByRole('button',{name:'Close',exact:true}).click()
     await page.getByRole('button',{name:'Stats mode',exact:true}).click()
     await expect(footer).toBeVisible()
-    await expect(footer).toContainText('Online link · Off')
+    await expect(footer).toContainText('Cloudflare · Off')
     await expect(footer.getByRole('link',{name:'https://livebyscoreboard.vercel.app/c/owner/arena-pc',exact:true})).toBeVisible()
+  } finally { await native.dispose() }
+})
+
+test('Online link: log in once, then a new machine name creates a new address and starts a new game', async ({page,context}) => {
+  const native = await setup(context)
+  try {
+    await openControl(page, uniqueCode('machine-name'))
+    await page.evaluate(() => {
+      const state = {enabled:false,state:'off',telegram:{chatId:'',tokenSet:false,last:''},account:null,fixed:null,links:null}
+      const listeners = new Set()
+      const emit = () => listeners.forEach(listener => listener({...state}))
+      const fixed = code => ({version:2,username:'owner',code,links:{watch:[['Scoreboard','https://livebyscoreboard.vercel.app/b/owner/'+code]],run:[['Controller','https://livebyscoreboard.vercel.app/c/owner/'+code]]}})
+      window.desktop.getShare = async () => ({...state})
+      window.desktop.onShare = listener => { listeners.add(listener); return () => listeners.delete(listener) }
+      window.desktop.enableShare = async () => {}
+      window.desktop.loginOnline = async ({username,password}) => {
+        if (password !== 'secret') return {ok:false,error:'Wrong username or password.'}
+        state.account = {username}; emit(); return {ok:true,username}
+      }
+      window.desktop.logoutOnline = async () => { state.account = null; emit(); return {ok:true} }
+      window.desktop.pairFixedLink = async ({code}) => {
+        const created = code !== 'arena-pc'
+        state.fixed = fixed(code); emit(); return {ok:true,code,created}
+      }
+    })
+    await page.getByRole('button',{name:'score +1',exact:true}).first().click()
+    await expect(page.locator('.control .tc .s').first()).toHaveText('1')
+    await page.getByRole('button',{name:'🌐 Online link',exact:true}).click()
+    const sheet = page.locator('.sheet')
+    await sheet.getByLabel('Operator username').fill('owner')
+    await sheet.getByLabel('Operator password').fill('wrong')
+    await sheet.getByRole('button',{name:'Log in',exact:true}).click()
+    await expect(sheet).toContainText('Wrong username or password.')
+    await sheet.getByLabel('Operator password').fill('secret')
+    await sheet.getByRole('button',{name:'Log in',exact:true}).click()
+    await expect(sheet).toContainText('Logged in as owner')
+    await expect(sheet.getByLabel('Operator password')).toHaveCount(0)
+    // a name this account already has: connects, the game stays
+    await sheet.getByLabel('Machine name').fill('arena-pc')
+    await sheet.getByRole('button',{name:'Use this name',exact:true}).click()
+    await expect(sheet).toContainText('This computer now uses arena-pc.')
+    await expect(page.locator('.control .tc .s').first()).toHaveText('1')
+    // a new name: a new address and, after the usual New game question (accepted by openControl), a new game
+    await sheet.getByLabel('Machine name').fill('Rink 2!')
+    await expect(sheet.getByLabel('Machine name')).toHaveValue('rink2')
+    await sheet.getByRole('button',{name:'Use this name',exact:true}).click()
+    await expect(sheet).toContainText('New address rink2 created.')
+    await expect(page.locator('.control .tc .s').first()).toHaveText('0')
+    await expect(sheet).toContainText('owner/rink2')
+    await sheet.getByRole('button',{name:'Log out',exact:true}).click()
+    await expect(sheet.getByLabel('Operator password')).toBeVisible()
   } finally { await native.dispose() }
 })
 

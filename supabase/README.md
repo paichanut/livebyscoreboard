@@ -1,10 +1,14 @@
 # Permanent desktop addresses
 
-Apply `desktop-machines.sql` in the existing project's **Supabase Dashboard → SQL Editor → New query → Run**, after the original `supabase.sql` schema. It is safe to run again. No game data is renamed or removed, and no operator passwords are changed.
+`desktop-machines.sql` is applied to the production project (2026-10-23; it had never been applied before, so pairing failed with “Permanent desktop links need setup on the server.”). It is safe to run again in the **SQL Editor**; plain `language sql` functions, like the rest of the project. Through the Supabase MCP, run it statement by statement (the whole file in one call times out).
 
-The API uses the existing Supabase URL and anon key. No new secret is required. Until the migration is applied, pairing fails with “Permanent desktop links need setup on the server.” Cloudflare sharing continues to work.
+In the desktop app, open **Online link** and **log in once** with the operator account. The app keeps that operator session (30 days on the server) in `share.json` until **Log out**; the password itself is never saved. A session that ended on the server (expired, new password) is noticed at start-up and asks for the login again.
 
-In the desktop app, open **Online link**, choose a machine name and pair using the owning operator account. An older flat permanent address can be upgraded there by signing in once. The installation UUID is generated and persisted in `share.json`; the visible name remains stable when pairing again. Keep the app's data folder when moving or reinstalling the app to preserve its identity.
+Then type a **machine name** (Pai 2026-10-23: it works like a game code):
+- a name this account doesn't have yet is created online, and the control page offers **a new game** for it (the usual New game question);
+- a name the account already has moves to this computer (new private key, so the computer that had it stops publishing to it).
+
+One row per account + machine name (`desktop_machines`, primary key `(owner_username, machine)`); `machine_id` is the installation UUID of the computer holding the name, kept in `share.json`. Keep the app's data folder when moving or reinstalling the app to keep that identity.
 
 - Public display: `https://livebyscoreboard.vercel.app/b/<username>/<machine>`
 - Controller: `https://livebyscoreboard.vercel.app/c/<username>/<machine>` — requires the same owner login.
@@ -12,7 +16,7 @@ In the desktop app, open **Online link**, choose a machine name and pair using t
 
 The desktop still serves game `main` through Cloudflare. Permanent addresses resolve its current tunnel; they need the app running with Online link enabled. Telegram sends only the existing Cloudflare links. Controller links contain a private controller key and should only be shared with trusted operators.
 
-The new table denies direct anonymous/authenticated access. RPCs enforce ownership in PostgreSQL, independently of the website. Public lookup cannot return the pairing key. Pairing passwords are not saved, and temporary login sessions are logged out after registration.
+The new table denies direct anonymous/authenticated access. RPCs enforce ownership in PostgreSQL, independently of the website. Public lookup cannot return the pairing key. Passwords are not saved; the desktop keeps only the operator session token, and older desktop builds that still send a password get a one-request session that is logged out right after.
 
 Regression checks: `npm run test:unit`; run `tests/sql/desktop-machines.sql` using `psql -v ON_ERROR_STOP=1` against a **disposable** database with both schemas installed. That test creates fixtures inside a rolled-back transaction. Browser routing smoke checks use `scripts/check-desktop-routing.mjs` against a cloud-configured build with mocked registry/tunnel responses; they do not register production machines.
 

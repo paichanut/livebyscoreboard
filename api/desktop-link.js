@@ -15,13 +15,25 @@ async function machineRequest(req, res, rpc) {
       login: [401, 'Operator login required.'],
       forbidden: [403, 'Sign in with the account that owns this desktop.'],
       missing: [404, 'Desktop not found.'],
-      machine_in_use: [409, 'That machine name is already paired to another computer on this account.'],
       invalid_machine: [400, 'Use 3–40 letters, numbers or hyphens for the machine name.'],
     }
     const [status, message] = errors[error] || [502, 'Could not connect this desktop.']
     return res.status(status).json({ desktop: true, error: message })
   }
-  if ((req.method === 'GET' && input.action) || (req.method === 'POST' && !['publish', 'register', 'resolve'].includes(input.action))) return res.status(400).json({ error: 'Invalid desktop action.' })
+  if ((req.method === 'GET' && input.action) || (req.method === 'POST' && !['publish', 'register', 'resolve', 'login', 'logout', 'session'].includes(input.action))) return res.status(400).json({ error: 'Invalid desktop action.' })
+  // The desktop app logs in once and keeps the operator session (30 days) until its Log out (Pai 2026-10-23).
+  if (input.action === 'login') {
+    if (!validUsername(username) || typeof input.password !== 'string' || !input.password || input.password.length > 1000) return res.status(400).json({ error: 'Enter your operator login.' })
+    const token = await rpc('operator_login', { p_username: username, p_password: input.password })
+    if (!token) return res.status(401).json({ desktop: true, error: 'Wrong username or password.' })
+    return res.status(200).json({ token, username: await rpc('operator_whoami', { p_token: token }) || username })
+  }
+  if (input.action === 'session' || input.action === 'logout') {
+    if (typeof input.token !== 'string' || !input.token || input.token.length > 200) return fail('login')
+    if (input.action === 'logout') { await rpc('operator_logout', { p_token: input.token }); return res.status(200).json({ ok: true }) }
+    const account = await rpc('operator_whoami', { p_token: input.token })
+    return account ? res.status(200).json({ username: account }) : fail('login')
+  }
   if (req.method === 'POST' && input.action === 'publish') {
     if (!validMachineId(input.machineId) || typeof input.machineKey !== 'string' || !/^[0-9a-f]{32}$/.test(input.nonce || '') || typeof input.url !== 'string' || input.url && !tunnelOrigin(input.url)) {
       return res.status(400).json({ error: 'Invalid desktop registration.' })
@@ -31,13 +43,16 @@ async function machineRequest(req, res, rpc) {
   }
   if (!validUsername(username) || !validMachineCode(code)) return res.status(400).json({ error: 'Invalid account or machine name.' })
   if (req.method === 'POST' && input.action === 'register') {
-    if (!validMachineId(input.machineId) || typeof input.password !== 'string' || !input.password || input.password.length > 1000) return res.status(400).json({ error: 'Enter your operator login.' })
-    const token = await rpc('operator_login', { p_username: username, p_password: input.password })
+    if (!validMachineId(input.machineId)) return res.status(400).json({ error: 'Invalid desktop registration.' })
+    // the desktop's saved session; a password (older desktop builds) logs in just for this request
+    const saved = typeof input.token === 'string' && input.token && input.token.length <= 200
+    if (!saved && (typeof input.password !== 'string' || !input.password || input.password.length > 1000)) return res.status(400).json({ error: 'Enter your operator login.' })
+    const token = saved ? input.token : await rpc('operator_login', { p_username: username, p_password: input.password })
     if (!token) return fail('login')
     try {
       const result = await rpc('desktop_machine_register', { p_token: token, p_machine_id: input.machineId, p_machine: code })
       return result?.error ? fail(result.error) : res.status(200).json(result)
-    } finally { await rpc('operator_logout', { p_token: token }).catch(() => {}) }
+    } finally { if (!saved) await rpc('operator_logout', { p_token: token }).catch(() => {}) }
   }
   const kind = input.kind
   if (!['b', 'c', 'o'].includes(kind)) return res.status(400).json({ error: 'Invalid display choice.' })

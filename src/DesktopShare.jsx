@@ -26,39 +26,56 @@ export function DesktopLinkStatus({ openSettings }) {
   const copy = async url => {
     try { await navigator.clipboard.writeText(url); setCopied(url) } catch { setCopied('') }
   }
+  const manage = <button className="linkbtn desktop-link-manage" onClick={openSettings}>Manage links</button>
+  // one line per address (status + its Controller / Display links), so the control page keeps fitting the window
   return <section className="desktop-link-status" aria-label="Desktop online links">
-    <div className="desktop-link-heading"><strong className={online ? 'on' : 'off'}>Online link · {status}</strong><button className="linkbtn" onClick={openSettings}>Manage links</button></div>
-    {!groups.length && <span>Turn on Online link to get Controller and Display URLs.</span>}
-    {groups.map(group => <div className="desktop-link-group" key={group.name}>
-      <span className="desktop-link-label">{group.name} · {group.status}</span>
+    {!groups.length && <div className="desktop-link-group">
+      <span className="desktop-link-label">Online link · {status}</span>
+      <span className="desktop-link-row">Turn on Online link to get Controller and Display URLs.</span>{manage}
+    </div>}
+    {groups.map((group, i) => <div className="desktop-link-group" key={group.name}>
+      <span className={`desktop-link-label ${group.status === 'Online' ? 'on' : 'off'}`}>{group.name} · {group.status}</span>
       {[...(group.links.run || []).map(([label,url])=>[label,url]), ...(group.links.watch || []).filter(([,url])=>new URL(url).pathname.startsWith('/b/')).map(([label,url])=>[label === 'Scoreboard' ? 'Display' : label,url])].map(([label,url])=><div className="desktop-link-row" key={url}>
         <span>{label}</span><a href={url} title={url} onClick={e=>{e.preventDefault();window.desktop.openLink(url)}}>{url}</a>
         <button className="linkbtn" aria-label={`Copy ${group.name} ${label} URL`} onClick={()=>copy(url)}>{copied===url?'Copied':'Copy'}</button>
       </div>)}
+      {i === 0 && manage}
     </div>)}
   </section>
 }
 
-export function ShareSheet({ t, close, Sheet }) {
+export function ShareSheet({ t, close, Sheet, onNewAddress }) {
   const api = window.desktop
   const sh = useShare()
   const [token, setToken] = useState('')
   const [chatId, setChatId] = useState(null)
   const [note, setNote] = useState('')
+  const [acctNote, setAcctNote] = useState('')
   const [copied, setCopied] = useState('')
   const [machine, setMachine] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [pairing, setPairing] = useState(false)
-  const pair = async () => {
-    setPairing(true); setNote('Pairing desktop…')
+  const login = async () => {
+    setPairing(true); setAcctNote('Logging in…')
     try {
-      const result = await api.pairFixedLink({code:machine,username,password})
-      setNote(result.ok ? 'Fixed Vercel link paired.' : result.error)
-    } catch { setNote('Could not pair this desktop. Please retry.') }
+      const result = await api.loginOnline({username,password})
+      setAcctNote(result.ok ? `Logged in as ${result.username}. This computer stays logged in until Log out.` : result.error)
+    } catch { setAcctNote('Could not log in. Please retry.') }
     finally { setPassword(''); setPairing(false) }
   }
-  useEffect(() => { if (sh?.fixed && sh.fixed.version !== 2) setMachine(sh.fixed.code) }, [sh?.fixed?.code, sh?.fixed?.version])
+  // a machine name works like a game code: a new one is created online and starts a new game here
+  const pair = async () => {
+    setPairing(true); setAcctNote('Connecting…')
+    try {
+      const result = await api.pairFixedLink({code:machine})
+      if (!result.ok) return setAcctNote(result.error)
+      setAcctNote(result.created ? `New address ${result.code} created.` : `This computer now uses ${result.code}.`)
+      if (result.created) onNewAddress?.(result.code)
+    } catch { setAcctNote('Could not connect this name. Please retry.') }
+    finally { setPairing(false) }
+  }
+  useEffect(() => { if (sh?.fixed?.code) setMachine(sh.fixed.code) }, [sh?.fixed?.code])
   if (!sh) return null
   const chat = chatId ?? sh.telegram.chatId
   // every board and controller (share.cjs links()); the controllers ask for a Live by Scoreboard login
@@ -78,15 +95,20 @@ export function ShareSheet({ t, close, Sheet }) {
     <Sheet close={close}>
       <h3>🌐 {t('shareTitle')}</h3>
       <p className="hint">Keep a permanent Vercel address and the dynamic Cloudflare tunnel. Only Cloudflare links are sent to Telegram. Permanent links are available here. The desktop must be online for either address to work.</p>
-      <h4>Fixed Vercel link</h4>
-      {sh.fixed?.version === 2 ? <p className="hint">Account: <b>{sh.fixed.username}</b> · Machine: <b>{sh.fixed.code}</b> · {sh.fixedStatus || 'connecting'}<br />Controller links require this account’s operator login.</p> : <div>
-        <p className="hint">Pair once with your operator account. Your machine name stays the same after restarts. Existing links can be upgraded here without changing your game.</p>
-        <div className="field">Machine name<input aria-label="Machine name" autoCapitalize="none" value={machine} onChange={e => setMachine(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))} maxLength={40} placeholder="arena-pc" /></div>
-        <div className="field">Operator username<input aria-label="Operator username" autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} /></div>
-        <div className="field">Operator password<input aria-label="Operator password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></div>
-        <button className="btn" onClick={pair} disabled={pairing || machine.length < 3 || !username.trim() || !password}>{pairing ? 'Pairing…' : 'Pair fixed link'}</button>
-        <p className="hint">Your password is used only to pair this machine and is not saved.</p>
+      <h4>Permanent link</h4>
+      {!sh.account ? <div>
+        <p className="hint">Log in once with your operator account. This computer stays logged in until you press Log out; the password is not saved.</p>
+        <div className="field">Operator username<input aria-label="Operator username" autoCapitalize="none" autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} /></div>
+        <div className="field">Operator password<input aria-label="Operator password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && username.trim() && password) login() }} /></div>
+        <button className="btn primary" onClick={login} disabled={pairing || !username.trim() || !password}>{pairing ? 'Logging in…' : 'Log in'}</button>
+      </div> : <div>
+        <p className="hint">Logged in as <b>{sh.account.username}</b> · <button className="linkbtn" onClick={() => { setAcctNote(''); api.logoutOnline() }}>Log out</button></p>
+        <div className="field">Machine name<input aria-label="Machine name" autoCapitalize="none" value={machine} onChange={e => setMachine(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))} onKeyDown={e => { if (e.key === 'Enter' && machine.length >= 3 && machine !== sh.fixed?.code) pair() }} maxLength={40} placeholder="arena-pc" /></div>
+        <button className="btn primary" onClick={pair} disabled={pairing || machine.length < 3 || machine === sh.fixed?.code}>{pairing ? 'Connecting…' : 'Use this name'}</button>
+        <p className="hint">A name you don’t have yet creates a new address and a new game. A name you already have moves to this computer.</p>
       </div>}
+      {sh.fixed?.version === 2 && <p className="hint">Now: <b>{sh.fixed.username}/{sh.fixed.code}</b> · {sh.fixedStatus || 'connecting'}. Controller links ask for this account’s operator login.</p>}
+      {acctNote && <div className="sharestatus">{acctNote}</div>}
       <div className="row">
         <button className={`btn ${sh.enabled ? 'on' : ''}`} style={{ flex: 1 }} onClick={() => api.enableShare(!sh.enabled)}>
           {sh.enabled ? t('shareOn') : t('shareOff')}

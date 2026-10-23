@@ -45,7 +45,11 @@ test('installation identity survives restarts and failed pairing leaves Cloudfla
       net:{fetch:async (_url, options) => {
         const body = JSON.parse(options.body); requests.push(body)
         if (unavailable) return {ok:false,json:async()=>({error:'Permanent desktop links need setup on the server.'})}
-        const data = body.action === 'register' ? {version:2,machineId:body.machineId,username:'owner',code:'arena-pc',key:'private-key',nonce:'a'.repeat(32)} : {ok:true}
+        if (body.action === 'session' && body.token !== 'owner-session') return {ok:false,status:401,json:async()=>({error:'Operator login required.'})}
+        if (body.action === 'login' && body.password !== 'fixture-password') return {ok:false,status:401,json:async()=>({error:'Wrong username or password.'})}
+        const data = body.action === 'register' ? {version:2,machineId:body.machineId,username:'owner',code:body.code,key:'private-key',nonce:'a'.repeat(32),created:body.code !== 'arena-pc'}
+          : body.action === 'login' ? {token:'owner-session',username:'owner'}
+          : body.action === 'session' ? {username:'owner'} : {ok:true}
         return {ok:true,json:async()=>data}
       }},
     }
@@ -60,25 +64,49 @@ test('installation identity survives restarts and failed pairing leaves Cloudfla
     assert.match(id,/^[0-9a-f-]{36}$/)
     const second = await start()
     assert.equal(second.inspect().machineId,id)
+    let result = await second.handlers.get('share:pair')(null,{code:'arena-pc'})
+    assert.equal(result.ok,false, 'a machine name needs the login first')
+    assert.equal((await second.handlers.get('share:login')(null,{username:'owner',password:'wrong'})).ok,false)
+    result = await second.handlers.get('share:login')(null,{username:'owner',password:'fixture-password'})
+    assert.equal(result.username,'owner')
+    assert.equal((await second.handlers.get('share:get')()).account.username,'owner')
+    assert.ok(!JSON.stringify(await second.handlers.get('share:get')()).includes('owner-session'), 'the page never sees the session token')
     unavailable = true
-    let result = await second.handlers.get('share:pair')(null,{code:'arena-pc',username:'owner',password:'fixture-password'})
+    result = await second.handlers.get('share:pair')(null,{code:'arena-pc'})
     assert.equal(result.ok,false)
     assert.equal(second.inspect().fixed,undefined)
     assert.match(second.inspect().controlKey,/^[0-9a-f]{24}$/)
     unavailable = false
-    result = await second.handlers.get('share:pair')(null,{code:'arena-pc',username:'owner',password:'fixture-password'})
+    result = await second.handlers.get('share:pair')(null,{code:'arena-pc'})
     assert.equal(result.ok,true)
+    assert.equal(result.created,false)
+    assert.equal(requests.at(-2).token,'owner-session', 'registers with the kept login, no password')
     assert.equal(second.inspect().machineId,id)
     const disk = fs.readFileSync(path.join(directory,'share.json'),'utf8')
     assert.ok(!disk.includes('fixture-password'))
-    assert.ok(!disk.includes('token'))
+    assert.ok(disk.includes('owner-session'), 'the login stays until Log out')
     const third = await start()
+    assert.equal((await third.handlers.get('share:get')()).account.username,'owner', 'still logged in after a restart')
+    result = await third.handlers.get('share:pair')(null,{code:'rink-two'})
+    assert.equal(result.created,true, 'a new machine name is a new address')
+    assert.equal((await third.handlers.get('share:get')()).fixed.code,'rink-two')
+    result = await third.handlers.get('share:pair')(null,{code:'arena-pc'})
     assert.equal(third.inspect().machineId,id)
     assert.equal(third.inspect().controlKey,controllerKey('private-key','a'.repeat(32)))
     assert.ok(requests.some(body=>body.action==='publish' && body.version===2 && body.machineId===id && body.url===''))
     const paired = await third.handlers.get('share:get')()
     assert.equal(paired.fixed.username,'owner')
     assert.equal(paired.fixed.links.run[0][1],'https://livebyscoreboard.vercel.app/c/owner/arena-pc')
+    await third.handlers.get('share:logout')()
+    assert.equal((await third.handlers.get('share:get')()).account,null)
+    assert.ok(requests.some(body=>body.action==='logout' && body.token==='owner-session'))
+    assert.ok(!fs.readFileSync(path.join(directory,'share.json'),'utf8').includes('owner-session'))
+    assert.equal((await third.handlers.get('share:get')()).fixed.code,'arena-pc', 'the address keeps working after Log out')
+    const file = path.join(directory,'share.json')
+    fs.writeFileSync(file,JSON.stringify({...JSON.parse(fs.readFileSync(file,'utf8')),account:{username:'owner',token:'ended-session'}}))
+    const fourth = await start()
+    await new Promise(resolve => setTimeout(resolve,20))
+    assert.equal((await fourth.handlers.get('share:get')()).account,null, 'a session that ended on the server asks for the login again')
   } finally { fs.rmSync(directory,{recursive:true,force:true}) }
 })
 

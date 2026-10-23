@@ -77,6 +77,7 @@ test('account-scoped API protects controllers, publishes with installation ident
     else if (name === 'desktop_machine_publish') value = args.p_key === 'private'
     else if (name === 'operator_login') value = args.p_password === 'correct' ? 'owner-token' : null
     else if (name === 'operator_logout') value = null
+    else if (name === 'operator_whoami') value = args.p_token === 'owner-token' ? 'owner' : null
     else if (name === 'desktop_machine_register') value = {version:2,machineId,username:'owner',code:'arena-pc',key:'private',nonce:relay.nonce}
     else throw new Error('Unexpected RPC: '+name)
     return {ok:true,json:async()=>value}
@@ -113,6 +114,17 @@ test('account-scoped API protects controllers, publishes with installation ident
     assert.equal(r.body.machineId,machineId)
     assert.equal(calls.at(-1)[0],'operator_logout')
     assert.equal((await call('POST',{version:2,action:'register',...address,machineId,password:'wrong'})).statusCode,401)
+    // the desktop logs in once and keeps that session until its Log out
+    r = await call('POST',{version:2,action:'login',username:'Owner',password:'correct'})
+    assert.deepEqual(r.body,{token:'owner-token',username:'owner'})
+    assert.equal((await call('POST',{version:2,action:'login',username:'owner',password:'wrong'})).statusCode,401)
+    assert.equal((await call('POST',{version:2,action:'session',token:'owner-token'})).body.username,'owner')
+    assert.equal((await call('POST',{version:2,action:'session',token:'gone'})).statusCode,401)
+    r = await call('POST',{version:2,action:'register',...address,code:'rink-two',machineId,token:'owner-token'})
+    assert.equal(r.statusCode,200)
+    assert.deepEqual(calls.at(-1),['desktop_machine_register',{p_token:'owner-token',p_machine_id:machineId,p_machine:'rink-two'}], 'a saved session is not logged out by registering')
+    assert.equal((await call('POST',{version:2,action:'logout',token:'owner-token'})).statusCode,200)
+    assert.deepEqual(calls.at(-1),['operator_logout',{p_token:'owner-token'}])
     missingSchema = true
     assert.equal((await call('GET',{...address,kind:'b'})).statusCode,503)
   } finally {

@@ -490,7 +490,7 @@ export default function Control() {
         </Sheet>
       )}
       {sheet?.startsWith('goal-') && <GoalSheet s={v} id={sheet.slice(5)} update={ur} close={() => setSheet(null)} t={t} />}
-      {sheet === 'share' && <ShareSheet t={t} close={() => setSheet(null)} Sheet={Sheet} />}
+      {sheet === 'share' && <ShareSheet t={t} close={() => setSheet(null)} Sheet={Sheet} onNewAddress={code => { if (ask('newGame', `${code}: ${t('confirmNewGame')}`)) update(G.resetGame) }} />}
       {sheet?.startsWith('release-') && (() => {
         const [, team, horn] = sheet.split('-')
         const opp = team === 'home' ? 'away' : 'home'

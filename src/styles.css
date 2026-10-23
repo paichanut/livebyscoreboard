@@ -84,6 +84,10 @@ input, select { font-family: inherit; }
 }
 .board img, .bannerpage img { -webkit-user-drag: none; }
 .bannerpage { user-select: none; -webkit-user-select: none; }
+/* the controller is buttons, not text (Pai 2026-10-23): no selection or highlight from a drag, double-click or
+   long press, on the web and in the desktop app; fields you type in still work as usual */
+.control, .sheet-bg { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.control :is(input, textarea, select, [contenteditable="true"]), .sheet-bg :is(input, textarea, select, [contenteditable="true"]) { user-select: text; -webkit-user-select: text; }
 .board .team {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: var(--card); border-radius: 1.6vw; border-top: 0.8vw solid var(--c);
@@ -758,15 +762,15 @@ html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .bo
 .fontchip small { font-family: var(--font-ui); font-size: 12px; color: var(--muted); }
 
 /* Desktop link addresses remain in the bottom status area in both workspaces. */
-.control .status:has(.desktop-link-status) { flex-wrap: wrap; row-gap: 8px; }
-/* one line per address (Permanent / Cloudflare) so the whole control page still fits the window */
-.desktop-link-status { flex: 1 0 100%; min-width: 0; padding: 6px 10px; background: var(--card); border: 1px solid var(--dim); border-radius: 10px; text-transform: none; letter-spacing: 0; font-size: 12px; }
-.desktop-link-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.desktop-link-heading .on { color: var(--go); }
-.desktop-link-heading .off { color: var(--accent); }
-.desktop-link-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin-top: 4px; }
-.desktop-link-label { font-weight: 600; flex: 0 0 auto; min-width: 150px; }
+.control .status:has(.desktop-link-status) { flex-wrap: wrap; row-gap: 4px; }
+/* one line per address (Permanent / Cloudflare): the whole control page still fits the window */
+.desktop-link-status { flex: 1 0 100%; min-width: 0; padding: 3px 10px; background: var(--card); border: 1px solid var(--dim); border-radius: 8px; text-transform: none; letter-spacing: 0; font-size: 12px; line-height: 1.35; }
+.desktop-link-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 14px; }
+.desktop-link-label { font-weight: 600; flex: 0 0 auto; min-width: 140px; }
+.desktop-link-label.on { color: var(--go); }
+.desktop-link-label.off { color: var(--accent); }
 .desktop-link-row { display: flex; gap: 6px; align-items: baseline; flex: 1 1 260px; min-width: 0; }
 .desktop-link-row > span { flex-shrink: 0; color: var(--muted); }
-.desktop-link-row a { color: var(--go); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desktop-link-row a { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .desktop-link-row .linkbtn { flex-shrink: 0; margin-left: auto; }
+.desktop-link-manage { flex-shrink: 0; }

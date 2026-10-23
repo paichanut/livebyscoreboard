@@ -34,7 +34,7 @@ let fixedPending = false
 async function fixedApi(body) {
   const response = await net.fetch(SITE + '/api/desktop-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)})
   const result = await response.json()
-  if (!response.ok || result.error) throw new Error(result.error || 'Fixed link service unavailable.')
+  if (!response.ok || result.error) throw Object.assign(new Error(result.error || 'Fixed link service unavailable.'), { status: response.status })
   return result
 }
 async function publishFixed() {
@@ -98,6 +98,8 @@ function saveSettings() {
 // what the control page may see: never the token itself
 const publicState = () => ({
   enabled: settings.enabled, ...status, local: port ? `http://127.0.0.1:${port}` : '',
+  // the operator login kept by this app (share.json) until Log out; the session token itself never leaves this file
+  account: settings.account?.token ? { username: settings.account.username } : null,
   fixed: settings.fixed?.key ? {version:settings.fixed.version || 1,username:settings.fixed.username || '',code:settings.fixed.code,links:(({watch,run})=>({watch,run}))(links(SITE,settings.fixed.version === 2 ? encodeURIComponent(settings.fixed.username)+'/'+encodeURIComponent(settings.fixed.code) : settings.fixed.code,false))} : null,
   links: status.url ? (({ watch, run }) => ({ watch, run }))(links(status.url)) : null,
   telegram: { tokenSet: Boolean(settings.telegram.botToken), chatId: settings.telegram.chatId, last: status.telegram },
@@ -482,17 +484,44 @@ async function initShare({ webDir, license: lic }) {
   if (settings.fixed?.key) settings.controlKey = fixedControlKey()
   await startServer()
   fixedTimer = setInterval(publishFixed, 60000)
-  ipcMain.handle('share:pair', async (_e, credentials) => {
+  // Operator login (Pai 2026-10-23): once, then this app stays logged in (30-day server session) until Log out.
+  const loggedOut = () => { delete settings.account; saveSettings(); set({}) }
+  ipcMain.handle('share:login', async (_e, credentials) => {
     try {
-      const fixed = await fixedApi({version:2,action:'register',machineId:settings.machineId,code:credentials?.code,username:credentials?.username,password:credentials?.password})
+      const r = await fixedApi({version:2,action:'login',username:String(credentials?.username || ''),password:String(credentials?.password || '')})
+      settings.account = { username: r.username, token: r.token }
+      saveSettings(); set({})
+      return {ok:true,username:r.username}
+    } catch(e) { return {ok:false,error:e.message} }
+  })
+  ipcMain.handle('share:logout', async () => {
+    const token = settings.account?.token
+    loggedOut()
+    if (token) await fixedApi({version:2,action:'logout',token}).catch(() => {})
+    return {ok:true}
+  })
+  // a session ended on the server (expired, or a new password): ask for the login again
+  if (settings.account?.token) fixedApi({version:2,action:'session',token:settings.account.token})
+    .then(r => { if (r.username !== settings.account?.username && settings.account) { settings.account.username = r.username; saveSettings(); set({}) } })
+    .catch(e => { if (e.status === 401) loggedOut() })
+  // The machine name works like a game code: a name this account doesn't have yet is created online
+  // (created: true → the sheet offers a new game), one it has moves to this computer.
+  ipcMain.handle('share:pair', async (_e, request) => {
+    if (!settings.account?.token) return {ok:false,error:'Log in first.'}
+    try {
+      const fixed = await fixedApi({version:2,action:'register',machineId:settings.machineId,code:request?.code,username:settings.account.username,token:settings.account.token})
       if (fixed.version !== 2 || fixed.machineId !== settings.machineId || !fixed.key || !fixed.nonce || !fixed.username || !fixed.code) throw new Error('Could not pair this desktop. Please update the online service.')
-      settings.fixed = fixed
+      const { created, moved, ...saved } = fixed
+      settings.fixed = saved
       settings.controlKey = fixedControlKey()
       saveSettings(); sessions.clear(); sentUrl=''; set({})
       await publishFixed()
       if (status.url) await announce(status.url)
-      return {ok:true}
-    } catch(e) { return {ok:false,error:e.message} }
+      return {ok:true,code:fixed.code,created:Boolean(created),moved:Boolean(moved)}
+    } catch(e) {
+      if (e.status === 401) loggedOut()
+      return {ok:false,error:e.status === 401 ? 'Log in again: the operator login has ended.' : e.message}
+    }
   })
 
   ipcMain.on('share:reject',(_e,id,requestId)=>{for(const ack of acks.get(id)||[])if(ack.requestId===requestId)ack.done(true)})

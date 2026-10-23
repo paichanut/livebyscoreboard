@@ -29,7 +29,10 @@ contextBridge.exposeInMainWorld('desktop', {
     return () => ipcRenderer.removeListener('share:remote', h)
   },
   rejectRemote: (id,requestId) => ipcRenderer.send('share:reject',id,requestId),
-  pairFixedLink: credentials => ipcRenderer.invoke('share:pair', credentials),
+  // operator login kept by the app until Log out; then a machine name = this computer's permanent address
+  loginOnline: credentials => ipcRenderer.invoke('share:login', credentials),
+  logoutOnline: () => ipcRenderer.invoke('share:logout'),
+  pairFixedLink: request => ipcRenderer.invoke('share:pair', request),
   getShare: () => ipcRenderer.invoke('share:get'),
   onShare: cb => {
     const h = (_e, s) => cb(s)
