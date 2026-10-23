@@ -529,7 +529,7 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 /* ---------- Compact layout: one broadcast panel ---------- */
 /* compact panel colors per theme preset (Dark = the original navy broadcast panel); the element colors in
    Options → Colors override them: Background → panel, Number background → clock box, Text → text (--u-* from useAppearance) */
-.board.compactb { --cp-bg: linear-gradient(180deg, #14408a 0%, #0c2a5e 55%, #0a2250 100%); --cp-text: #fff; --cp-label: #a9c0e8; --cp-clock: #4ade80; --cp-clockbg: rgba(4, 14, 36, .65); --cp-pen: rgba(0,0,0,.28); }
+.board.compactb { --cp-bg: #131922; --cp-text: #fff; --cp-label: #9aa7b6; --cp-clock: #4ade80; --cp-clockbg: #0b0f14; --cp-pen: rgba(0,0,0,.28); }
 [data-theme="light"] .board.compactb { --cp-bg: linear-gradient(180deg, #ffffff 0%, #eef2f6 100%); --cp-text: #0e141b; --cp-label: #5b6876; --cp-clock: #0f9d8a; --cp-clockbg: #f4f6f8; --cp-pen: rgba(0,0,0,.06); }
 [data-theme="led"] .board.compactb { --cp-bg: #000; --cp-text: #ffb000; --cp-label: #ff2a2a; --cp-clock: #ff2a2a; --cp-clockbg: #000; --cp-pen: rgba(255,42,42,.12); }
 [data-theme="ice"] .board.compactb { --cp-bg: linear-gradient(180deg, #eef5fb 0%, #d8e8f4 100%); --cp-text: #0b2340; --cp-label: #4a6a8a; --cp-clock: #0b5fb0; --cp-clockbg: #ffffff; --cp-pen: rgba(11,35,64,.07); }
