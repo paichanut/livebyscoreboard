@@ -341,11 +341,17 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
         <div className="clabel">{isNum ? L.period : ''}</div>
         <div className="cperiod">{periodLabel(s)}</div>
         {shift && <div className="cshift"><span className="clabel">{L.shift}</span><b className="tnum" aria-label="shift">{shift.seconds}</b></div>}
-        <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
-        <div className="evslot"><EventText s={s} flash={flash} /></div>
-        {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
-        {/* the tournament logo takes all the space left in the middle column */}
-        {o.logoImg && <div className="cllogo"><img src={o.logoImg} alt="" /></div>}
+        {/* the tournament logo takes all the space left in the middle column; power play, GOAL! / PENALTY /
+            OFFSIDE and the timeout lie on top of it (the logo dims meanwhile), so they never take its room
+            (Pai 2026-10-23: the logo was too small to see in a camera-app overlay) */}
+        <div className="cbottom">
+          {o.logoImg && <div className="cllogo"><img src={o.logoImg} alt="" /></div>}
+          <div className="cover">
+            <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
+            <div className="evslot"><EventText s={s} flash={flash} /></div>
+            {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
+          </div>
+        </div>
       </div>
       {side('away')}
       {s.showTimeOfDay && (

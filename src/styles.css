@@ -470,6 +470,7 @@ html.clearbg, html.clearbg body, html.clearbg #root { background: transparent !i
 /* a normal browser window (a TV) paints a dark canvas behind the see-through page instead of white; OBS and
    other overlay hosts give the page a transparent canvas, which this does not change */
 html.clearbg { color-scheme: dark; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .board.clear { background: color-mix(in srgb, var(--bg) var(--bgop, 50%), transparent) !important; padding-bottom: 4vh; }
 .board.clear .mid, .board.arena .mid { background: var(--card); border-radius: calc(1.6 * var(--u)); padding: 2vh calc(1.5 * var(--u)); }
 .board.clear .pens:empty { display: none; }
@@ -573,8 +574,12 @@ html.clearbg { color-scheme: dark; }
 .compactb .cstrength { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .12em; color: var(--pp, #ffd166); border: calc(.18 * var(--u)) solid var(--pp, #ffd166); border-radius: 999px; padding: 0 calc(1.4 * var(--u)); margin-top: calc(.6 * var(--u)); }
 .compactb .cstrength.empty { visibility: hidden; }
 .compactb .ctimeout { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .1em; background: var(--c); border-radius: 999px; padding: 0 calc(1.4 * var(--u)); margin-top: calc(.6 * var(--u)); }
-.compactb .cllogo { flex: 1 1 0; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; padding: calc(1 * var(--u)) 0; }
-.compactb .cllogo img { height: 100%; max-height: calc(30 * var(--u)); max-width: 92%; object-fit: contain; }
+.compactb .cbottom { position: relative; flex: 1 1 0; min-height: 0; width: 100%; display: flex; }
+.compactb .cllogo { flex: 1 1 0; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; padding: calc(.6 * var(--u)) 0; transition: opacity .2s; }
+.compactb .cllogo img { height: 100%; max-height: calc(34 * var(--u)); max-width: 96%; object-fit: contain; }
+.compactb .cover { position: absolute; inset: 0 0 auto; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.compactb .cover .cstrength:not(.empty) { background: var(--u-card, var(--cp-clockbg)); }
+.compactb .cbottom:has(.evslot > *, .ctimeout) .cllogo { opacity: .12; }
 .compactb .evslot { min-height: calc(6.2 * var(--u)); margin-top: calc(.4 * var(--u)); }
 .compactb .goalflash { font-size: calc(5.6 * var(--u)); }
 .compactb .cdate { grid-column: 1 / -1; text-align: center; font-family: var(--font-ui); font-size: calc(1.9 * var(--u)); color: var(--cp-label); letter-spacing: .06em; margin-top: calc(.6 * var(--u)); }
