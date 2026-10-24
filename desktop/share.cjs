@@ -67,15 +67,41 @@ async function cloudRpc(name, args) {
   if (!r.ok) throw Object.assign(new Error('Online game: server error ' + r.status), { status: r.status })
   return r.json()
 }
-async function measureSkew() {
-  let best = null
-  for (let i = 0; i < 3; i++) {
+// skew measured like the web pages measure their clock (src/timesync.js): 6 round trips at first, then one every
+// 10 s; the fastest of the last 5 minutes counts, and two fresh round trips that agree on a new value replace
+// the old ones (Windows set its clock, the computer slept). A change of 20 ms or more is sent to the website.
+let skewSamples = []
+let skewSuspect = null
+let sentSkew = null
+const fastest = list => list.reduce((a, b) => (!a || b.rtt < a.rtt ? b : a), null)
+const agree = (a, b) => Math.abs(a.skew - b.skew) <= (a.rtt + b.rtt) / 2 + 20
+function addSkew(sample) {
+  const best = fastest(skewSamples)
+  if (best && !agree(sample, best)) {
+    if (skewSuspect && agree(sample, skewSuspect)) { skewSamples = [skewSuspect]; skewSuspect = null }
+    else { skewSuspect = sample; return }
+  } else skewSuspect = null
+  skewSamples.push(sample)
+  skewSamples = skewSamples.filter(x => x.at > sample.at - 5 * 60_000)
+}
+async function measureSkew(n = 1) {
+  for (let i = 0; i < n; i++) {
     const t0 = Date.now()
     const server = Number(await cloudRpc('server_now', {}))
     const t1 = Date.now()
-    if (Number.isFinite(server) && (!best || t1 - t0 < best.rtt)) best = { rtt: t1 - t0, skew: Math.round((t0 + t1) / 2 - server) }
+    if (Number.isFinite(server)) addSkew({ at: t1, rtt: t1 - t0, skew: Math.round((t0 + t1) / 2 - server) })
   }
+  const best = fastest(skewSamples)
   if (best) { skew = best.skew; skewAt = Date.now() }
+}
+let skewTimer = null
+function startSkewWatch() {
+  if (skewTimer) return
+  skewTimer = setInterval(async () => {
+    if (!cloudReady()) return
+    try { await measureSkew(skewAt ? 1 : 6) } catch { return }
+    if (sentSkew !== null && Math.abs(skew - sentSkew) >= 20) syncCloud()
+  }, 10_000)
 }
 const cloudReady = () => Boolean(settings.fixed?.gameId && settings.account?.token)
 function syncCloud() {
@@ -90,7 +116,7 @@ async function sendCloud() {
     while (cloudNext && cloudReady()) {
       const state = cloudNext
       cloudNext = null
-      if (Date.now() - skewAt > 5 * 60_000) await measureSkew()
+      if (!skewAt) await measureSkew(6)
       const { gameId, username, code } = settings.fixed
       const copy = { ...state, desktop: { username, machine: code, skew } }
       const args = { p_id: gameId, p_key: settings.account.token, p_state: copy }
@@ -102,6 +128,7 @@ async function sendCloud() {
         set({ cloudStatus: session?.status === 401 ? 'login' : 'error' })
         return
       }
+      sentSkew = skew
       if (status.cloudStatus !== 'synced') set({ cloudStatus: 'synced' })
     }
   } catch (e) {
@@ -551,6 +578,7 @@ async function initShare({ webDir, license: lic }) {
   if (settings.fixed?.key) settings.controlKey = fixedControlKey()
   await startServer()
   fixedTimer = setInterval(publishFixed, 60000)
+  startSkewWatch()
   // Operator login (Pai 2026-10-23): once, then this app stays logged in (30-day server session) until Log out.
   const loggedOut = () => { delete settings.account; saveSettings(); set({ cloudStatus: settings.fixed?.gameId ? 'login' : '' }) }
   ipcMain.handle('share:login', async (_e, credentials) => {
@@ -636,6 +664,7 @@ async function initShare({ webDir, license: lic }) {
 
 function stopShare() {
   clearInterval(fixedTimer)
+  clearInterval(skewTimer); skewTimer = null
   stopTunnel()
 }
 

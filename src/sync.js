@@ -5,7 +5,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { mergeGame } from '../desktop/merge-game.mjs'
 import { newGame } from './game.js'
-import { setTimeOffset, setGameSkew } from './clock.js'
+import { setTimeOffset, setGameSkew, setClockRunning, localNow, localDrift, useMonotonicClock } from './clock.js'
+import { createTimeFilter } from './timesync.js'
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -172,36 +173,55 @@ export function createStore(gameId, opts = {}) {
 // server (server_now() RPC; fallback: the HTTP Date header) and feed it to clock.js.
 let timeSyncTimer = null
 async function sampleServerTime() {
-  const t0 = Date.now()
+  const t0 = localNow()
   const { data, error } = await supabase.rpc('server_now')
-  const t1 = Date.now()
-  if (!error && typeof data === 'number') return { serverMs: data, t0, t1 }
+  const t1 = localNow()
+  if (!error && typeof data === 'number') return { at: t1, rtt: t1 - t0, offset: data + (t1 - t0) / 2 - t1 }
   // server_now() missing (supabase.sql not re-run): fall back to the Date header, 1 s resolution
+  // (counted into rtt so the filter knows how rough it is)
   const r = await fetch(`${URL}/rest/v1/`, { headers: { apikey: KEY }, cache: 'no-store' })
-  const t2 = Date.now()
+  const t2 = localNow()
   const d = Date.parse(r.headers.get('date') || '')
   if (!d) throw new Error('no server time')
-  return { serverMs: d + 500, t0: t1, t1: t2 }
+  return { at: t2, rtt: t2 - t1 + 1000, offset: d + 500 + (t2 - t1) / 2 - t2 }
 }
 
+// Pai 2026-10-24: 8 round trips when the page opens, then one every 10 s (and 3 when the tab comes back or the
+// internet returns); the fastest of the last 5 minutes sets the clock (timesync.js), steered by clock.js.
+const timeFilter = createTimeFilter()
+let timeSyncBusy = false
 export async function syncServerTime(samples = 3) {
-  let best = null
-  for (let i = 0; i < samples; i++) {
-    try {
-      const s = await sampleServerTime()
-      const rtt = s.t1 - s.t0
-      if (!best || rtt < best.rtt) best = { rtt, offset: s.serverMs + rtt / 2 - s.t1 }
-    } catch (e) { console.warn('time sync failed', e) }
-  }
-  if (best) setTimeOffset(best.offset)
-  return best
+  if (timeSyncBusy) return timeFilter.best()
+  timeSyncBusy = true
+  try {
+    for (let i = 0; i < samples; i++) {
+      try {
+        const best = timeFilter.add(await sampleServerTime())
+        if (best) setTimeOffset(best.offset, best.rtt / 2)
+      } catch (e) { console.warn('time sync failed', e) }
+    }
+  } finally { timeSyncBusy = false }
+  return timeFilter.best()
+}
+
+// a clock that slept or was set since the last check: the old round trips no longer count
+let lastDrift = null
+function driftMoved() {
+  const d = localDrift()
+  const moved = lastDrift !== null && Math.abs(d - lastDrift) > 1000
+  lastDrift = d
+  if (moved) timeFilter.reset()
+  return moved
 }
 
 function startTimeSync() {
   if (timeSyncTimer) return
-  syncServerTime()
-  timeSyncTimer = setInterval(() => syncServerTime(2), 5 * 60_000)
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncServerTime(2) })
+  useMonotonicClock()
+  driftMoved()
+  syncServerTime(8)
+  timeSyncTimer = setInterval(() => syncServerTime(driftMoved() ? 3 : 1), 10_000)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncServerTime(driftMoved() ? 8 : 3) })
+  window.addEventListener('online', () => syncServerTime(3))
 }
 
 let atomicStatsReady=false
@@ -218,7 +238,7 @@ function supabaseStore(gameId, { key = '', canWrite = false } = {}) {
   let state = null
   let access = 'reading'
   const listeners = new Set()
-  const emit = () => { setGameSkew(state?.desktop?.skew); listeners.forEach(fn => fn(state, access)) }
+  const emit = () => { setGameSkew(state?.desktop?.skew); setClockRunning(state?.clock?.running); listeners.forEach(fn => fn(state, access)) }
   let saveTimer = null
   let pending = null
   let confirmed = null
@@ -341,7 +361,7 @@ function viewerStore(gameId) {
   let sending = false
   const listeners = new Set()
   const access = () => (state ? 'ok' : 'reading')
-  const emit = () => listeners.forEach(fn => fn(state, access()))
+  const emit = () => { setClockRunning(state?.clock?.running); listeners.forEach(fn => fn(state, access())) }
   const rebuild = () => {
     for (const k of Object.keys(local)) if (!dirty.has(k) && same(local[k], server?.[k])) delete local[k]
     state = server && { ...server, ...local }
@@ -400,24 +420,28 @@ function viewerStore(gameId) {
     }
   }
 
-  // clock offset: a few quick round trips now and every 30 s; the fastest of the last 5 minutes wins
-  let samples = []
+  // clock offset: 8 quick round trips now, then one every 10 s; the fastest of the last 5 minutes wins (timesync.js)
+  const timeFilter = createTimeFilter()
+  let lastDrift = localDrift()
   async function syncTime(n) {
+    const d = localDrift()
+    if (Math.abs(d - lastDrift) > 1000) { timeFilter.reset(); n = Math.max(n, 3) }
+    lastDrift = d
     for (let i = 0; i < n && !stopped; i++) {
       try {
-        const t0 = Date.now()
+        const t0 = localNow()
         const m = await (await fetch('/api/time', { cache: 'no-store' })).json()
-        const t1 = Date.now()
-        if (typeof m.now === 'number') samples.push({ at: t1, rtt: t1 - t0, offset: m.now + (t1 - t0) / 2 - t1 })
+        const t1 = localNow()
+        if (typeof m.now !== 'number') continue
+        const best = timeFilter.add({ at: t1, rtt: t1 - t0, offset: m.now + (t1 - t0) / 2 - t1 })
+        if (best) setTimeOffset(best.offset, best.rtt / 2)
       } catch {}
     }
-    samples = samples.filter(x => x.at > Date.now() - 5 * 60_000)
-    const best = samples.reduce((a, b) => (!a || b.rtt < a.rtt ? b : a), null)
-    if (best) setTimeOffset(best.offset)
   }
-  syncTime(6)
+  useMonotonicClock()
+  syncTime(8)
   poll()
-  const timeTimer = setInterval(() => syncTime(3), 30_000)
+  const timeTimer = setInterval(() => syncTime(1), 10_000)
   const onVisible = () => { if (document.visibilityState === 'visible') syncTime(3) }
   document.addEventListener('visibilitychange', onVisible)
 

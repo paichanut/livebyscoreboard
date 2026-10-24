@@ -370,6 +370,7 @@ input, select { font-family: inherit; }
 
 /* ---- server time offset badge ---- */
 .timebadge { color: var(--accent); }
+.timebadge.poor { color: #f87171; }
 
 .control .csound { color: var(--muted); }
 
