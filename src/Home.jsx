@@ -9,8 +9,11 @@ export default function Home() {
   const [mode, setMode] = useState('full') // 'full' rink | 'small' ice: two games on one rink, one clock
   const g = cleanCode(code)
   const canCreate = !NEEDS_LOGIN || Boolean(session)
+  // the public demo login (operators.is_demo, supabase/demo-account.sql) may only run "demo-…" games
+  const demo = Boolean(session) && sessionUser() === 'demo'
   const newGame = () => {
-    const id = g || `game-${randomKey(5)}`
+    const raw = g || `game-${randomKey(5)}`
+    const id = demo && !raw.startsWith('demo-') ? cleanCode(`demo-${raw}`) : raw
     const m = mode === 'small' ? 'mode=small' : ''
     if (NEEDS_LOGIN) { window.location.href = `/c/${id}${m ? `?${m}` : ''}`; return } // the session creates it
     const key = randomKey()
@@ -43,9 +46,10 @@ export default function Home() {
         <a className="btn ghost" href="/referee-signals">Referee signals · animated</a>
         {canCreate && <a className="btn ghost" href="/teams">Team logos</a>}
       </div>
-      {NEEDS_LOGIN && session && (
+      {NEEDS_LOGIN && session && (<>
+        {demo && <p className="hint">Demo login: your games get the code <b>demo-…</b> and only demo games can be run with it.</p>}
         <div className="who">logged in as <b>{sessionUser()}</b> · <button className="linkbtn" onClick={async () => { await logout(); setSession('') }}>log out</button></div>
-      )}
+      </>)}
       <div className="mode">{ONLINE ? 'live sync on' : 'test build — local store, this browser only'}</div>
       <div className="contact">
         <div className="who">Contact for license · <b>{DEV.name}</b></div>

@@ -31,3 +31,7 @@ Until this migration is applied, cloud Scoreboard mode continues working and the
 Different fields/events can merge; conflicting edits are rejected with a visible warning. Corrections update the original event, retain the live game clock and penalty time served, and record an undoable history. Summary is a read-only preview with explicit copy/download/print actions. Mode selection is saved per game on each device.
 
 The shared toolbar also has **Undo** for the last 30 game entries/edits made on that device during the current visit, in either mode. It preserves other operators' independent changes and never rewinds the live clock, audio, or settings. Restoring a removed penalty is blocked if its clock has advanced; use the penalty correction controls in that case. New game invalidates the previous game's Undo actions. Persistent per-correction Undo remains available in Stats mode history. This toolbar addition needs no extra SQL migration.
+
+## Demo login
+
+`demo-account.sql` (applied 2026-10-24) adds `operators.is_demo` and `operator_can(token, game)`. The public `demo` / `demo` login may only create, run and delete games whose code starts with `demo-`; it cannot touch real games, the shared team library or desktop machine names. Checks: `tests/sql/demo-account.sql` against a disposable database.
