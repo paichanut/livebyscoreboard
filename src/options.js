@@ -92,6 +92,9 @@ export function defaultOptions() {
     goalIndicator: true,
     goalOffSec: 15,
     penaltyAnimation: true,
+    // 'board' = GOAL! / PENALTY / OFFSIDE inside the scoreboard; 'big' = they fill the whole scoreboard while they last
+    // (Pai 2026-10-24: in a small camera-app overlay the in-board animation could not be seen)
+    eventDisplay: 'board',
     penaltyLengths: [2, 4, 5, 10],
     // Infraction templates on the penalty sheet: tap one to fill the name and the length
     // Penalty quick picks, IIHF 2026/27: the usual minutes for each infraction. `majorGM`: IIHF has no plain

@@ -788,3 +788,41 @@ html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .bo
 .desktop-link-row a { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .desktop-link-row .linkbtn { flex-shrink: 0; margin-left: auto; }
 .desktop-link-manage { flex-shrink: 0; }
+
+/* ---------- Event display "Big" (opts.eventDisplay, Pai 2026-10-24) ----------
+   GOAL! / PENALTY / OFFSIDE cover the whole scoreboard while they last, so they can be read in a small overlay.
+   The small in-board text and the referee card step aside meanwhile (their room stays, nothing moves after). */
+.board.bigev .evslot > *, .board.bigev .penalty-signal { visibility: hidden; }
+/* while a big event shows, the scoreboard under it steps aside (a see-through overlay would mix the two) */
+.board.bigev:has(> .bigevent) > :not(.bigevent) { visibility: hidden; }
+.bigevent { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(1 * var(--u));
+  padding: calc(3 * var(--u)); text-align: center; color: #fff; font-family: var(--font-display); text-transform: uppercase; line-height: 1;
+  background: color-mix(in srgb, var(--c) 30%, #0b0f14 70%); border: calc(.8 * var(--u)) solid var(--c); border-radius: calc(1.6 * var(--u)); animation: bigin .25s ease-out; }
+@keyframes bigin { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.bigevent .bebig { font-size: calc(22 * var(--u)); font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+.bigevent.goal .bebig { animation: bigflash 1s steps(2, jump-none) infinite; }
+@keyframes bigflash { 50% { opacity: .35; } }
+.bigevent .beteam { font-size: calc(7 * var(--u)); font-weight: 800; letter-spacing: .04em; color: #fff; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bigevent .belogo { height: calc(18 * var(--u)); max-width: 40%; object-fit: contain; }
+.bigevent.offside .bebig { font-size: calc(17 * var(--u)); color: #ffd166; }
+.bigevent.penalty { flex-direction: row; gap: calc(3 * var(--u)); }
+.bigevent .befigure { height: 100%; aspect-ratio: 3 / 4; max-width: 42%; display: grid; place-items: center; background: linear-gradient(145deg, #52677e, #34485e); border-radius: calc(1.2 * var(--u)); overflow: hidden; }
+.bigevent .befigure .referee-figure { width: 100%; height: 100%; display: block; }
+.bigevent .becopy { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: calc(1 * var(--u)); text-align: left; }
+.bigevent .bekind { font-size: calc(9 * var(--u)); font-weight: 800; color: #ffd166; letter-spacing: .06em; white-space: nowrap; }
+.bigevent.penalty .beteam { font-size: calc(5 * var(--u)); color: #d6deea; }
+.bigevent .beplayer { font-size: calc(16 * var(--u)); font-weight: 800; }
+.bigevent .beinf { font-size: calc(6.5 * var(--u)); font-weight: 800; overflow-wrap: anywhere; }
+.bigevent .bedetail { font-size: calc(4.5 * var(--u)); font-weight: 700; color: #ffd166; overflow-wrap: anywhere; }
+
+/* ---------- /b/CODE?overlay: a web overlay is see-through all the time (Pai 2026-10-24) ----------
+   No panel, card or box backgrounds at any moment; the text keeps a dark outline so it reads on any video. */
+.board.overlay, .board.overlay .cpanel, .board.overlay .cpanel::before, .board.overlay .team, .board.overlay .mid, .board.overlay .pens,
+.board.overlay .cclock, .board.overlay .cshift b, .board.overlay .cpen, .board.overlay .clock, .board.overlay .shiftbox,
+.board.overlay .penbox, .board.overlay .pen, .board.overlay .cteam, .board.overlay .bigevent, .board.overlay .penalty-signal, .board.overlay .cstrength {
+  background: transparent !important; box-shadow: none !important; }
+.board.overlay .cpanel, .board.overlay .team, .board.overlay .mid, .board.overlay .pens, .board.overlay .cclock, .board.overlay .cshift b { border-color: transparent !important; }
+.board.overlay { text-shadow: 0 0 calc(.25 * var(--u)) #000, 0 0 calc(.8 * var(--u)) #000, 0 calc(.2 * var(--u)) calc(.4 * var(--u)) #000; }
+.board.overlay .bigevent { border-color: var(--c) !important; }
+.board.overlay .befigure, .board.overlay .penalty-signal-figure { background: transparent; }
+.board.overlay .fsbtn, .board.overlay .fshint { display: none; }

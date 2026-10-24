@@ -38,7 +38,7 @@ export function DesktopLinkStatus({ openSettings }) {
     </div>}
     {groups.map((group, i) => <div className="desktop-link-group" key={group.name}>
       <span className={`desktop-link-label ${['Online', 'Synced'].includes(group.status) ? 'on' : 'off'}`}>{group.name} · {group.status}</span>
-      {[...(group.links.run || []).map(([label,url])=>[label,url]), ...(group.links.watch || []).filter(([,url])=>new URL(url).pathname.startsWith('/b/')).map(([label,url])=>[label === 'Scoreboard' ? 'Display' : label,url])].map(([label,url])=><div className="desktop-link-row" key={url}>
+      {[...(group.links.run || []).map(([label,url])=>[label,url]), ...(group.links.watch || []).filter(([,url])=>new URL(url).pathname.startsWith('/b/') && !new URL(url).searchParams.has('overlay')).map(([label,url])=>[label === 'Scoreboard' ? 'Display' : label,url])].map(([label,url])=><div className="desktop-link-row" key={url}>
         <span>{label}</span><a href={url} title={url} onClick={e=>{e.preventDefault();window.desktop.openLink(url)}}>{url}</a>
         <button className="linkbtn" aria-label={`Copy ${group.name} ${label} URL`} onClick={()=>copy(url)}>{copied===url?'Copied':'Copy'}</button>
       </div>)}

@@ -430,3 +430,26 @@ test('compact layout is see-through for OBS at Background opacity < 100; SHOT ON
   await expect(board.locator('.cteam .clabel').first()).toHaveText(/shot on goal/i)
   expect(value.y).toBeGreaterThan(label.y + label.height - 2) // top / bottom, not side by side
 })
+
+test('event display Big fills the scoreboard during a penalty; ?overlay stays see-through all the time', async ({ page, context }) => {
+  const code = uniqueCode('bigev')
+  await openControl(page, code)
+  await openOptions(page, 'Game')
+  await page.locator('.opts').getByRole('button', { name: 'Big: fills the scoreboard', exact: true }).click()
+  await saveOptions(page)
+  const board = await openBoard(context, code)
+  await addPenalty(page, 'home', '55', 2)
+  const big = board.locator('.bigevent.penalty')
+  await expect(big).toBeVisible()
+  await expect(big).toContainText('#55')
+  await expect(big).toContainText('2:00')
+  await expect(board.locator('.board > .mid')).toBeHidden() // the scoreboard steps aside meanwhile
+  // the web overlay link: no background anywhere, whatever the game's Background opacity
+  const overlay = await context.newPage()
+  await overlay.goto(`/b/${code}?overlay`)
+  await expect(overlay.locator('.board.overlay')).toBeAttached()
+  for (const sel of ['.board', '.board .team']) {
+    expect(await overlay.locator(sel).first().evaluate(e => getComputedStyle(e).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
+  }
+  await expect(overlay.locator('.bigevent.penalty')).toBeAttached()
+})

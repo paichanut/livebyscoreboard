@@ -141,6 +141,11 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters, pr
       <Num label="Turn off after (sec)" path="goalOffSec" get={get} set={set} min={1} max={120} />
       <h4>Penalty announcement</h4>
       <Check label="Show referee animation on scoreboard" path="penaltyAnimation" get={get} set={set} />
+      <Row label="Event display (GOAL! · PENALTY · OFFSIDE)" as="div">
+        <span className="chips">{[['board', 'In the scoreboard'], ['big', 'Big: fills the scoreboard']].map(([v, l]) =>
+          <button key={v} className={`btn ${(o.eventDisplay || 'board') === v ? 'on' : ''}`} onClick={() => set('eventDisplay', v)}>{l}</button>)}</span>
+      </Row>
+      <div className="hint">Big is for small overlays (camera apps, a corner of a stream): the event covers the whole scoreboard for as long as it shows, then the score comes back.</div>
       <h4>Common penalty lengths (min)</h4>
       <div className="penlens">
         {o.penaltyLengths.map((m, i) => <span className="chip" key={i}>{m} min <button onClick={() => set('penaltyLengths', o.penaltyLengths.filter((_, j) => j !== i))}>✕</button></span>)}

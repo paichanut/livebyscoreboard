@@ -496,6 +496,7 @@ function links(url, code = 'main', secret = true) {
     ? [[`Display A · ${rA}`, `${url}/b/${code}?rink=a`], [`Display B · ${rB}`, `${url}/b/${code}?rink=b`], ['Display C · CENTER (both rinks)', `${url}/b/${code}`]]
     : [['Scoreboard', `${url}/b/${code}`]]
   if (Number(s?.opts?.shiftMs) > 0) watch.push(['Shift clock', `${url}/b/${code}?view=shift`])
+  watch.push(['Web overlay (see-through)', `${url}/b/${code}?overlay`])
   watch.push(...(small ? [[`OBS banner ${rA}`, `${url}/o/${code}?rink=a`], [`OBS banner ${rB}`, `${url}/o/${code}?rink=b`]] : [['OBS banner', `${url}/o/${code}`]]))
   const k = secret ? '?key=' + settings.controlKey : ''
   const run = small

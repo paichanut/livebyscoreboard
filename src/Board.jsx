@@ -7,6 +7,8 @@ import { now as serverNow } from './clock.js'
 import { useAppearance, useGameSounds, AudioNotice, useSound } from './useOptions.jsx'
 import TimeBadge from './TimeBadge.jsx'
 import PenaltyAnnouncement from './PenaltyAnnouncement.jsx'
+import RefereeFigure from './RefereeFigure.jsx'
+import { signalForInfraction } from './refereeSignals.js'
 
 // Full screen (TV / projector): double-click anywhere, or the ⛶ button
 function toggleFullscreen() {
@@ -44,6 +46,9 @@ export function RinkTag({ rink, label, className = 'rinkpill' }) {
 
 // /b/CODE?view=shift: the shift (line change) countdown alone, full screen (bench / extra screen)
 const VIEW = new URLSearchParams(window.location.search).get('view')
+// /b/CODE?overlay: a web overlay (camera / streaming apps): always fully see-through, whatever the game's
+// Background opacity (Pai 2026-10-24), so the same game can stay solid on the TV
+const OVERLAY = new URLSearchParams(window.location.search).has('overlay')
 
 // /b/CODE?preview=1 is the live preview inside Options (Options.jsx LivePreview): it shows the unsaved game the
 // options page posts to it, never the stored one, and plays no sound.
@@ -79,8 +84,8 @@ function BoardView({ raw, access, gameId, preview = false }) {
   const sound = useSound(!preview)
   useGameSounds(s, sound.playing, now)
   // see-through page: the board sits on top of video (OBS, camera apps); cards stay solid
-  const bgOpacity = Math.min(100, Math.max(0, Number(s?.opts.bgOpacity ?? 50)))
-  const clear = Boolean(s) && bgOpacity < 100 && !(s.opts.layout === 'arena' && s.opts.bgImg)
+  const bgOpacity = OVERLAY ? 0 : Math.min(100, Math.max(0, Number(s?.opts.bgOpacity ?? 50)))
+  const clear = Boolean(s) && bgOpacity < 100 && (OVERLAY || !(s.opts.layout === 'arena' && s.opts.bgImg))
   useEffect(() => {
     document.documentElement.classList.toggle('clearbg', clear)
     return () => document.documentElement.classList.remove('clearbg')
@@ -120,9 +125,14 @@ function BoardView({ raw, access, gameId, preview = false }) {
   const isNum = !['OT', 'SO'].includes(s.period)
   const isSO = s.period === 'SO'
 
+  const big = o.eventDisplay === 'big'
+  const extra = `${OVERLAY ? 'overlay' : ''} ${big ? 'bigev' : ''}`
+  const bigEvent = big && <BigEvent s={s} flash={flash} />
+
   if (o.layout === 'compact') {
     return (
-      <div className={`board compactb ${clear ? 'clear' : ''}`} style={{ ...(clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
+      <div className={`board compactb ${clear ? 'clear' : ''} ${extra}`} style={{ ...(clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
+        {bigEvent}
         <AudioNotice sound={sound} className="sound" />
         <FullscreenButton />
         <FullscreenHint />
@@ -132,8 +142,9 @@ function BoardView({ raw, access, gameId, preview = false }) {
   }
 
   return (
-    <div className={`board ${clear ? 'clear' : ''} ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''}`}
-      style={{ ...(arena && o.bgImg ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
+    <div className={`board ${clear ? 'clear' : ''} ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg && !OVERLAY ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''} ${extra}`}
+      style={{ ...(arena && o.bgImg && !OVERLAY ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
+      {bigEvent}
       {!clear && <div className="status">{ONLINE ? 'live' : 'local'} · {gameId}<TimeBadge /></div>}
       <AudioNotice sound={sound} className="sound" />
       <FullscreenButton />
@@ -192,6 +203,44 @@ function BoardView({ raw, access, gameId, preview = false }) {
 // "OFFSIDE ▶" for the one on the right (away). \uFE0E keeps the arrows as text, never emoji.
 function Pointed({ team, children }) {
   return <>{team === 'home' && <b className="ptr">{'\u25C0\uFE0E'}</b>}{children}{team === 'away' && <b className="ptr">{'\u25B6\uFE0E'}</b>}</>
+}
+
+// Event display "Big": GOAL! / PENALTY / OFFSIDE cover the whole scoreboard while they last, sized to be read in
+// a small overlay (same rules as EventText: GOAL! wins, otherwise the newer of penalty / offside)
+function BigEvent({ s, flash }) {
+  const L = s.opts.labels
+  const off = offsideActive(s)
+  const pen = penaltyCallActive(s)
+  const logo = team => s.opts[`${team}Logo`]
+  if (flash) return (
+    <div className="bigevent goal" role="status" style={{ '--c': s[flash].color }}>
+      {logo(flash) && <img className="belogo" src={logo(flash)} alt="" />}
+      <div className="bebig">{L.goal}</div>
+      <div className="beteam">{s[flash].name}</div>
+    </div>
+  )
+  if (pen && (!off || pen.at >= s.offside.at)) {
+    const signal = s.opts.penaltyAnimation === false ? null : signalForInfraction(pen.infraction)
+    return (
+      <div className="bigevent penalty" role="status" style={{ '--c': s[pen.team].color }} key={pen.at}>
+        {signal && <div className="befigure"><RefereeFigure signal={signal} playing label={`${signal.name} referee signal`} /></div>}
+        <div className="becopy">
+          <div className="bekind"><Pointed team={pen.team}>{L.penalty || 'PENALTY'}</Pointed></div>
+          <div className="beteam">{s[pen.team].name}</div>
+          {pen.player && <div className="beplayer">#{pen.player}</div>}
+          <div className="beinf">{signal?.name || pen.infraction}</div>
+          <div className="bedetail">{pen.text}</div>
+        </div>
+      </div>
+    )
+  }
+  if (off) return (
+    <div className="bigevent offside" role="status" style={{ '--c': s[off].color }}>
+      <div className="bebig"><Pointed team={off}>{L.offside || 'OFFSIDE'}</Pointed></div>
+      <div className="beteam">{s[off].name}</div>
+    </div>
+  )
+  return null
 }
 
 function EventText({ s, flash, withName }) {

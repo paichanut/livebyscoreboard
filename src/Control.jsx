@@ -746,6 +746,7 @@ function QrSheet({ boardUrl, bannerUrl, controlUrl, close, t, small, labels }) {
     [small ? t('linkCenterBoard') : t('linkBoard'), boardUrl],
     ...(small ? ['a', 'b'].map(k => [`${t('linkBoard')} · ${rinkName(k)}`, withParam(boardUrl, 'rink', k)]) : []),
     [t('linkShift'), withParam(boardUrl, 'view', 'shift')],
+    [t('linkOverlay'), withParam(boardUrl, 'overlay', '1')],
     ...(small ? ['a', 'b'].map(k => [`${t('obsOverlay')} ${rinkName(k)}`, withParam(bannerUrl, 'rink', k)]) : [[t('obsOverlay'), bannerUrl]]),
   ]
   const run = [
