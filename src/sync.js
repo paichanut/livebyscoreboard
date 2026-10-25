@@ -72,12 +72,12 @@ export async function helperKey(gameId) {
 }
 
 // The games this login may run (Pai 2026-10-25: each login sees only its own games; the admin every game).
-// null = not known (not logged in, the test build, or game-owners.sql not applied yet): treat every game as this login's.
+// null = not logged in / the test build (no owners there); throws when the server can't say (the page then lists none).
 export async function myGames() {
   const t = getSession()
   if (!ONLINE || !t) return null
   const { data, error } = await supabase.rpc('my_games', { p_token: t })
-  if (error || !Array.isArray(data)) return null
+  if (error || !Array.isArray(data)) throw new Error(error?.message || 'my_games failed')
   return new Set(data.map(r => (typeof r === 'string' ? r : r?.my_games)).filter(Boolean))
 }
 

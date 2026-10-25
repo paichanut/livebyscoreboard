@@ -1,5 +1,6 @@
 // Tournament page: every game on this Supabase project (or in this browser, local mode), newest first.
-// Logged in, it shows this login's own games (the admin: every game) with Manage / operate; "All games" shows the rest, watch only.
+// Logged in (Pai 2026-10-25), it shows only this login's own games (the admin: every game; demo: demo-…), never
+// another operator's; logged out it stays the public tournament list.
 import React, { useEffect, useState } from 'react'
 import { createGamesList, ONLINE, NEEDS_LOGIN, storedKey, getSession, deleteGame, myGames } from './sync.js'
 import { withDefaults } from './options.js'
@@ -21,10 +22,12 @@ export default function Live() {
   const [rows, setRows] = useState(null)
   const [manage, setManage] = useState(false)
   const [mine, setMine] = useState(null)
-  const [showAll, setShowAll] = useState(false)
+  const [mineError, setMineError] = useState(false)
   const loggedIn = Boolean(getSession())
   const canManage = !NEEDS_LOGIN || loggedIn
-  const isMine = id => (mine ? mine.has(id) : !NEEDS_LOGIN || loggedIn)
+  // logged in online: only the games my_games() names (none until it answers); otherwise every game
+  const onlyMine = ONLINE && loggedIn
+  const isMine = id => (onlyMine ? Boolean(mine?.has(id)) : canManage)
   const remove = async (id, name) => {
     if (!window.confirm(`Delete game "${name}" for good? Its display and banner links stop working.`)) return
     try {
@@ -41,7 +44,8 @@ export default function Live() {
   const ids = (rows || []).map(r => r.id).sort().join(' ')
   useEffect(() => {
     let live = true
-    myGames().then(set => { if (live) setMine(set) }).catch(() => {})
+    myGames().then(set => { if (live) { setMine(set || new Set()); setMineError(false) } })
+      .catch(() => { if (live) { setMine(new Set()); setMineError(true) } })
     return () => { live = false }
   }, [ids])
   useTick(1000, Boolean(rows?.some(r => r.state.clock?.running)))
@@ -51,26 +55,21 @@ export default function Live() {
   const games = (rows || []).filter(r => r.state?.home && r.state?.away && r.state?.clock).map(r => ({ ...r, state: withDefaults(r.state) }))
   // running clocks first, then most recently touched
   games.sort((a, b) => Number(Boolean(b.state.clock.running)) - Number(Boolean(a.state.clock.running)) || b.updatedAt - a.updatedAt)
-  const onlyMine = ONLINE && loggedIn && mine && !showAll
   const shown = onlyMine ? games.filter(g => isMine(g.id)) : games
+  const loading = rows === null || (onlyMine && mine === null)
 
   return (
     <div className="live">
       <div className="head">
         <h1>{onlyMine ? 'My games' : 'Live games'}</h1>
         <div className="mode">{ONLINE ? 'live sync on' : 'test build — games in this browser only'}</div>
-        {ONLINE && loggedIn && mine && (
-          <div className="seg">
-            <button className={`btn sm ${showAll ? '' : 'accent'}`} onClick={() => setShowAll(false)}>My games</button>
-            <button className={`btn sm ${showAll ? 'accent' : ''}`} onClick={() => { setShowAll(true); setManage(false) }}>All games</button>
-          </div>
-        )}
-        {canManage && !showAll && <button className={`btn sm ${manage ? 'accent' : ''}`} onClick={() => setManage(!manage)}>{manage ? 'Done' : 'Manage games'}</button>}
+        {canManage && <button className={`btn sm ${manage ? 'accent' : ''}`} onClick={() => setManage(!manage)}>{manage ? 'Done' : 'Manage games'}</button>}
       </div>
-      {rows === null && <div className="loading">loading…</div>}
-      {rows && !shown.length && <div className="empty">{onlyMine ? 'No games of yours yet.' : 'No games yet.'} <a href="/">Create one</a>.</div>}
+      {loading && <div className="loading">loading…</div>}
+      {mineError && <div className="empty">Could not load your games. Check the connection, or log in again.</div>}
+      {!loading && !mineError && !shown.length && <div className="empty">{onlyMine ? 'No games of yours yet.' : 'No games yet.'} <a href="/">Create one</a>.</div>}
       <div className="grid">
-        {shown.map(({ id, state: s, updatedAt }) => {
+        {!loading && shown.map(({ id, state: s, updatedAt }) => {
           const running = s.clock.running && clockRemaining(s, now) > 0
           const isNum = !['OT', 'SO'].includes(s.period)
           return (
