@@ -89,6 +89,7 @@ export function defaultOptions() {
     timeout1Sec: 30,
     timeout2Sec: 60,
     timeoutWarnSec: 15,
+    warmupSec: 60, // Warm-up button before the game (Pai 2026-10-25)
     goalIndicator: true,
     goalOffSec: 15,
     penaltyAnimation: true,
@@ -128,12 +129,12 @@ export function defaultOptions() {
     colors: {},
     // Sounds
     // same defaults as PC Scoreboards: horn button loops, timeout warning is the short blast
-    sounds: { horn: 'horn-nhl', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn-nhl-short', timeoutWarn: 'horn-short', timeoutEnd: 'horn-nhl-short' },
+    sounds: { horn: 'horn-nhl', buzzer: 'buzzer', endPeriod: 'buzzer', timeoutStart: 'horn-nhl-short', timeoutWarn: 'horn-short', timeoutEnd: 'horn-nhl-short', warmupEnd: 'buzzer' },
     soundsV: 2, // 2 = NHL horn defaults; older games are moved over once in withDefaults
     keysV: 2, // 2 = correction on F2; older games still on ` are moved over once
     bannerV: 2, // 2 = transparent banner by default; older games (green by default then) are moved over once
     // Text
-    labels: { period: 'PERIOD', shots: 'SHOT ON GOAL', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE', shift: 'SHIFT CLOCK', rinkA: 'RINK A', rinkB: 'RINK B' },
+    labels: { period: 'PERIOD', shots: 'SHOT ON GOAL', player: 'PLAYER', penalty: 'PENALTY', goal: 'GOAL!', timeout: 'TIMEOUT', pp: 'PP', offside: 'OFFSIDE', shift: 'SHIFT CLOCK', warmup: 'WARM-UP', rinkA: 'RINK A', rinkB: 'RINK B' },
     font: 'Barlow Condensed',
     digits: 'normal', // 'normal' | 'segments'
     // Score banner (OBS overlay)

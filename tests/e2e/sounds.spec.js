@@ -39,7 +39,8 @@ test('Sounds tab offers the samples; the horn defaults to the NHL horn', async (
   await openControl(page, uniqueCode('sndopt'))
   await openOptions(page, 'Sounds')
   const selects = page.locator('.opts select')
-  await expect(selects).toHaveCount(6)
+  await expect(selects).toHaveCount(7)
+  await expect(selects.nth(6)).toHaveValue('buzzer') // end of warm-up
   await expect(selects.nth(0)).toHaveValue('horn-nhl') // horn button
   await expect(selects.nth(2)).toHaveValue('buzzer') // end of period
   await expect(selects.nth(4)).toHaveValue('horn-short') // timeout warning

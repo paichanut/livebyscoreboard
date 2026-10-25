@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useGame, useGameId, useTick, useClockTick } from './useGame.js'
-import { clockShown, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, penaltyCallActive, periodLabel, clockRemaining, isSmallIce, rinkView, shiftInfo } from './game.js'
+import { clockShown, clockDisplay, fmtClock, fmtTimeOfDay, strengthLabel, activePenalties, waitingPenalties, penaltyRemaining, skatersOnIce, timeoutRemaining, goalFlashActive, offsideActive, penaltyCallActive, periodLabel, clockRemaining, isSmallIce, rinkView, shiftInfo } from './game.js'
 import { ONLINE } from './sync.js'
 import { withDefaults } from './options.js'
 import { now as serverNow } from './clock.js'
@@ -80,7 +80,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
   const small = isSmallIce(raw)
   const s = raw && small && RINK ? rinkView(raw, RINK) : raw
   useAppearance(s)
-  const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash || s?.offside || s?.penaltyCall || s?.showTimeOfDay || s?.penalties?.length))
+  const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.warmup || s?.goalFlash || s?.offside || s?.penaltyCall || s?.showTimeOfDay || s?.penalties?.length))
   const sound = useSound(!preview)
   useGameSounds(s, sound.playing, now)
   // see-through page: the board sits on top of video (OBS, camera apps); cards stay solid
@@ -102,10 +102,12 @@ function BoardView({ raw, access, gameId, preview = false }) {
   if (!s && access === 'missing') return <div className="readonly"><h3>Board not found</h3>No board with code <b>{gameId}</b> yet. <div style={{ marginTop: 12 }}><a href="/">Home</a></div></div>
   if (!s) return <div className="loading">connecting…</div>
 
-  const clockText = fmtClock(clockShown(s, now), { countdown: s.opts.clockDir !== 'up' })
+  // a timeout or the warm-up counts down in the big clock; then the game time comes back as it was
+  const cd = clockDisplay(s, now)
+  const clockText = fmtClock(cd.ms, cd.kind === 'game' ? { countdown: s.opts.clockDir !== 'up' } : { tenths: false })
 
   if (VIEW === 'shift') return <ShiftBoard s={raw} sound={sound} clockText={clockText} now={now} />
-  if (small && !RINK) return <DualBoard s={s} sound={sound} clockText={clockText} now={now} clear={clear} bgOpacity={bgOpacity} />
+  if (small && !RINK) return <DualBoard s={s} sound={sound} clockText={clockText} kind={cd.kind} now={now} clear={clear} bgOpacity={bgOpacity} />
 
   const o = s.opts
   const L = o.labels
@@ -119,8 +121,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
   const hOn = skatersOnIce(s, 'home'), aOn = skatersOnIce(s, 'away')
   const ppTeam = hOn !== aOn ? (hOn > aOn ? 'home' : 'away') : null
   const ppColor = ppTeam ? s[ppTeam].color : undefined
-  const final = clockRemaining(s, now) <= 0 && s.period !== 'SO'
-  const toRem = timeoutRemaining(s)
+  const final = cd.kind === 'game' && clockRemaining(s, now) <= 0 && s.period !== 'SO'
   const flash = goalFlashActive(s)
   const isNum = !['OT', 'SO'].includes(s.period)
   const isSO = s.period === 'SO'
@@ -136,7 +137,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
         <AudioNotice sound={sound} className="sound" />
         <FullscreenButton />
         <FullscreenHint />
-        <Compact clockText={clockText} shift={shift} rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} toRem={toRem} isNum={isNum} isSO={isSO} />
+        <Compact clockText={clockText} shift={shift} rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} kind={cd.kind} isNum={isNum} isSO={isSO} />
       </div>
     )
   }
@@ -162,11 +163,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
 
       <div className="mid">
         {small && RINK && <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} />}
-        {toRem > 0 && (
-          <div className="timeout" style={{ '--c': s[s.timeout.team].color }}>
-            {L.timeout} · {s[s.timeout.team].name} <b className="tnum">{fmtClock(toRem)}</b>
-          </div>
-        )}
+        <ClockNote s={s} kind={cd.kind} className="timeout" />
         {arena && o.logoImg && <img className="centerlogo top" src={o.logoImg} alt="" />}
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
         <div className={`clock tnum ${final ? 'final' : ''}`}>{clockText}</div>
@@ -276,13 +273,20 @@ function ShiftBoard({ s, sound, clockText, now }) {
 }
 
 // Small ice center board: Rink A | clock, period, shift countdown | Rink B (PC Scoreboards' two-game board)
-function DualBoard({ s, sound, clear, bgOpacity, clockText, now }) {
+// What the big clock counts down while it is not the game time: TIMEOUT · team, or WARM-UP
+function ClockNote({ s, kind, className }) {
+  const L = s.opts.labels
+  if (kind === 'timeout') return <div className={className} style={{ '--c': s[s.timeout.team].color }}>{L.timeout} · {s[s.timeout.team].name}</div>
+  if (kind === 'warmup') return <div className={`${className} warmup`}>{L.warmup}</div>
+  return null
+}
+
+function DualBoard({ s, sound, clear, bgOpacity, clockText, kind, now }) {
   const o = s.opts
   const L = o.labels
   const shift = shiftInfo(s, now)
-  const final = clockRemaining(s, now) <= 0 && s.period !== 'SO'
+  const final = kind === 'game' && clockRemaining(s, now) <= 0 && s.period !== 'SO'
   const isNum = !['OT', 'SO'].includes(s.period)
-  const toRem = timeoutRemaining(s)
   return (
     <div className={`board dual ${clear ? 'clear' : ''}`} style={clear ? { '--bgop': `${bgOpacity}%` } : undefined}>
       <AudioNotice sound={sound} className="sound" />
@@ -301,7 +305,7 @@ function DualBoard({ s, sound, clear, bgOpacity, clockText, now }) {
         <div className={`dclock tnum ${final ? 'final' : ''}`}>{clockText}</div>
         <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
-        {toRem > 0 && <div className="timeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
+        <ClockNote s={s} kind={kind} className="timeout" />
         {shift && (
           <div className="dshift">
             <span>{L.shift}</span>
@@ -350,7 +354,7 @@ function DualGame({ s, label, rink }) {
 // Compact layout: one broadcast-style panel (the operator's earlier OBS design). Home | clock box,
 // period, tournament logo | away; scores in team colors; penalties under each team only when there
 // are any (space is reserved so nothing moves); date + time of day along the bottom when it is on.
-function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, toRem, isNum, isSO }) {
+function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, kind, isNum, isSO }) {
   const o = s.opts
   const L = o.labels
   const side = team => {
@@ -398,7 +402,7 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
           <div className="cover">
             <div className={`cstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
             <div className="evslot"><EventText s={s} flash={flash} /></div>
-            {toRem > 0 && <div className="ctimeout" style={{ '--c': s[s.timeout.team].color }}>{L.timeout} <b className="tnum">{fmtClock(toRem)}</b></div>}
+            <ClockNote s={s} kind={kind} className="ctimeout" />
           </div>
         </div>
       </div>

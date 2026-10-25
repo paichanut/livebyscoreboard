@@ -2,7 +2,7 @@
 // It is made for a 1920 px wide OBS canvas; on anything narrower (a phone) it shrinks to fit, so both teams show.
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useGame, useGameId, useTick, useClockTick } from './useGame.js'
-import { clockShown, fmtClock, fmtTimeOfDay, periodLabel, activePenalties, waitingPenalties, penaltyRemaining, strengthLabel, isSmallIce, rinkView } from './game.js'
+import { clockShown, clockDisplay, fmtClock, fmtTimeOfDay, periodLabel, activePenalties, waitingPenalties, penaltyRemaining, strengthLabel, isSmallIce, rinkView } from './game.js'
 import { useAppearance } from './useOptions.jsx'
 import { Shootout, RinkTag } from './Board.jsx'
 
@@ -13,7 +13,7 @@ export default function Banner() {
   const rink = new URLSearchParams(window.location.search).get('rink') === 'b' ? 'b' : 'a'
   const s = raw && isSmallIce(raw) ? rinkView(raw, rink) : raw
   useAppearance(s)
-  const now = useClockTick(s, Boolean(s?.clock.running || s?.showTimeOfDay))
+  const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.warmup || s?.showTimeOfDay))
   const chroma = Boolean(s?.opts.banner.useChroma)
   useEffect(() => {
     document.documentElement.classList.toggle('clearbg', !chroma)
@@ -34,6 +34,8 @@ export default function Banner() {
   const L = s.opts.labels
   const teams = b.mirror ? ['away', 'home'] : ['home', 'away']
   const strength = strengthLabel(s)
+  // a timeout or the warm-up counts down in the clock (the label says which), then the game time comes back
+  const cd = clockDisplay(s, now)
 
   return (
     <div className="bannerpage" style={{ background: chroma ? b.chroma : 'transparent' }}>
@@ -60,8 +62,8 @@ export default function Banner() {
         })}
         {(sh.period || sh.clock) && (
           <div className="bclock">
-            {sh.period && <div className="bperiod">{['OT', 'SO'].includes(s.period) ? periodLabel(s) : `${L.period} ${periodLabel(s)}`}{strength ? ` · ${strength}` : ''}</div>}
-            {sh.clock && <div className="btime tnum">{fmtClock(clockShown(s, now), { countdown: s.opts.clockDir !== 'up' })}</div>}
+            {sh.period && <div className="bperiod">{cd.kind === 'timeout' ? L.timeout : cd.kind === 'warmup' ? L.warmup : ['OT', 'SO'].includes(s.period) ? periodLabel(s) : `${L.period} ${periodLabel(s)}`}{cd.kind === 'game' && strength ? ` · ${strength}` : ''}</div>}
+            {sh.clock && <div className="btime tnum">{fmtClock(cd.ms, cd.kind === 'game' ? { countdown: s.opts.clockDir !== 'up' } : { tenths: false })}</div>}
             {s.showTimeOfDay && <div className="btod tnum">{fmtTimeOfDay()}</div>}
           </div>
         )}

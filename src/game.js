@@ -36,6 +36,7 @@ export function newGame(overrides = {}) {
     horn: 0,
     buzzer: 0,
     timeout: null, // { team, durationMs, since }
+    warmup: null, // { durationMs, since }: the warm-up countdown before the game
     goalFlash: null, // { team, at }
     events: [], // game log, see logEvent(): { id, t, type, team, period, clockMs, periodMs, player?, minutes?, seconds? }
     shootout: { home: [], away: [] }, // 'goal' | 'miss' per attempt
@@ -213,6 +214,21 @@ export function timeoutRemaining(s, now = wallNow()) {
   return Math.max(0, s.timeout.durationMs - (now - s.timeout.since))
 }
 
+export function warmupRemaining(s, now = wallNow()) {
+  if (!s.warmup) return 0
+  return Math.max(0, s.warmup.durationMs - (now - s.warmup.since))
+}
+
+// What the big clock shows (Pai 2026-10-25): a timeout or the warm-up counts down in its place, then the game
+// time comes back exactly as it was (the game clock is stopped meanwhile).
+export function clockDisplay(s, now = wallNow()) {
+  const to = timeoutRemaining(s, now)
+  if (s.timeout && to > 0) return { kind: 'timeout', ms: to }
+  const wu = warmupRemaining(s, now)
+  if (s.warmup && wu > 0) return { kind: 'warmup', ms: wu }
+  return { kind: 'game', ms: clockShown(s, now) }
+}
+
 export function goalFlashActive(s, now = wallNow()) {
   if (!s.goalFlash || !s.opts?.goalIndicator) return null
   const offMs = (s.opts.goalOffSec ?? 15) * 1000
@@ -262,7 +278,7 @@ export function startClock(s, { penalties = true, now = wallNow() } = {}) {
   if (s.clock.running) return s
   if (clockRemaining(s, now) <= 0) return s
   const playLive = penalties ? true : s.playLive !== false
-  return touch({ ...foldAll(s, now), timeout: null, playLive, clock: { ...s.clock, running: true, since: now } })
+  return touch({ ...foldAll(s, now), timeout: null, warmup: null, playLive, clock: { ...s.clock, running: true, since: now } })
 }
 
 export function stopClock(s, now = wallNow()) {
@@ -313,6 +329,20 @@ export function setClock(s, ms) {
   ms = Math.max(0, ms)
   const stopped = stopClock(s)
   return touch({ ...stopped, clock: { remainingMs: ms, running: false, since: null } })
+}
+
+// What the operator typed into the clock (Pai 2026-10-25): "12:34", "12:34.5", "45.5", or digits only
+// ("1234" = 12:34, "930" = 9:30, "45" = 45 s). null when it is not a time.
+export function parseClockInput(text) {
+  const t = String(text ?? '').trim()
+  let m = 0, sec = 0, tenth = 0, x
+  if ((x = t.match(/^(\d{1,3}):(\d{2})(?:[.,](\d))?$/))) [m, sec, tenth] = [x[1], x[2], x[3] || 0].map(Number)
+  else if ((x = t.match(/^(\d{1,2})[.,](\d)$/))) [sec, tenth] = [x[1], x[2]].map(Number)
+  else if (/^\d{1,2}$/.test(t)) sec = Number(t)
+  else if (/^\d{3,5}$/.test(t)) [m, sec] = [t.slice(0, -2), t.slice(-2)].map(Number)
+  else return null
+  if (m > 0 && sec >= 60) return null
+  return m * MIN + sec * 1000 + tenth * 100
 }
 
 export function adjustClock(s, deltaMs) {
@@ -572,6 +602,16 @@ export function startTimeout(s, team, seconds) {
 
 export function clearTimeout_(s) {
   return s.timeout ? touch({ ...s, timeout: null }) : s
+}
+
+// warm-up before the game (opts.warmupSec, default 60 s): the game clock stops and the warm-up counts down
+export function startWarmup(s, seconds, now = wallNow()) {
+  const stopped = stopClock(s, now)
+  return touch({ ...stopped, timeout: null, warmup: { durationMs: Math.max(1, Number(seconds) || 60) * 1000, since: now } })
+}
+
+export function clearWarmup(s) {
+  return s.warmup ? touch({ ...s, warmup: null }) : s
 }
 
 export function setSettings(s, patch) {

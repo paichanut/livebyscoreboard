@@ -136,6 +136,8 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters, pr
       <Num label="Timeout 1 duration (sec)" path="timeout1Sec" get={get} set={set} min={5} max={600} />
       <Num label="Timeout 2 duration (sec)" path="timeout2Sec" get={get} set={set} min={5} max={600} />
       <Num label="Warning sound at (sec remaining, 0 = off)" path="timeoutWarnSec" get={get} set={set} min={0} max={120} />
+      <h4>Warm-up</h4>
+      <Num label="Warm-up duration (sec)" path="warmupSec" get={get} set={set} min={5} max={3600} />
       <h4>Goal indicator</h4>
       <Check label="When a score increases, show goal indicator" path="goalIndicator" get={get} set={set} />
       <Num label="Turn off after (sec)" path="goalOffSec" get={get} set={set} min={1} max={120} />
@@ -355,7 +357,7 @@ function ColorsTab({ o, set, theme, setTheme, preview }) {
 }
 
 function SoundsTab({ o, set }) {
-  const EVENTS = [['horn', 'Horn button'], ['buzzer', 'Buzzer button'], ['endPeriod', 'End of period'], ['timeoutStart', 'Start of timeout'], ['timeoutWarn', 'Timeout warning'], ['timeoutEnd', 'End of timeout']]
+  const EVENTS = [['horn', 'Horn button'], ['buzzer', 'Buzzer button'], ['endPeriod', 'End of period'], ['timeoutStart', 'Start of timeout'], ['timeoutWarn', 'Timeout warning'], ['timeoutEnd', 'End of timeout'], ['warmupEnd', 'End of warm-up']]
   return (
     <>
       <div className="hint">Arena audio is always enabled on the control and display pages. A browser may require one tap on each page to allow playback.</div>
@@ -373,7 +375,7 @@ function SoundsTab({ o, set }) {
 }
 
 function TextTab({ o, set, preview }) {
-  const FIELDS = [['period', 'Period'], ['shots', 'Shots on goal'], ['player', 'Penalty player'], ['penalty', 'Penalty'], ['goal', 'Goal indicator'], ['timeout', 'Timeout'], ['pp', 'Power play'], ['offside', 'Offside']]
+  const FIELDS = [['period', 'Period'], ['shots', 'Shots on goal'], ['player', 'Penalty player'], ['penalty', 'Penalty'], ['goal', 'Goal indicator'], ['timeout', 'Timeout'], ['warmup', 'Warm-up'], ['pp', 'Power play'], ['offside', 'Offside']]
   const t = translator(o.uiLang)
   return (
     <>

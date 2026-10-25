@@ -676,3 +676,35 @@ test('the shots label reads SHOT ON GOAL; a label the operator typed stays', () 
   assert.equal(withDefaults({ ...G.newGame(), opts: { labels: { shots: 'SHOTS' } } }).opts.labels.shots, 'SHOT ON GOAL')
   assert.equal(withDefaults({ ...G.newGame(), opts: { labels: { shots: 'ยิง' } } }).opts.labels.shots, 'ยิง')
 })
+
+test('typing the clock: m:ss, tenths, digits only; anything else is refused', () => {
+  assert.equal(G.parseClockInput('12:34'), 12 * MIN + 34_000)
+  assert.equal(G.parseClockInput('0:45.5'), 45_500)
+  assert.equal(G.parseClockInput('45.5'), 45_500)
+  assert.equal(G.parseClockInput('1234'), 12 * MIN + 34_000)
+  assert.equal(G.parseClockInput('930'), 9 * MIN + 30_000)
+  assert.equal(G.parseClockInput('45'), 45_000)
+  for (const bad of ['', 'abc', '1:7', '12:75', '1275', '-1:00']) assert.equal(G.parseClockInput(bad), null, bad)
+})
+
+test('a timeout counts down in the big clock, then the game time comes back as it was', () => {
+  const t0 = 1_000_000
+  let s = G.startClock(game(), { now: t0 })
+  s = G.stopClock(s, t0 + 60_000) // 14:00 left
+  s = { ...s, timeout: { team: 'home', durationMs: 30_000, since: t0 + 70_000 } }
+  assert.deepEqual(G.clockDisplay(s, t0 + 80_000), { kind: 'timeout', ms: 20_000 })
+  assert.deepEqual(G.clockDisplay(s, t0 + 100_001), { kind: 'game', ms: 14 * MIN })
+})
+
+test('warm-up: stops the clock, counts down in its place, ends at faceoff', () => {
+  const t0 = 2_000_000
+  let s = G.startWarmup(game(), 60, t0)
+  assert.equal(s.clock.running, false)
+  assert.deepEqual(G.clockDisplay(s, t0 + 15_000), { kind: 'warmup', ms: 45_000 })
+  assert.equal(G.warmupRemaining(s, t0 + 61_000), 0)
+  assert.equal(G.clockDisplay(s, t0 + 61_000).kind, 'game')
+  assert.equal(G.clockDisplay(s, t0 + 61_000).ms, G.periodLength(s), 'the period time is untouched')
+  assert.equal(G.startClock(s, { now: t0 + 20_000 }).warmup, null, 'starting the game ends the warm-up')
+  assert.equal(G.clearWarmup(s).warmup, null)
+  assert.equal(defaultOptions().warmupSec, 60)
+})

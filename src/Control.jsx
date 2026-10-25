@@ -55,7 +55,7 @@ export default function Control() {
   // the single-game link to share with a helper; fetched once the game exists on the server
   const [shareKey, setShareKey] = useState(usingSession ? '' : key)
   useEffect(() => { if (usingSession && access === 'ok' && !shareKey) helperKey(gameId).then(setShareKey) }, [usingSession, gameId, access, shareKey])
-  const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.goalFlash))
+  const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.warmup || s?.goalFlash))
   const [sheet, setSheet] = useState(null)
   const [workspace,setWorkspace] = useState(()=>{try{return localStorage.getItem(`rinkboard:workspace:${gameId}`)==='stats'?'stats':'scoreboard'}catch{return 'scoreboard'}})
   const [syncError,setSyncError]=useState('')
@@ -157,6 +157,7 @@ export default function Control() {
       let n = G.pruneExpiredPenalties(x)
       if (G.isSmallIce(n)) { const b = G.rinkView(n, 'b'); if (G.pruneExpiredPenalties(b) !== b) n = G.onRink(n, 'b', G.pruneExpiredPenalties) }
       if (n.timeout && G.timeoutRemaining(n) <= 0) n = G.clearTimeout_(n)
+      if (n.warmup && G.warmupRemaining(n) <= 0) n = G.clearWarmup(n)
       return n
     }), 1000)
     return () => clearInterval(id)
@@ -261,7 +262,7 @@ export default function Control() {
           {!locked && <div className="adj">
             {[-5, -1].map(d => <button key={d} className="btn sm minus" aria-label={`clock ${d} s`} onClick={() => update(x => G.adjustClock(x, d * 1000))}>−{-d}</button>)}
           </div>}
-          <div className={`c tnum ${remaining <= 0 ? 'final' : ''}`}>{G.fmtClock(G.clockShown(s, now), { countdown: s.opts.clockDir !== 'up' })}</div>
+          <ClockField s={s} now={now} locked={locked} update={update} final={remaining <= 0} />
           {!locked && <div className="adj">
             {[1, 5].map(d => <button key={d} className="btn sm plus" aria-label={`clock +${d} s`} onClick={() => update(x => G.adjustClock(x, d * 1000))}>+{d}</button>)}
           </div>}
@@ -319,14 +320,19 @@ export default function Control() {
           <button className={`btn sm ${s.showTimeOfDay ? 'accent' : ''}`} onClick={() => update(G.toggleTimeOfDay)}>{s.showTimeOfDay ? t('showPeriodTime') : t('showTimeOfDay')}</button>
         </div>
         <div className="row">
-          {s.timeout && G.timeoutRemaining(s) > 0 ? (
+          {s.warmup && G.warmupRemaining(s, now) > 0 ? (
+            <button className="btn sm accent" onClick={() => update(G.clearWarmup)} style={{ flex: 2 }}>
+              {o.labels.warmup} · {G.fmtClock(G.warmupRemaining(s, now), { tenths: false })} — {t('end')}
+            </button>
+          ) : s.timeout && G.timeoutRemaining(s) > 0 ? (
             <button className="btn sm accent" onClick={() => update(G.clearTimeout_)} style={{ flex: 2 }}>
-              {o.labels.timeout} {s[s.timeout.team].name} · {G.fmtClock(G.timeoutRemaining(s))} — {t('end')}
+              {o.labels.timeout} {s[s.timeout.team].name} · {G.fmtClock(G.timeoutRemaining(s), { tenths: false })} — {t('end')}
             </button>
           ) : (
             <>
               <button className="btn sm" onClick={() => setSheet('timeout-1')}>{t('timeoutBtn')} ({G.fmtClock(o.timeout1Sec * 1000, { tenths: false })})</button>
               <button className="btn sm" onClick={() => setSheet('timeout-2')}>{t('timeoutBtn')} ({G.fmtClock(o.timeout2Sec * 1000, { tenths: false })})</button>
+              <button className="btn sm" onClick={() => update(x => G.startWarmup(x, x.opts.warmupSec))}>{t('warmupBtn')} ({G.fmtClock((o.warmupSec || 60) * 1000, { tenths: false })})</button>
             </>
           )}
         </div>
@@ -636,6 +642,37 @@ function TeamSheet({ team, s, update, close, t }) {
       </div>
       <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={save}>{t('save')}</button><button className="btn ghost" onClick={close}>{t('cancel')}</button></div>
     </Sheet>
+  )
+}
+
+// The big clock on the control page: tap it (or Enter on it) and type the time right there (Pai 2026-10-25):
+// Enter or leaving the field sets it ("12:34", "45.5", "1234" = 12:34), Esc keeps the clock as it was.
+function ClockField({ s, now, locked, update, final }) {
+  const [text, setText] = useState(null)
+  const [bad, setBad] = useState(false)
+  const done = useRef(false)
+  const shown = G.fmtClock(G.clockShown(s, now), { countdown: s.opts.clockDir !== 'up' })
+  const open = () => { if (locked) return; done.current = false; setBad(false); setText(shown) }
+  const close = () => { done.current = true; setText(null); setBad(false) }
+  const apply = () => {
+    if (done.current) return true
+    const ms = G.parseClockInput(text)
+    if (ms === null) { setBad(true); return false }
+    update(x => G.setClock(x, x.opts.clockDir === 'up' ? Math.max(0, G.periodLength(x) - ms) : ms))
+    close()
+    return true
+  }
+  if (text === null) {
+    return (
+      <div className={`c tnum ${final ? 'final' : ''} ${locked ? '' : 'editable'}`} {...(locked ? {} : { role: 'button', tabIndex: 0, title: 'Tap to type the time', 'aria-label': 'clock — tap to type the time' })}
+        onClick={open} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); open() } }}>{shown}</div>
+    )
+  }
+  return (
+    <input className={`c tnum clockinput ${bad ? 'bad' : ''}`} aria-label="type the clock time" value={text} autoFocus inputMode="decimal"
+      onFocus={e => e.target.select()} onChange={e => { setText(e.target.value); setBad(false) }}
+      onKeyDown={e => { if (e.key === 'Enter') apply(); else if (e.key === 'Escape') close() }}
+      onBlur={() => { if (!apply()) close() }} />
   )
 }
 

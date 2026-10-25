@@ -112,6 +112,7 @@ input, select { font-family: inherit; }
 .board .pen span { color: var(--muted); font-weight: 600; }
 .board .timeout { font-size: calc(2.4 * var(--u)); font-weight: 800; letter-spacing: .12em; color: #fff; background: var(--c); border-radius: 999px; padding: .6vh calc(2.4 * var(--u)); white-space: nowrap; }
 .board .timeout b { margin-left: calc(1 * var(--u)); }
+.board .warmup { --c: #b45309; }
 .board .team { position: relative; overflow: hidden; }
 .board .team.flash { animation: flashbg .5s ease-in-out infinite alternate; }
 /* goal: the scoring team's card flashes its background (numbers never move); the text sits in the middle card's empty bottom */
@@ -156,6 +157,10 @@ input, select { font-family: inherit; }
 .control .clockcard .c.final { color: var(--stop); }
 .control .clockline { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .control .clockline .c { flex: 0 1 auto; min-width: 0; font-size: min(92px, 18vw); }
+.control .clockline .c.editable { cursor: text; border-radius: 10px; }
+.control .clockline .c.editable:hover { background: rgba(255,255,255,.06); }
+.control .clockline .clockinput { width: 5.2ch; padding: 0; margin: 0; text-align: center; font-family: inherit; font-size: min(92px, 18vw); line-height: 1.1; font-weight: 800; color: inherit; background: rgba(255,255,255,.08); border: 2px solid var(--accent); border-radius: 10px; outline: none; user-select: text; -webkit-user-select: text; }
+.control .clockline .clockinput.bad { border-color: #f87171; }
 .control .clockline .adj { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
 .control .clockline .adj .btn { min-width: 52px; padding: 8px 10px; font-size: 16px; font-weight: 800; }
 .control .row { display: flex; gap: 8px; margin-top: 10px; }

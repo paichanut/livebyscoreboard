@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { unlockAudio, playSound, audioReady } from './horn.js'
-import { timeoutRemaining, clockRemaining, shiftInfo } from './game.js'
+import { timeoutRemaining, warmupRemaining, clockRemaining, shiftInfo } from './game.js'
 import { now as wallNow } from './clock.js'
 
 // fonts that come with the app (index.html / fonts-offline.js / styles.css); any other name is fetched from Google Fonts
@@ -64,6 +64,7 @@ export function useGameSounds(s, enabled, now = wallNow()) {
         warned.current = false
       }
       if (p.timeout && !s.timeout && timeoutRemaining(p, now) <= 1200) playSound(snd.timeoutEnd)
+      if (p.warmup && !s.warmup && warmupRemaining(p, now) <= 1200) playSound(snd.warmupEnd)
     }
     // The final state may already be stopped when it reaches this screen. Check the
     // authority's expiry marker or the previous deadline; manual corrections stay silent.
