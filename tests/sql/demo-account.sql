@@ -1,4 +1,4 @@
--- Disposable database only: run after supabase.sql, supabase/desktop-machines.sql and supabase/demo-account.sql.
+-- Disposable database only: run after supabase.sql, supabase/desktop-machines.sql, supabase/demo-account.sql and supabase/game-owners.sql.
 -- All fixtures roll back. psql -v ON_ERROR_STOP=1 ... < tests/sql/demo-account.sql
 begin;
 select public.set_operator('demo-fixture', 'demo');
@@ -8,7 +8,7 @@ insert into public.operator_sessions(token, username, expires_at) values
  ('demo-token', 'demo-fixture', now() + interval '1 hour'),
  ('real-token', 'real-fixture', now() + interval '1 hour');
 insert into public.games (id, state) values ('tournament-a', '{"home":{"score":1}}');
-insert into public.game_keys (id, key) values ('tournament-a', 'helper-key');
+insert into public.game_keys (id, key, owner) values ('tournament-a', 'helper-key', 'real-fixture');
 insert into public.teams (name, color, logo, uploaded_by) values ('Fixture Bears', '#123456', '', 'real-fixture');
 select set_config('test.team', (select id::text from public.teams where name = 'Fixture Bears'), true);
 set local role anon;

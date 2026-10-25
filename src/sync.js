@@ -71,6 +71,16 @@ export async function helperKey(gameId) {
   return data || ''
 }
 
+// The games this login may run (Pai 2026-10-25: each login sees only its own games; the admin every game).
+// null = not known (not logged in, the test build, or game-owners.sql not applied yet): treat every game as this login's.
+export async function myGames() {
+  const t = getSession()
+  if (!ONLINE || !t) return null
+  const { data, error } = await supabase.rpc('my_games', { p_token: t })
+  if (error || !Array.isArray(data)) return null
+  return new Set(data.map(r => (typeof r === 'string' ? r : r?.my_games)).filter(Boolean))
+}
+
 // Delete a game for good (logged-in operators; the test build just drops it from this browser)
 export async function deleteGame(gameId) {
   if (!ONLINE) {

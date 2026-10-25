@@ -35,3 +35,5 @@ The shared toolbar also has **Undo** for the last 30 game entries/edits made on 
 ## Demo login
 
 `demo-account.sql` (applied 2026-10-24) adds `operators.is_demo` and `operator_can(token, game)`. The public `demo` / `demo` login may only create, run and delete games whose code starts with `demo-`; it cannot touch real games, the shared team library or desktop machine names. Checks: `tests/sql/demo-account.sql` against a disposable database.
+
+`game-owners.sql` (applied 2026-10-25) adds `game_keys.owner` (set by `create_game` from the session) and `my_games(token)`. A login may run, share and delete only its own games; the admin every game; the demo login only `demo-…` games. Older games went to the admin (`demo-…` to the demo login). Watching stays public and a game's helper key still runs that one game. Checks: `tests/sql/game-owners.sql`.
