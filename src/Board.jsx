@@ -482,13 +482,13 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
         <div className="kbottom">
           {shift && <div className="kshift"><span>{L.shift}</span><b className="kdig tnum" aria-label="shift">{shift.seconds}</b></div>}
           {s.showTimeOfDay && <div className="ktod kdig tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
-          {/* power play, GOAL! / PENALTY / OFFSIDE and the timeout / warm-up lie on top of the tournament logo
-              (it dims meanwhile), as on Compact */}
+          {/* power play on its own line (always reserved, so the logo never moves); GOAL! / PENALTY / OFFSIDE and
+              the timeout / warm-up lie on top of the tournament logo (it dims meanwhile), as on Compact */}
+          <div className={`kstrength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
           <div className="ktlogo">
             {o.logoImg && <img src={o.logoImg} alt="" />}
             <div className="kover">
               {rinkTag}
-              {strength && <div className="kstrength" style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>}
               <div className="evslot"><EventText s={s} flash={flash} /></div>
               <ClockNote s={s} kind={kind} className="ctimeout" />
             </div>

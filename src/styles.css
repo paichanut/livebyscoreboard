@@ -891,7 +891,8 @@ html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .bo
 .classicb .kover .pencall { background: var(--k-box); padding: calc(.4 * var(--u)) calc(1.2 * var(--u)); border-radius: calc(.6 * var(--u)); }
 .classicb .kover .ctimeout { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .08em; background: var(--c, #b45309); color: #fff; border-radius: 999px; padding: 0 calc(1.4 * var(--u)); white-space: nowrap; }
 .classicb .ktlogo:has(.evslot > *, .ctimeout) img { opacity: .12; }
-.classicb .kstrength { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .08em; color: #fff; background: var(--pp, #2b6cb0); border-radius: 999px; padding: 0 calc(1 * var(--u)); white-space: nowrap; }
+.classicb .kstrength.empty { visibility: hidden; }
+.classicb .kstrength { flex: 0 0 auto; line-height: 1.35; font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .08em; color: #fff; background: var(--pp, #2b6cb0); border-radius: 999px; padding: 0 calc(1 * var(--u)); white-space: nowrap; }
 .classicb .kperiod { justify-self: center; width: calc(11 * var(--u)); max-width: 40%; font-size: calc(5.6 * var(--u)); color: var(--c-period, #3ee6f0); }
 .classicb .kbottom { grid-row: 6 / 8; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: calc(.6 * var(--u)); }
 .classicb .kshift { display: flex; align-items: center; gap: calc(.8 * var(--u)); font-weight: 800; font-size: calc(1.9 * var(--u)); }
