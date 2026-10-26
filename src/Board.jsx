@@ -448,7 +448,7 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
     const shotsLabel = <div className="kshotslabel">{L.shots}</div>
     return (
       <div className={`kteam k${team}`} style={{ '--c': t.color }}>
-        <div className="kname">{t.name}</div>
+        <div className="kname" style={{ fontSize: `calc(${Math.min(3.1, 40 / Math.max(1, t.name.length)).toFixed(2)} * var(--u))` }}>{t.name}</div>
         <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`kscore kdig tnum ${flash === team ? 'flash' : ''}`}>{t.score}</div>
         <div className="kpenrow">{team === 'home' ? <>{lights}<span>{L.penalty}</span></> : <><span>{L.penalty}</span>{lights}</>}</div>
         <div className="kshotrow">{team === 'home' ? <>{logo}{shots}{shotsLabel}</> : <>{shotsLabel}{shots}{logo}</>}</div>
