@@ -142,6 +142,19 @@ function BoardView({ raw, access, gameId, preview = false }) {
     )
   }
 
+  if (o.layout === 'classic') {
+    return (
+      <div className={`board classicb ${clear ? 'clear' : ''} ${extra}`} style={{ ...(clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
+        {bigEvent}
+        <AudioNotice sound={sound} className="sound" />
+        <FullscreenButton />
+        <FullscreenHint />
+        <Classic s={s} now={now} clockText={clockText} kind={cd.kind} final={final} flash={flash} shift={shift} strength={strength} ppColor={ppColor} ppTeam={ppTeam} isNum={isNum} isSO={isSO}
+          rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} />
+      </div>
+    )
+  }
+
   return (
     <div className={`board ${clear ? 'clear' : ''} ${minimal ? 'minimal' : ''} ${arena ? 'arena' : ''} ${arena && o.bgImg && !OVERLAY ? 'hasbg' : ''} ${o.digits === 'segments' ? 'segments' : ''} ${extra}`}
       style={{ ...(arena && o.bgImg && !OVERLAY ? { '--bgimg': `url("${o.bgImg}")` } : clear ? { '--bgop': `${bgOpacity}%` } : {}), ...rinkStyle }}>
@@ -412,6 +425,77 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
           {d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace(/,/g, '')} <b>{fmtTimeOfDay()}</b>
         </div>
       )}
+    </div>
+  )
+}
+
+// Classic (Pai 2026-10-26: "this layout", a picture of PC Scoreboards' hockey board): one grey panel with a
+// white rounded frame; team name over a black score box, the clock in a framed box in the middle, GOAL lamps
+// under it, penalty lights, logo + shots on goal, the period box, then two Player | Penalty rows per team and
+// the tournament logo. Digits in the LCD font: clock yellow, scores / shots / penalty time green, period cyan.
+function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppColor, ppTeam, isNum, isSO, rinkTag }) {
+  const o = s.opts
+  const L = o.labels
+  const side = team => {
+    const t = s[team]
+    const active = activePenalties(s, team)
+    const waiting = waitingPenalties(s, team).length
+    const lights = <span className="klights" aria-label={`${active.length} penalties running`}>{[0, 1].map(i => <i key={i} className={i < active.length ? 'on' : ''} />)}</span>
+    const logo = <div className="klogo">{o[`${team}Logo`] && <img src={o[`${team}Logo`]} alt="" />}</div>
+    const shots = isSO
+      ? <div className="kshots kso"><Shootout attempts={s.shootout[team]} className="so" /></div>
+      : <div className="kshots kdig tnum">{t.shots}</div>
+    const shotsLabel = <div className="kshotslabel">{L.shots}</div>
+    return (
+      <div className={`kteam k${team}`} style={{ '--c': t.color }}>
+        <div className="kname">{t.name}</div>
+        <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`kscore kdig tnum ${flash === team ? 'flash' : ''}`}>{t.score}</div>
+        <div className="kpenrow">{team === 'home' ? <>{lights}<span>{L.penalty}</span></> : <><span>{L.penalty}</span>{lights}</>}</div>
+        <div className="kshotrow">{team === 'home' ? <>{logo}{shots}{shotsLabel}</> : <>{shotsLabel}{shots}{logo}</>}</div>
+        <div className="kpplabel">{L.player} {L.penalty}{waiting > 0 && <b> +{waiting}</b>}</div>
+        {[0, 1].map(i => {
+          const p = active[i]
+          return (
+            <div className="kpen" key={p?.id || i}>
+              <div className="kpp kdig tnum">{p?.player || ''}</div>
+              <div className="kpt kdig tnum">{p ? fmtClock(penaltyRemaining(s, p, now), { tenths: false }) : ''}</div>
+            </div>
+          )
+        })}
+        {/* the referee card floats over the column; it must not take a grid row */}
+        <div className="kann"><PenaltyAnnouncement s={s} team={team} now={now} /></div>
+      </div>
+    )
+  }
+  return (
+    <div className="kpanel">
+      {side('home')}
+      <div className="kmid">
+        <div className={`kclock kdig tnum ${final ? 'final' : ''} ${kind !== 'game' ? 'note' : ''}`}>{clockText}</div>
+        <div className="klamps">
+          <span className={`klamp ${flash === 'home' ? 'on' : ''}`} aria-label="home goal light" /><span className="kgoal">{L.goal.replace(/!$/, '')}</span>
+          <span className="kspacer" />
+          <span className="kgoal">{L.goal.replace(/!$/, '')}</span><span className={`klamp ${flash === 'away' ? 'on' : ''}`} aria-label="away goal light" />
+        </div>
+        <div className="kperiod kdig tnum">{periodLabel(s)}</div>
+        <div className="kperiodlabel">{isNum ? L.period : ''}</div>
+        <div className="kbottom">
+          {shift && <div className="kshift"><span>{L.shift}</span><b className="kdig tnum" aria-label="shift">{shift.seconds}</b></div>}
+          {s.showTimeOfDay && <div className="ktod kdig tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
+          {/* power play, GOAL! / PENALTY / OFFSIDE and the timeout / warm-up lie on top of the tournament logo
+              (it dims meanwhile), as on Compact */}
+          <div className="ktlogo">
+            {o.logoImg && <img src={o.logoImg} alt="" />}
+            <div className="kover">
+              {rinkTag}
+              {strength && <div className="kstrength" style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>}
+              <div className="evslot"><EventText s={s} flash={flash} /></div>
+              <ClockNote s={s} kind={kind} className="ctimeout" />
+            </div>
+          </div>
+        </div>
+      </div>
+      {side('away')}
     </div>
   )
 }

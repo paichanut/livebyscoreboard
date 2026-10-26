@@ -117,6 +117,7 @@ function GameTab({ get, set, o, periodMin, setPeriodMin, skaters, setSkaters, pr
         <button className={`btn ${o.layout === 'compact' ? 'on' : ''}`} onClick={() => set('layout', 'compact')}>Compact — one panel (stream overlay)</button>
         <button className={`btn ${o.layout === 'full' ? 'on' : ''}`} onClick={() => set('layout', 'full')}>Full — shots, logos, title</button>
         <button className={`btn ${o.layout === 'minimal' ? 'on' : ''}`} onClick={() => set('layout', 'minimal')}>Minimal — bigger numbers</button>
+        <button className={`btn ${o.layout === 'classic' ? 'on' : ''}`} onClick={() => set('layout', 'classic')}>Classic — LCD board (PC Scoreboards look)</button>
       </div>
       {preview(false)}
       <h4>Clock</h4>

@@ -832,3 +832,73 @@ html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .bo
 .board.overlay .bigevent { border-color: var(--c) !important; }
 .board.overlay .befigure, .board.overlay .penalty-signal-figure { background: transparent; }
 .board.overlay .fsbtn, .board.overlay .fshint { display: none; }
+
+/* ---------- Classic layout (Pai 2026-10-26: PC Scoreboards' hockey board) ----------
+   Three columns with the same row grid, so the rows line up across the panel:
+   name · score (clock spans both) · penalty lights / GOAL lamps · logo + shots / period · labels · 2 penalty rows. */
+.board.classicb { display: flex; align-items: stretch; justify-content: stretch; padding: 1.4vh calc(1.2 * var(--u)); --u: min(1vw, 1.78vh);
+  --k-bg: var(--u-bg, #3b3d40); --k-box: var(--u-card, #050505); --k-text: var(--u-text, #f4f4f4); font-family: Arial, 'Helvetica Neue', sans-serif; }
+.board.classicb.clear { padding: 0; background: transparent !important; }
+.classicb .kpanel { position: relative; flex: 1; min-height: 0; align-self: center; height: min(100%, 60vw); /* a phone held upright: keep the board's shape */ display: grid; grid-template-columns: 1fr 1.08fr 1fr; column-gap: calc(1.4 * var(--u));
+  padding: calc(1.6 * var(--u)) calc(2 * var(--u)) calc(1.8 * var(--u)); background: var(--k-bg); color: var(--k-text);
+  border: calc(.55 * var(--u)) solid var(--k-text); border-radius: calc(4 * var(--u)); }
+.board.classicb.clear .kpanel { background: none; isolation: isolate; }
+.board.classicb.clear .kpanel::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--k-bg); opacity: var(--bgop, 50%); }
+.classicb .kteam, .classicb .kmid { position: relative; min-width: 0; min-height: 0; display: grid; row-gap: calc(.9 * var(--u));
+  grid-template-rows: minmax(0, 4.5fr) minmax(0, 12.5fr) minmax(0, 3.6fr) minmax(0, 9fr) minmax(0, 3.6fr) minmax(0, 6.2fr) minmax(0, 6.2fr); }
+.classicb .kdig { font-family: 'LCD Digital', var(--font-display); font-weight: 700; background: var(--k-box); border-radius: calc(.5 * var(--u));
+  display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; overflow: hidden; line-height: 1; white-space: nowrap; }
+.classicb .kname { align-self: end; text-align: center; font-weight: 800; font-size: calc(3.1 * var(--u)); text-transform: uppercase; letter-spacing: .02em;
+  color: var(--c-teamname, var(--k-text)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.classicb .kscore { font-size: calc(8.5 * var(--u)); color: var(--c-score, #3df03a); justify-content: flex-end; padding-right: 8%; }
+.classicb .kteam.kaway .kscore { justify-content: center; padding: 0; }
+.classicb .kscore.flash { animation: kflash .5s steps(1) infinite alternate; }
+@keyframes kflash { from { box-shadow: inset 0 0 0 calc(.5 * var(--u)) var(--c-goal, #ff2a2a); } to { box-shadow: none; } }
+.classicb .kpenrow { display: flex; align-items: center; gap: calc(.8 * var(--u)); font-weight: 800; font-size: calc(2.2 * var(--u)); padding: 0 6%; }
+.classicb .kteam.khome .kpenrow { justify-content: flex-start; }
+.classicb .kteam.kaway .kpenrow { justify-content: flex-end; }
+.classicb .klights { display: inline-flex; gap: calc(.6 * var(--u)); }
+.classicb .klights i { width: calc(1.8 * var(--u)); height: calc(1.8 * var(--u)); border-radius: 50%; background: #1d1f22; box-shadow: inset 0 0 0 calc(.2 * var(--u)) #000; }
+.classicb .klights i.on { background: #ff2a2a; box-shadow: 0 0 calc(1 * var(--u)) #ff2a2a; }
+.classicb .kshotrow { display: grid; align-items: stretch; column-gap: calc(1 * var(--u)); min-height: 0; }
+.classicb .kteam.khome .kshotrow { grid-template-columns: 1fr 1.3fr 1.2fr; }
+.classicb .kteam.kaway .kshotrow { grid-template-columns: 1.2fr 1.3fr 1fr; }
+.classicb .klogo { min-height: 0; display: flex; align-items: center; justify-content: center; background: var(--k-box); border-radius: calc(.5 * var(--u)); overflow: hidden; }
+.classicb .klogo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.classicb .kshots { font-size: calc(5.2 * var(--u)); color: var(--c-shots, #3df03a); }
+.classicb .kshots.kso { background: var(--k-box); border-radius: calc(.5 * var(--u)); display: flex; align-items: center; justify-content: center; font-size: calc(2.6 * var(--u)); }
+.classicb .kshotslabel { align-self: center; text-align: center; font-weight: 800; font-size: calc(2 * var(--u)); line-height: 1.1; text-transform: uppercase; }
+.classicb .kpplabel, .classicb .kperiodlabel { align-self: center; text-align: center; font-weight: 800; font-size: calc(2.2 * var(--u)); white-space: nowrap; }
+.classicb .kperiodlabel { text-transform: uppercase; }
+.classicb .kpplabel b { color: #ffd23f; }
+.classicb .kpen { display: grid; grid-template-columns: 1fr 1.8fr; column-gap: calc(1 * var(--u)); min-height: 0; }
+.classicb .kpp { font-size: calc(3.6 * var(--u)); color: var(--c-penplayer, #ff3b30); }
+.classicb .kpt { font-size: calc(3.6 * var(--u)); color: var(--c-pentime, #ffe14a); }
+.classicb .kclock { grid-row: 1 / 3; font-size: calc(9.6 * var(--u)); color: var(--c-clock, #ffe14a); border: calc(.45 * var(--u)) solid var(--k-text); border-radius: calc(1.8 * var(--u));
+  box-shadow: 0 0 0 calc(.35 * var(--u)) var(--k-box); margin: 0 calc(.5 * var(--u)); }
+.classicb .kclock.final { color: var(--stop, #ff4d4d); }
+.classicb .kclock.note { color: #ffb347; }
+.classicb .klamps { display: flex; align-items: center; gap: calc(.7 * var(--u)); font-weight: 800; font-size: calc(2.2 * var(--u)); min-width: 0; }
+.classicb .klamp { flex: 0 0 auto; width: calc(4 * var(--u)); height: calc(2 * var(--u)); border-radius: 50%; background: #1d1f22; box-shadow: inset 0 0 0 calc(.25 * var(--u)) #000; }
+.classicb .klamp.on { background: var(--c-goal, #ff2a2a); box-shadow: 0 0 calc(1.6 * var(--u)) var(--c-goal, #ff2a2a); animation: kblink .5s steps(1) infinite alternate; }
+@keyframes kblink { to { opacity: .35; } }
+.classicb .kspacer { flex: 1; }
+.classicb .kann { position: absolute; inset: 0; pointer-events: none; }
+.classicb .kann:empty { display: none; }
+.classicb .kover { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: calc(.6 * var(--u)); pointer-events: none; }
+.classicb .kover .evslot { min-height: 0; height: auto; }
+.classicb .kover .goalflash { font-size: calc(4.4 * var(--u)); }
+.classicb .kover .pencall { background: var(--k-box); padding: calc(.4 * var(--u)) calc(1.2 * var(--u)); border-radius: calc(.6 * var(--u)); }
+.classicb .kover .ctimeout { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .08em; background: var(--c, #b45309); color: #fff; border-radius: 999px; padding: 0 calc(1.4 * var(--u)); white-space: nowrap; }
+.classicb .ktlogo:has(.evslot > *, .ctimeout) img { opacity: .12; }
+.classicb .kstrength { font-size: calc(2.2 * var(--u)); font-weight: 800; letter-spacing: .08em; color: #fff; background: var(--pp, #2b6cb0); border-radius: 999px; padding: 0 calc(1 * var(--u)); white-space: nowrap; }
+.classicb .kperiod { justify-self: center; width: calc(11 * var(--u)); max-width: 40%; font-size: calc(5.6 * var(--u)); color: var(--c-period, #3ee6f0); }
+.classicb .kbottom { grid-row: 6 / 8; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: calc(.6 * var(--u)); }
+.classicb .kshift { display: flex; align-items: center; gap: calc(.8 * var(--u)); font-weight: 800; font-size: calc(1.9 * var(--u)); }
+.classicb .kshift b { color: #ff3b30; font-size: calc(3.4 * var(--u)); padding: calc(.3 * var(--u)) calc(1 * var(--u)); }
+.classicb .ktod { font-size: calc(2.2 * var(--u)); color: var(--c-clock, #ffe14a); padding: calc(.3 * var(--u)) calc(1 * var(--u)); }
+.classicb .ktlogo { position: relative; flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+.classicb .ktlogo img { max-width: 60%; max-height: 100%; object-fit: contain; border-radius: calc(.4 * var(--u)); }
+/* see-through overlay link: numbers keep their black boxes off, outline instead */
+.board.classicb.overlay .kpanel { border-color: transparent; }
+.board.classicb.overlay .kdig, .board.classicb.overlay .klogo { background: transparent; }
