@@ -429,6 +429,13 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
   )
 }
 
+// The LCD font draws "1" at the right of a full digit cell, so a number starting with 1 ("15:00", "12") looks off
+// centre: the leading 1 loses the empty half of its cell (.lead1, measured: 0.5 em).
+function lcd(text) {
+  const t = String(text ?? '')
+  return t.startsWith('1') ? <><span className="lead1">1</span>{t.slice(1)}</> : t
+}
+
 // Classic (Pai 2026-10-26: "this layout", a picture of PC Scoreboards' hockey board): one grey panel with a
 // white rounded frame; team name over a black score box, the clock in a framed box in the middle, GOAL lamps
 // under it, penalty lights, logo + shots on goal, the period box, then two Player | Penalty rows per team and
@@ -444,12 +451,12 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
     const logo = <div className="klogo">{o[`${team}Logo`] && <img src={o[`${team}Logo`]} alt="" />}</div>
     const shots = isSO
       ? <div className="kshots kso"><Shootout attempts={s.shootout[team]} className="so" /></div>
-      : <div className="kshots kdig tnum">{t.shots}</div>
+      : <div className="kshots kdig tnum">{lcd(t.shots)}</div>
     const shotsLabel = <div className="kshotslabel">{L.shots}</div>
     return (
       <div className={`kteam k${team}`} style={{ '--c': t.color }}>
         <div className="kname" style={{ fontSize: `calc(${Math.min(3.1, 40 / Math.max(1, t.name.length)).toFixed(2)} * var(--u))` }}>{t.name}</div>
-        <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`kscore kdig tnum ${flash === team ? 'flash' : ''}`}>{t.score}</div>
+        <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`kscore kdig tnum ${flash === team ? 'flash' : ''}`}>{lcd(t.score)}</div>
         <div className="kpenrow">{team === 'home' ? <>{lights}<span>{L.penalty}</span></> : <><span>{L.penalty}</span>{lights}</>}</div>
         <div className="kshotrow">{team === 'home' ? <>{logo}{shots}{shotsLabel}</> : <>{shotsLabel}{shots}{logo}</>}</div>
         <div className="kpplabel">{L.player} {L.penalty}{waiting > 0 && <b> +{waiting}</b>}</div>
@@ -457,8 +464,8 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
           const p = active[i]
           return (
             <div className="kpen" key={p?.id || i}>
-              <div className="kpp kdig tnum">{p?.player || ''}</div>
-              <div className="kpt kdig tnum">{p ? fmtClock(penaltyRemaining(s, p, now), { tenths: false }) : ''}</div>
+              <div className="kpp kdig tnum">{lcd(p?.player || '')}</div>
+              <div className="kpt kdig tnum">{p ? lcd(fmtClock(penaltyRemaining(s, p, now), { tenths: false })) : ''}</div>
             </div>
           )
         })}
@@ -471,13 +478,13 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
     <div className="kpanel">
       {side('home')}
       <div className="kmid">
-        <div className={`kclock kdig tnum ${final ? 'final' : ''} ${kind !== 'game' ? 'note' : ''}`}>{clockText}</div>
+        <div className={`kclock kdig tnum ${final ? 'final' : ''} ${kind !== 'game' ? 'note' : ''}`}>{lcd(clockText)}</div>
         <div className="klamps">
           <span className={`klamp ${flash === 'home' ? 'on' : ''}`} aria-label="home goal light" /><span className="kgoal">{L.goal.replace(/!$/, '')}</span>
           <span className="kspacer" />
           <span className="kgoal">{L.goal.replace(/!$/, '')}</span><span className={`klamp ${flash === 'away' ? 'on' : ''}`} aria-label="away goal light" />
         </div>
-        <div className="kperiod kdig tnum">{periodLabel(s)}</div>
+        <div className="kperiod kdig tnum">{lcd(periodLabel(s))}</div>
         <div className="kperiodlabel">{isNum ? L.period : ''}</div>
         <div className="kbottom">
           {shift && <div className="kshift"><span>{L.shift}</span><b className="kdig tnum" aria-label="shift">{shift.seconds}</b></div>}
