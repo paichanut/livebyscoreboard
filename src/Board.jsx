@@ -76,22 +76,29 @@ function PreviewBoard() {
   return raw ? <BoardView raw={raw} access="ok" gameId="preview" preview /> : null
 }
 
-function BoardView({ raw, access, gameId, preview = false }) {
+// The scoreboard for a state passed in. With onEdit (single-monitor mode on the control page) a click on a
+// number (data-edit) opens a field to type it; the board is then solid and silent (the control page plays the sounds).
+export function BoardView({ onEdit, children, ...props }) {
+  const inner = <BoardLayouts {...props} embedded={Boolean(onEdit) || props.embedded} />
+  return onEdit ? <div className="board-edit" onClick={onEdit}>{inner}{children}</div> : inner
+}
+
+function BoardLayouts({ raw, access, gameId, preview = false, embedded = false }) {
   const small = isSmallIce(raw)
   const s = raw && small && RINK ? rinkView(raw, RINK) : raw
   useAppearance(s)
   const now = useClockTick(s, Boolean(s?.clock.running || s?.timeout || s?.warmup || s?.goalFlash || s?.offside || s?.penaltyCall || s?.showTimeOfDay || s?.penalties?.length))
-  const sound = useSound(!preview)
+  const sound = useSound(!preview && !embedded)
   useGameSounds(s, sound.playing, now)
   // see-through page: the board sits on top of video (OBS, camera apps); cards stay solid
-  const bgOpacity = OVERLAY ? 0 : Math.min(100, Math.max(0, Number(s?.opts.bgOpacity ?? 50)))
+  const bgOpacity = embedded ? 100 : OVERLAY ? 0 : Math.min(100, Math.max(0, Number(s?.opts.bgOpacity ?? 50)))
   const clear = Boolean(s) && bgOpacity < 100 && (OVERLAY || !(s.opts.layout === 'arena' && s.opts.bgImg))
   useEffect(() => {
     document.documentElement.classList.toggle('clearbg', clear)
     return () => document.documentElement.classList.remove('clearbg')
   }, [clear])
   useEffect(() => {
-    const on = e => { if (!e.target.closest?.('button')) { window.getSelection?.()?.removeAllRanges(); toggleFullscreen() } }
+    const on = e => { if (!e.target.closest?.('button, [data-edit], input, .singlebar')) { window.getSelection?.()?.removeAllRanges(); toggleFullscreen() } }
     // a second click would start a word selection; stop it before it happens
     const down = e => { if (e.detail > 1) e.preventDefault() }
     document.addEventListener('dblclick', on)
@@ -105,9 +112,11 @@ function BoardView({ raw, access, gameId, preview = false }) {
   // a timeout or the warm-up counts down in the big clock; then the game time comes back as it was
   const cd = clockDisplay(s, now)
   const clockText = fmtClock(cd.ms, cd.kind === 'game' ? { countdown: s.opts.clockDir !== 'up' } : { tenths: false })
+  // click-to-type (single-monitor mode): the field starts from the game time, even while a timeout counts down
+  const editClock = { 'data-edit': 'clock', 'data-value': fmtClock(clockShown(s, now), { countdown: s.opts.clockDir !== 'up' }) }
 
   if (VIEW === 'shift') return <ShiftBoard s={raw} sound={sound} clockText={clockText} now={now} />
-  if (small && !RINK) return <DualBoard s={s} sound={sound} clockText={clockText} kind={cd.kind} now={now} clear={clear} bgOpacity={bgOpacity} />
+  if (small && !RINK) return <DualBoard s={s} sound={sound} clockText={clockText} editClock={editClock} kind={cd.kind} now={now} clear={clear} bgOpacity={bgOpacity} />
 
   const o = s.opts
   const L = o.labels
@@ -137,7 +146,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
         <AudioNotice sound={sound} className="sound" />
         <FullscreenButton />
         <FullscreenHint />
-        <Compact clockText={clockText} shift={shift} rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} kind={cd.kind} isNum={isNum} isSO={isSO} />
+        <Compact clockText={clockText} editClock={editClock} shift={shift} rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} s={s} final={final} flash={flash} strength={strength} ppColor={ppColor} ppTeam={ppTeam} kind={cd.kind} isNum={isNum} isSO={isSO} />
       </div>
     )
   }
@@ -149,7 +158,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
         <AudioNotice sound={sound} className="sound" />
         <FullscreenButton />
         <FullscreenHint />
-        <Classic s={s} now={now} clockText={clockText} kind={cd.kind} final={final} flash={flash} shift={shift} strength={strength} ppColor={ppColor} ppTeam={ppTeam} isNum={isNum} isSO={isSO}
+        <Classic s={s} now={now} clockText={clockText} editClock={editClock} kind={cd.kind} final={final} flash={flash} shift={shift} strength={strength} ppColor={ppColor} ppTeam={ppTeam} isNum={isNum} isSO={isSO}
           rinkTag={small && RINK ? <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} /> : null} />
       </div>
     )
@@ -172,14 +181,14 @@ function BoardView({ raw, access, gameId, preview = false }) {
         </div>
       )}
 
-      <Team key={`home-${flash === 'home' ? s.goalFlash.at : 0}`} t={s.home} logo={!minimal && o.homeLogo} logoTop={arena} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null}><PenaltyAnnouncement s={s} team="home" now={now} /></Team>
+      <Team key={`home-${flash === 'home' ? s.goalFlash.at : 0}`} side="home" t={s.home} logo={!minimal && o.homeLogo} logoTop={arena} flash={flash === 'home'} L={L} showShots={!minimal} so={isSO ? s.shootout.home : null}><PenaltyAnnouncement s={s} team="home" now={now} /></Team>
 
       <div className="mid">
         {small && RINK && <RinkTag rink={RINK} label={L[RINK === 'a' ? 'rinkA' : 'rinkB']} />}
         <ClockNote s={s} kind={cd.kind} className="timeout" />
         {arena && o.logoImg && <img className="centerlogo top" src={o.logoImg} alt="" />}
-        <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
-        <div className={`clock tnum ${final ? 'final' : ''}`}>{clockText}</div>
+        <div className="period">{isNum ? <>{L.period} <b data-edit="period" data-value={s.period}>{periodLabel(s)}</b></> : <b data-edit="period" data-value={s.period}>{periodLabel(s)}</b>}</div>
+        <div className={`clock tnum ${final ? 'final' : ''}`} {...editClock}>{clockText}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
         {shift && <div className="shiftbox"><span>{L.shift}</span><b className="tnum" aria-label="shift">{shift.seconds}</b></div>}
         <div className={`strength ${strength ? '' : 'empty'}`} style={ppColor ? { '--pp': ppColor } : undefined}>{strength}{ppTeam ? ` · ${L.pp}` : ''}</div>
@@ -200,7 +209,7 @@ function BoardView({ raw, access, gameId, preview = false }) {
         {!arena && o.logoImg && <div className="logofill"><img className="centerlogo" src={o.logoImg} alt="" /></div>}
       </div>
 
-      <Team key={`away-${flash === 'away' ? s.goalFlash.at : 0}`} t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null}><PenaltyAnnouncement s={s} team="away" now={now} /></Team>
+      <Team key={`away-${flash === 'away' ? s.goalFlash.at : 0}`} side="away" t={s.away} logo={!minimal && o.awayLogo} logoTop={arena} flash={flash === 'away'} L={L} showShots={!minimal} so={isSO ? s.shootout.away : null}><PenaltyAnnouncement s={s} team="away" now={now} /></Team>
       {arena && ['home', 'away'].map(team => <PenBox key={team} team={team} s={s} />)}
       {!o.logoImg && !clear && <div className="brand">live by scoreboard</div>}
     </div>
@@ -294,7 +303,7 @@ function ClockNote({ s, kind, className }) {
   return null
 }
 
-function DualBoard({ s, sound, clear, bgOpacity, clockText, kind, now }) {
+function DualBoard({ s, sound, clear, bgOpacity, clockText, editClock, kind, now }) {
   const o = s.opts
   const L = o.labels
   const shift = shiftInfo(s, now)
@@ -315,8 +324,8 @@ function DualBoard({ s, sound, clear, bgOpacity, clockText, kind, now }) {
       <DualGame s={rinkView(s, 'a')} label={L.rinkA} rink="a" />
       <div className="dmid">
         {o.logoImg && <img className="dlogo" src={o.logoImg} alt="" />}
-        <div className={`dclock tnum ${final ? 'final' : ''}`}>{clockText}</div>
-        <div className="period">{isNum ? <>{L.period} <b>{periodLabel(s)}</b></> : <b>{periodLabel(s)}</b>}</div>
+        <div className={`dclock tnum ${final ? 'final' : ''}`} {...editClock}>{clockText}</div>
+        <div className="period">{isNum ? <>{L.period} <b data-edit="period" data-value={s.period}>{periodLabel(s)}</b></> : <b data-edit="period" data-value={s.period}>{periodLabel(s)}</b>}</div>
         {s.showTimeOfDay && <div className="tod tnum" aria-label="time of day">{fmtTimeOfDay()}</div>}
         <ClockNote s={s} kind={kind} className="timeout" />
         {shift && (
@@ -367,7 +376,7 @@ function DualGame({ s, label, rink }) {
 // Compact layout: one broadcast-style panel (the operator's earlier OBS design). Home | clock box,
 // period, tournament logo | away; scores in team colors; penalties under each team only when there
 // are any (space is reserved so nothing moves); date + time of day along the bottom when it is on.
-function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, kind, isNum, isSO }) {
+function Compact({ clockText, editClock, shift, rinkTag, s, final, flash, strength, ppColor, ppTeam, kind, isNum, isSO }) {
   const o = s.opts
   const L = o.labels
   const side = team => {
@@ -378,16 +387,16 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
       <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`cteam ${flash === team ? 'flash' : ''}`} style={{ '--c': t.color }}>
         <div className="clogo">{o[`${team}Logo`] && <img src={o[`${team}Logo`]} alt="" />}</div>
         <div className="cname">{t.name}</div>
-        <div className="cscore tnum">{t.score}</div>
+        <div className="cscore tnum" data-edit={`score:${team}`}>{t.score}</div>
         <div className="cteam-lower">
           {isSO
             ? <Shootout attempts={s.shootout[team]} className="so" />
-            : <><div className="clabel">{L.shots}</div><div className="cshots tnum">{t.shots}</div></>}
+            : <><div className="clabel">{L.shots}</div><div className="cshots tnum" data-edit={`shots:${team}`}>{t.shots}</div></>}
           <div className="cpens">
             {pens.slice(0, 3).map(p => (
               <div key={p.id} className={`cpen ${running.has(p.id) ? '' : 'wait'}`}>
-                <span>{p.player ? `#${p.player}` : L.penalty}</span>
-                <b className="tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</b>
+                <span data-edit={`pen:${p.id}:player`} data-value={p.player || ''}>{p.player ? `#${p.player}` : L.penalty}</span>
+                <b className="tnum" data-edit={`pen:${p.id}:time`}>{fmtClock(penaltyRemaining(s, p), { tenths: false })}</b>
               </div>
             ))}
             {pens.length > 3 && <div className="cpen more">+{pens.length - 3}</div>}
@@ -403,9 +412,9 @@ function Compact({ clockText, shift, rinkTag, s, final, flash, strength, ppColor
       {side('home')}
       <div className="cmid">
         {rinkTag}
-        <div className={`cclock tnum ${final ? 'final' : ''}`}>{clockText}</div>
+        <div className={`cclock tnum ${final ? 'final' : ''}`} {...editClock}>{clockText}</div>
         <div className="clabel">{isNum ? L.period : ''}</div>
-        <div className="cperiod">{periodLabel(s)}</div>
+        <div className="cperiod" data-edit="period" data-value={s.period}>{periodLabel(s)}</div>
         {shift && <div className="cshift"><span className="clabel">{L.shift}</span><b className="tnum" aria-label="shift">{shift.seconds}</b></div>}
         {/* the tournament logo takes all the space left in the middle column; power play, GOAL! / PENALTY /
             OFFSIDE and the timeout lie on top of it (the logo dims meanwhile), so they never take its room
@@ -440,7 +449,7 @@ function lcd(text) {
 // white rounded frame; team name over a black score box, the clock in a framed box in the middle, GOAL lamps
 // under it, penalty lights, logo + shots on goal, the period box, then two Player | Penalty rows per team and
 // the tournament logo. Digits in the LCD font: clock yellow, scores / shots / penalty time green, period cyan.
-function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppColor, ppTeam, isNum, isSO, rinkTag }) {
+function Classic({ s, now, clockText, editClock, kind, final, flash, shift, strength, ppColor, ppTeam, isNum, isSO, rinkTag }) {
   const o = s.opts
   const L = o.labels
   const side = team => {
@@ -451,12 +460,12 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
     const logo = <div className="klogo">{o[`${team}Logo`] && <img src={o[`${team}Logo`]} alt="" />}</div>
     const shots = isSO
       ? <div className="kshots kso"><Shootout attempts={s.shootout[team]} className="so" /></div>
-      : <div className="kshots kdig tnum">{lcd(t.shots)}</div>
+      : <div className="kshots kdig tnum" data-edit={`shots:${team}`} data-value={t.shots}>{lcd(t.shots)}</div>
     const shotsLabel = <div className="kshotslabel">{L.shots}</div>
     return (
       <div className={`kteam k${team}`} style={{ '--c': t.color }}>
         <div className="kname" style={{ fontSize: `calc(${Math.min(3.1, 40 / Math.max(1, t.name.length)).toFixed(2)} * var(--u))` }}>{t.name}</div>
-        <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`kscore kdig tnum ${flash === team ? 'flash' : ''}`}>{lcd(t.score)}</div>
+        <div key={`${team}-${flash === team ? s.goalFlash.at : 0}`} className={`kscore kdig tnum ${flash === team ? 'flash' : ''}`} data-edit={`score:${team}`} data-value={t.score}>{lcd(t.score)}</div>
         <div className="kpenrow">{team === 'home' ? <>{lights}<span>{L.penalty}</span></> : <><span>{L.penalty}</span>{lights}</>}</div>
         <div className="kshotrow">{team === 'home' ? <>{logo}{shots}{shotsLabel}</> : <>{shotsLabel}{shots}{logo}</>}</div>
         <div className="kpplabel">{L.player} {L.penalty}{waiting > 0 && <b> +{waiting}</b>}</div>
@@ -464,8 +473,8 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
           const p = active[i]
           return (
             <div className="kpen" key={p?.id || i}>
-              <div className="kpp kdig tnum">{lcd(p?.player || '')}</div>
-              <div className="kpt kdig tnum">{p ? lcd(fmtClock(penaltyRemaining(s, p, now), { tenths: false })) : ''}</div>
+              <div className="kpp kdig tnum" {...(p ? { 'data-edit': `pen:${p.id}:player`, 'data-value': p.player || '' } : {})}>{lcd(p?.player || '')}</div>
+              <div className="kpt kdig tnum" {...(p ? { 'data-edit': `pen:${p.id}:time`, 'data-value': fmtClock(penaltyRemaining(s, p, now), { tenths: false }) } : {})}>{p ? lcd(fmtClock(penaltyRemaining(s, p, now), { tenths: false })) : ''}</div>
             </div>
           )
         })}
@@ -478,13 +487,13 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
     <div className="kpanel">
       {side('home')}
       <div className="kmid">
-        <div className={`kclock kdig tnum ${final ? 'final' : ''} ${kind !== 'game' ? 'note' : ''}`}>{lcd(clockText)}</div>
+        <div className={`kclock kdig tnum ${final ? 'final' : ''} ${kind !== 'game' ? 'note' : ''}`} {...editClock}>{lcd(clockText)}</div>
         <div className="klamps">
           <span className={`klamp ${flash === 'home' ? 'on' : ''}`} aria-label="home goal light" /><span className="kgoal">{L.goal.replace(/!$/, '')}</span>
           <span className="kspacer" />
           <span className="kgoal">{L.goal.replace(/!$/, '')}</span><span className={`klamp ${flash === 'away' ? 'on' : ''}`} aria-label="away goal light" />
         </div>
-        <div className="kperiod kdig tnum">{lcd(periodLabel(s))}</div>
+        <div className="kperiod kdig tnum" data-edit="period" data-value={s.period}>{lcd(periodLabel(s))}</div>
         <div className="kperiodlabel">{isNum ? L.period : ''}</div>
         <div className="kbottom">
           {shift && <div className="kshift"><span>{L.shift}</span><b className="kdig tnum" aria-label="shift">{shift.seconds}</b></div>}
@@ -507,15 +516,15 @@ function Classic({ s, now, clockText, kind, final, flash, shift, strength, ppCol
   )
 }
 
-function Team({ t, logo, logoTop, flash, L, showShots, so, children }) {
+function Team({ side, t, logo, logoTop, flash, L, showShots, so, children }) {
   return (
     <div className={`team ${flash ? 'flash' : ''}`} style={{ '--c': t.color }}>
       {logo && !logoTop && <img className="bglogo" src={logo} alt="" aria-hidden="true" />}
       {logo && logoTop && <img className="toplogo" src={logo} alt="" />}
       <div className="name">{t.name}</div>
-      <div className="score tnum">{t.score}</div>
+      <div className="score tnum" data-edit={`score:${side}`}>{t.score}</div>
       <div className="team-lower">
-        {so ? <Shootout attempts={so} /> : showShots && <div className="shots"><span>{L.shots}</span><b className="tnum">{t.shots}</b></div>}
+        {so ? <Shootout attempts={so} /> : showShots && <div className="shots"><span>{L.shots}</span><b className="tnum" data-edit={`shots:${side}`}>{t.shots}</b></div>}
         {children}
       </div>
     </div>
@@ -546,8 +555,8 @@ function PenBox({ team, s }) {
     <div className={`penbox pb-${team}`} style={{ '--c': s[team].color }}>
       {shown.map((p, i) => (
         <div className={`prow ${i >= 2 || !activePenalties(s, team).some(a => a.id === p.id) ? 'wait' : ''}`} key={p.id}>
-          <span className="pp">{p.player ? `#${p.player}` : L.penalty}</span>
-          <span className="pt tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</span>
+          <span className="pp" data-edit={`pen:${p.id}:player`} data-value={p.player || ''}>{p.player ? `#${p.player}` : L.penalty}</span>
+          <span className="pt tnum" data-edit={`pen:${p.id}:time`}>{fmtClock(penaltyRemaining(s, p), { tenths: false })}</span>
         </div>
       ))}
       {list.length > 3 && <div className="pmore">+{list.length - 3}</div>}
@@ -558,8 +567,8 @@ function PenBox({ team, s }) {
 function Pen({ p, s, color }) {
   return (
     <div className="pen" style={{ '--c': color }}>
-      <div className="pp">{p.player ? `#${p.player}` : s.opts.labels.penalty}</div>
-      <span className="pt tnum">{fmtClock(penaltyRemaining(s, p), { tenths: false })}</span>
+      <div className="pp" data-edit={`pen:${p.id}:player`} data-value={p.player || ''}>{p.player ? `#${p.player}` : s.opts.labels.penalty}</div>
+      <span className="pt tnum" data-edit={`pen:${p.id}:time`}>{fmtClock(penaltyRemaining(s, p), { tenths: false })}</span>
     </div>
   )
 }

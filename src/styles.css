@@ -904,3 +904,28 @@ html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .bo
 /* see-through overlay link: numbers keep their black boxes off, outline instead */
 .board.classicb.overlay .kpanel { border-color: transparent; }
 .board.classicb.overlay .kdig, .board.classicb.overlay .klogo { background: transparent; }
+
+/* ---------- click a number and type it (Pai 2026-11-06) ---------- */
+.control [data-edit], .board-edit [data-edit] { cursor: text; border-radius: 6px; }
+.control [data-edit]:hover, .board-edit [data-edit]:hover { outline: 2px dashed rgba(255, 255, 255, .45); outline-offset: 2px; }
+.inline-edit { position: fixed; z-index: 1000; box-sizing: border-box; text-align: center; font-family: var(--font-display); font-weight: 800; line-height: 1;
+  background: #0b0f14; color: #fff; border: 3px solid var(--accent, #4ade80); border-radius: 8px; padding: 0 .15em; outline: none;
+  user-select: text; -webkit-user-select: text; box-shadow: 0 6px 30px rgba(0, 0, 0, .6); }
+.inline-edit.bad { border-color: #f87171; }
+
+/* ---------- single monitor: the control page shows only the scoreboard ---------- */
+.control.single { display: block; max-width: none; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+.control.single > :not(.singleview):not(.sheet-bg):not(.inline-edit) { display: none !important; }
+.board-edit { display: contents; }
+.singleview { position: fixed; inset: 0; z-index: 1; }
+.singlebar { position: fixed; left: 0; right: 0; margin-inline: auto; width: max-content; bottom: 10px; z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  max-width: calc(100vw - 20px); padding: 8px 10px; border-radius: 14px; background: rgba(10, 14, 20, .82); border: 1px solid rgba(255, 255, 255, .12);
+  font-family: var(--font-ui); opacity: .45; transition: opacity .2s; }
+.singlebar:hover, .singlebar:focus-within { opacity: 1; }
+.singlebar .btn { min-width: 0; }
+.singlebar > .btn:first-child { min-width: 110px; font-weight: 800; letter-spacing: .08em; }
+.singlebar .sbteam { display: inline-flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 4px solid var(--c); }
+.singlebar .sbteam b { font-size: 12px; max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; }
+.singlehint { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 5; padding: 8px 16px; border-radius: 999px; background: rgba(10, 14, 20, .88);
+  color: #fff; font-family: var(--font-ui); font-size: 15px; pointer-events: none; animation: singlehint 6s forwards; }
+@keyframes singlehint { 0%, 75% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }

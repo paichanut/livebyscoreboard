@@ -18,6 +18,8 @@ import { nowAt } from './clock.js'
 import Options, { SavedTeams, resizeImage } from './Options.jsx'
 import { RINK_COLOR } from './Board.jsx'
 import { KEY_GROUPS, KEY_LABELS, keyName } from './options.js'
+import { BoardView } from './Board.jsx'
+import { useInlineEdit, applyEdit } from './InlineEdit.jsx'
 
 // keys a rink controller (A / B) may use: its own score, shots, penalties and goal light, not the shared clock
 // Clock start/stop act when the button goes down (a click only counts when the mouse button comes back up,
@@ -143,6 +145,20 @@ export default function Control() {
   // Arena audio is always enabled on the operator page as well as the display.
   const sound = useSound()
   useGameSounds(s, sound.playing, now)
+  // Single monitor (Pai 2026-11-06): the page shows only the scoreboard; the keys still work, a click on a number
+  // types it (the same as on this page's numbers), a small bar gives START/STOP, goals, penalties, horn, timeout.
+  const [single, setSingleState] = useState(() => new URLSearchParams(window.location.search).get('view') === 'single')
+  const setSingle = on => {
+    setSingleState(on)
+    const u = new URL(window.location.href)
+    if (on) u.searchParams.set('view', 'single'); else u.searchParams.delete('view')
+    window.history.replaceState(null, '', u)
+  }
+  const inline = useInlineEdit((field, text) => {
+    if (!v) return false
+    if (locked && /^(clock|period)/.test(field)) return false // a rink controller has no clock or period
+    return applyEdit(field, text, { s: v, update, ur })
+  }, { disabled: workspace === 'stats' })
   const t = translator(s?.opts?.uiLang)
 
   const ask = (key, msg) => !s.opts.confirm[key] || confirm(msg)
@@ -234,7 +250,26 @@ export default function Control() {
   const isSO = s.period === 'SO'
 
   return (
-    <div className={`control ${small ? 'small' : ''} workspace-${workspace}`} style={small ? { '--rk': RINK_COLOR[r] } : undefined}>
+    <div className={`control ${small ? 'small' : ''} workspace-${workspace} ${single ? 'single' : ''}`} style={small ? { '--rk': RINK_COLOR[r] } : undefined} onClick={single ? undefined : inline.onClick}>
+      {single && (
+        <div className="singleview">
+          <BoardView raw={s} access="ok" gameId={gameId} onEdit={inline.onClick} />
+          <div className="singlehint" role="status">{t('singleHint')}</div>
+          <div className="singlebar" title={t('singleHint')}>
+            <button className={`btn ${running ? 'danger' : 'primary'}`} {...onPress(at => update(x => G.toggleClock(x, at)))} disabled={locked || (!running && remaining <= 0)}>{running ? t('stop') : t('start')}</button>
+            {['home', 'away'].map(team => (
+              <span className="sbteam" key={team} style={{ '--c': v[team].color }}>
+                <b>{v[team].name}</b>
+                <button className="btn sm" onClick={() => scoreGoal(team)}>{t('goal')}</button>
+                <button className="btn sm" aria-label={`add penalty ${team} (single monitor)`} onClick={() => setSheet(`pen-${team}`)}>+ {o.labels.penalty}</button>
+              </span>
+            ))}
+            <button className="btn sm" onClick={() => update(G.fireHorn)}>{t('horn')}</button>
+            {!locked && <button className="btn sm" onClick={() => setSheet('timeout-1')}>{t('timeoutBtn')}</button>}
+            <button className="btn sm" onClick={() => setSingle(false)}>✕ {t('singleExit')}</button>
+          </div>
+        </div>
+      )}
 
       {syncError&&<div className="stats-sync-error" role="alert">{syncError}<button className="btn sm" onClick={()=>setSyncError('')}>Dismiss</button></div>}
       {workspace==='stats'&&<StatsMode s={v} update={ur} now={now} actor={sessionUser()||'Operator'} addGoal={scoreGoal} addPenalty={team=>setSheet(`pen-${team}`)} blocked={Boolean(sheet)} small={small} rink={r} setRink={setRink} locked={locked}/>}
@@ -311,7 +346,7 @@ export default function Control() {
         </div>
         <div className="row period">
           <button className="btn sm minus" onClick={() => { if (ask('period', t('confirmPrev'))) update(G.prevPeriod) }}>{t('periodPrev')}</button>
-          <span className="pv tnum">{G.periodLabel(s)}</span>
+          <span className="pv tnum" data-edit="period" data-value={s.period} title={t('tapToType')}>{G.periodLabel(s)}</span>
           <button className="btn sm plus" onClick={() => { if (ask('period', t('confirmNext'))) update(G.nextPeriod) }}>{t('periodNext')}</button>
         </div>
         <div className="row">
@@ -357,7 +392,7 @@ export default function Control() {
             <div className={`tc ${G.goalFlashActive(v) === team ? 'flash' : ''}`} key={`${team}-${G.goalFlashActive(v) === team ? v.goalFlash.at : 0}`} style={{ '--c': tm.color }}>
               {small && <span className="rinkbadge" style={{ '--rk': RINK_COLOR[r] }}>{o.labels[r === 'a' ? 'rinkA' : 'rinkB']}</span>}
               <button className="n" aria-label={`rename ${team}`} title={t('editTeam')} onClick={() => setSheet(`team-${team}`)}>{tm.name}</button>
-              <div className="s tnum">{tm.score}</div>
+              <div className="s tnum" data-edit={`score:${team}`} title={t('tapToType')}>{tm.score}</div>
               <div className="goalrow">
                 <button className="goal" onClick={() => scoreGoal(team)}>{t('goal')}</button>
                 <button className="goal horn" aria-label={`goal and horn ${team}`} onClick={() => scoreGoal(team, true)}>{t('goalHorn')}</button>
@@ -382,7 +417,7 @@ export default function Control() {
                 <button className="btn plus" aria-label="score +1" onClick={() => scoreGoal(team)}>+1</button>
               </div>
               <div className="mini">
-                <span className="ml">{o.labels.shots} <b className="tnum">{tm.shots}</b></span>
+                <span className="ml">{o.labels.shots} <b className="tnum" data-edit={`shots:${team}`} title={t('tapToType')}>{tm.shots}</b></span>
                 <button className="btn minus" aria-label="shot −1" onClick={() => ur(x => G.addShot(x, team, -1))}>−1</button>
                 <button className="btn plus" aria-label="Shot +" onClick={() => ur(x => G.addShot(x, team, 1))}>+1</button>
               </div>
@@ -398,7 +433,7 @@ export default function Control() {
               {G.teamPenalties(v, team).map(p => (
                 <div className={`pen ${p.status}`} key={p.id} data-status={p.status}>
                   <div className="who">{p.player ? `#${p.player}` : t('pen')} <small>{p.infraction || (p.status === 'shot' ? 'Penalty shot' : t('kind_' + p.kind))}{p.coincidental ? ` · ${t('coincShort')}` : ''}{!G.onPenaltyClock(p) && !['game', 'shot'].includes(p.status) ? ` · ${t('notOnDisplay')}` : ''}</small></div>
-                  <span className="pt tnum">{p.status === 'shot' ? 'PS' : p.status === 'game'
+                  <span className="pt tnum" {...(['shot', 'game'].includes(p.status) ? {} : { 'data-edit': `pen:${p.id}:time`, 'data-value': G.fmtClock(p.remainingMs, { tenths: false }), title: t('tapToType') })}>{p.status === 'shot' ? 'PS' : p.status === 'game'
                     ? `${t('gmShort')} · ${t('restOfGame')}`
                     : `${p.status === 'waiting' ? t('waiting') + ' · ' : ''}${G.fmtClock(p.remainingMs, { tenths: false })}`}</span>
                   <div className="acts">
@@ -437,6 +472,7 @@ export default function Control() {
         {!locked && <button className="btn" onClick={() => setSheet('setclock')}>{t('correction')}</button>}
         {!locked && <button className="btn" onClick={() => { if (ask('newGame', t('confirmNewGame'))) update(G.resetGame) }}>{t('newGame')}</button>}
         <AudioNotice sound={sound} className="btn csound" />
+        <button className="btn" onClick={() => setSingle(true)} title={t('singleHint')}>🖥 {t('singleMode')}</button>
         <button className="btn keysbtn" onClick={() => setSheet('keys')} aria-label="keyboard shortcuts">⌨ {t('help')}</button>
       </div>
       <div className="status">
@@ -450,6 +486,7 @@ export default function Control() {
         {DESKTOP && <DesktopLinkStatus openSettings={()=>setSheet('share')} />}
       </div>
 
+      {inline.editor}
       {sheet?.startsWith('pen-') && <PenaltySheet team={sheet.slice(4)} s={v} update={ur} close={() => setSheet(null)} t={t} />}
       {sheet?.startsWith('edit-') && (() => {
         const [, team, id] = sheet.split('-')

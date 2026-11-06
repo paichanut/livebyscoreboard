@@ -573,6 +573,37 @@ export function editPenalty(s, id, { player, minutes, infraction, kind, coincide
       penaltyShot: edited.penaltyShot, coincidental: Boolean(edited.coincidental) } : e) } : next
 }
 
+// Typed corrections (Pai 2026-11-06: click a number on the scoreboard or the control page and type it).
+// Each goal / shot still goes into the game log one by one, as if it had been tapped.
+export function setScore(s, team, n) {
+  let next = s
+  const target = Math.max(0, Math.min(999, Math.round(Number(n) || 0)))
+  for (let i = 0; i < 99 && next[team].score !== target; i++) next = addScore(next, team, target > next[team].score ? 1 : -1)
+  return next
+}
+export function setShots(s, team, n) {
+  let next = s
+  const target = Math.max(0, Math.min(999, Math.round(Number(n) || 0)))
+  for (let i = 0; i < 999 && next[team].shots !== target; i++) next = addShot(next, team, target > next[team].shots ? 1 : -1)
+  return next
+}
+// "2", "ot", "SO" → a period of this game, or null; a typed period keeps the clock as it is
+export function parsePeriodInput(s, text) {
+  const t = String(text ?? '').trim().toUpperCase()
+  return periodList(s).includes(t) ? t : null
+}
+export function setPeriodOnly(s, period) {
+  return period === s.period ? s : touch({ ...s, period })
+}
+// time left on one penalty, as typed (never more than the penalty's length)
+export function setPenaltyRemaining(s, id, ms) {
+  const f = foldPenalties(s)
+  return touch({
+    ...f,
+    penalties: f.penalties.map(p => (p.id === id ? { ...p, elapsedMs: Math.min(p.durationMs, Math.max(0, p.durationMs - Math.max(0, ms))) } : p)),
+  })
+}
+
 // ±1 s / ±5 s on one penalty, to match the rink's official board. +deltaMs = more time to serve.
 export function nudgePenalty(s, id, deltaMs) {
   const f = foldPenalties(s)
