@@ -20,6 +20,8 @@
     "@fontsource/anton": "^5.3.0",
     "@fontsource/oswald": "^5.3.0",
     "@supabase/supabase-js": "^2.45.0",
+    "jose": "6.2.15",
+    "oidc-client-ts": "3.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

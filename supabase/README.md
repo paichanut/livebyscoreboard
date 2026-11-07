@@ -37,3 +37,7 @@ The shared toolbar also has **Undo** for the last 30 game entries/edits made on 
 `demo-account.sql` (applied 2026-10-24) adds `operators.is_demo` and `operator_can(token, game)`. The public `demo` / `demo` login may only create, run and delete games whose code starts with `demo-`; it cannot touch real games, the shared team library or desktop machine names. Checks: `tests/sql/demo-account.sql` against a disposable database.
 
 `game-owners.sql` (applied 2026-10-25) adds `game_keys.owner` (set by `create_game` from the session) and `my_games(token)`. A login may run, share and delete only its own games; the admin every game; the demo login only `demo-…` games. Older games went to the admin (`demo-…` to the demo login). Watching stays public and a game's helper key still runs that one game. Checks: `tests/sql/game-owners.sql`.
+
+## FullRink account owners
+
+`fullrink-owners.sql` (applied 2026-11-07) adds `game_keys.owner_sub` (the FullRink account's `sub`) and three functions for `/api/fullrink`: `fullrink_create_game`, `fullrink_my_games`, `fullrink_game_key`. They are granted only to `service_role`; the API verifies the FullRink access token first and needs the Vercel env `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API keys → service_role / secret key; server only). Boards created without signing in keep `owner_sub` null and work as before. Safe to run again in the SQL Editor.

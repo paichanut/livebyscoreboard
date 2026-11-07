@@ -12,6 +12,7 @@ import { CONFIGURED } from './sync.js'
 import { Watermark } from './License.jsx'
 
 const RefereeSignals = lazy(() => import('./RefereeSignals.jsx'))
+const AuthCallback = lazy(() => import('./AuthCallback.jsx'))
 
 function usePath() {
   const [path, setPath] = useState(window.location.pathname)
@@ -26,6 +27,7 @@ function usePath() {
 export default function App() {
   const path = usePath()
   if (path === '/referee-signals') return <Suspense fallback={<div className="loading">Loading referee signals…</div>}><RefereeSignals /></Suspense>
+  if (path === '/auth/callback') return <Suspense fallback={null}><AuthCallback /></Suspense>
   if (!CONFIGURED) return <Setup />
   if (path === '/board' || path.startsWith('/b/')) return <DesktopLink><Board /><Watermark /></DesktopLink>
   if (path === '/control' || path.startsWith('/c/')) return <DesktopLink><Control /></DesktopLink>

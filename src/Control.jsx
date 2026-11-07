@@ -8,6 +8,7 @@ import { captureUndo, undoAction, redoAction } from './undo.js'
 import DesktopUpdate from './DesktopUpdate.jsx'
 import { ShareSheet, DesktopLinkStatus } from './DesktopShare.jsx'
 import { ONLINE, DESKTOP, NEEDS_LOGIN, statsSyncReady, shareTeamIfNew, randomKey, rememberKey, storedKey, getSession, sessionUser, logout, helperKey } from './sync.js'
+import { FULLRINK_AUTH, useFullRinkUser, displayName, signIn, boardKey, ownedKey, keyFromShareLink } from './fullrink.js'
 import { useAppearance, useGameSounds, AudioNotice, useSound } from './useOptions.jsx'
 import { translator } from './i18n.js'
 import { saveTeam } from './teamLibrary.js'
@@ -40,6 +41,9 @@ export default function Control() {
   const urlKey = useUrlKey()
   const session = NEEDS_LOGIN ? getSession() : ''
   const [key] = useState(() => {
+    // a board this FullRink account owns runs with its own key, even when an operator is logged in too
+    const owned = FULLRINK_AUTH ? ownedKey(gameId) : ''
+    if (owned && (!urlKey || urlKey === owned)) return owned
     if (session) return session
     const k = urlKey || storedKey(gameId) || (NEEDS_LOGIN ? '' : randomKey())
     if (k) rememberKey(gameId, k)
@@ -47,6 +51,7 @@ export default function Control() {
   })
   const usingSession = Boolean(session) && key === session
   const [s, update, access] = useGame(gameId, { key, canWrite: true })
+  const frUser = useFullRinkUser()
   useAppearance(s)
   useEffect(() => {
     if (usingSession || !key) return
@@ -479,6 +484,7 @@ export default function Control() {
         <span>{t('game')} · {gameId}</span>
         {NEEDS_LOGIN && (usingSession
           ? <span className="who">👤 {sessionUser()} · <button className="linkbtn" onClick={async () => { await logout(); window.location.reload() }}>{t('logout')}</button></span>
+          : frUser ? <span className="who">👤 {displayName(frUser)} · FullRink</span>
           : <a className="who" href={`/login?next=/c/${encodeURIComponent(gameId)}`}>🔑 {t('keyOnly')} · {t('login')}</a>)}
         <span className={ONLINE ? 'live' : 'local'}>{ONLINE ? t('live') : DESKTOP ? t('offlineApp') : t('local')}<TimeBadge /></span>
         {DESKTOP && <DesktopUpdate t={t} />}
@@ -871,15 +877,34 @@ function DesktopGameScreen({ gameId, desktop, t }) {
 
 function LockedScreen({ gameId, t }) {
   const [k, setK] = useState('')
-  const go = () => { if (k.trim()) { rememberKey(gameId, k.trim()); window.location.href = `/c/${gameId}?k=${encodeURIComponent(k.trim())}` } }
+  const [bad, setBad] = useState(false)
+  const frUser = useFullRinkUser()
+  const [owned, setOwned] = useState('') // '' | 'checking' | 'no' | error text
+  const open = key => { rememberKey(gameId, key); window.location.href = `/c/${gameId}?k=${encodeURIComponent(key)}` }
+  // signed in with FullRink: a board this account created opens by itself (its key comes from the server)
+  useEffect(() => {
+    if (!frUser) return
+    let live = true
+    setOwned('checking')
+    boardKey(gameId).then(key => { if (live) open(key) })
+      .catch(e => { if (live) setOwned(e.status === 403 ? 'no' : e.message) })
+    return () => { live = false }
+  }, [frUser, gameId])
+  // the third way in: a share link (…/c/CODE?k=KEY) or its key, as before
+  const go = () => { const key = keyFromShareLink(k, gameId); if (key) open(key); else setBad(Boolean(k.trim())) }
   return (
     <div className="home">
       <h1>{t('lockedTitle')}</h1>
       <p>{t('lockedText', { id: gameId })}</p>
-      <div className="code"><input value={k} onChange={e => setK(e.target.value)} placeholder={t('keyPlaceholder')} onKeyDown={e => e.key === 'Enter' && go()} /></div>
+      {owned === 'checking' && <p className="hint">Checking your FullRink boards…</p>}
+      {owned === 'no' && <p className="hint">Signed in as <b>{displayName(frUser)}</b>: this board was not created with your FullRink account. Use its share link, or log in as its operator.</p>}
+      {owned && !['checking', 'no'].includes(owned) && <p className="hint">{owned}</p>}
+      <div className="code"><input value={k} onChange={e => { setK(e.target.value); setBad(false) }} placeholder={t('keyPlaceholder')} aria-label="share link or operator key" aria-invalid={bad} onKeyDown={e => e.key === 'Enter' && go()} /></div>
+      {bad && <div className="err">That is not a share link for this board.</div>}
       <div className="links">
-        {NEEDS_LOGIN && <a className="btn primary" href={`/login?next=${encodeURIComponent('/c/' + gameId)}`}>{t('login')}</a>}
-        <button className={`btn ${NEEDS_LOGIN ? '' : 'primary'}`} onClick={go}>{t('unlock')}</button>
+        {FULLRINK_AUTH && !frUser && <button className="btn primary" onClick={() => signIn()}>Sign in with FullRink account</button>}
+        {NEEDS_LOGIN && <a className={`btn ${FULLRINK_AUTH ? '' : 'primary'}`} href={`/login?next=${encodeURIComponent('/c/' + gameId)}`}>{t('login')}</a>}
+        <button className={`btn ${NEEDS_LOGIN || FULLRINK_AUTH ? '' : 'primary'}`} onClick={go}>{t('unlock')}</button>
         <a className="btn" href={`/b/${gameId}`}>{t('openDisplay')}</a>
       </div>
     </div>

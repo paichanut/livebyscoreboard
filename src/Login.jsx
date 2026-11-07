@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { validUsername } from '../lib/desktop-address.js'
 import { login, logout, getSession, sessionUser, checkSession, NEEDS_LOGIN } from './sync.js'
+import { FULLRINK_AUTH, signIn } from './fullrink.js'
 
 // Operator login. Watching a game (display, banner, /live) never needs this.
 export default function Login() {
@@ -53,6 +54,7 @@ export default function Login() {
       {err && <div className="err">{err}</div>}
       <div className="links">
         <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Log in'}</button>
+        {FULLRINK_AUTH && !account && <button className="btn" type="button" onClick={() => signIn(safeNext)}>Sign in with FullRink account</button>}
         <a className="btn ghost" href="/live">Watch live games</a>
       </div>
     </form>
