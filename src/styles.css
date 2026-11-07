@@ -917,11 +917,15 @@ html.preview .fsbtn, html.preview .sound, html.preview .fshint, html.preview .bo
 .control.single { display: block; max-width: none; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
 .control.single > :not(.singleview):not(.sheet-bg):not(.inline-edit) { display: none !important; }
 .board-edit { display: contents; }
-.singleview { position: fixed; inset: 0; z-index: 1; }
-.singlebar { position: fixed; left: 0; right: 0; margin-inline: auto; width: max-content; bottom: 10px; z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+.singleview { position: fixed; inset: 0; z-index: 1; --sbh: 64px; }
+/* the bar has its own strip at the bottom, so it never covers a number: the scoreboard fits the rest */
+.singleview .board { height: calc(100vh - var(--sbh)); --u: min(1vw, calc((100vh - var(--sbh)) * .0175)); }
+.singleview .board.compactb { --u: min(1vw, calc((100vh - var(--sbh)) * .018)); }
+.singleview .board.classicb { --u: min(1vw, calc((100vh - var(--sbh)) * .0178)); }
+@media (max-width: 980px) { .singleview { --sbh: 112px; } } /* the bar takes two rows on a narrow window */
+.singlebar { position: fixed; left: 0; right: 0; margin-inline: auto; width: max-content; bottom: 6px; z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
   max-width: calc(100vw - 20px); padding: 8px 10px; border-radius: 14px; background: rgba(10, 14, 20, .82); border: 1px solid rgba(255, 255, 255, .12);
-  font-family: var(--font-ui); opacity: .45; transition: opacity .2s; }
-.singlebar:hover, .singlebar:focus-within { opacity: 1; }
+  font-family: var(--font-ui); }
 .singlebar .btn { min-width: 0; }
 .singlebar > .btn:first-child { min-width: 110px; font-weight: 800; letter-spacing: .08em; }
 .singlebar .sbteam { display: inline-flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 4px solid var(--c); }

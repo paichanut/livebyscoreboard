@@ -13,7 +13,8 @@
     "test:unit": "node --test tests/unit/*.test.js",
     "test:e2e": "playwright test",
     "test:desktop": "playwright test --config playwright.desktop.config.js",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "test:electron": "npm run build:desktop && xvfb-run -a -s \"-screen 0 1280x720x24\" node tests/electron/single-monitor.mjs"
   },
   "dependencies": {
     "@fontsource/anton": "^5.3.0",
