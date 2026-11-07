@@ -50,3 +50,35 @@ revoke all on function public.fullrink_game_key(text, text) from public, anon, a
 grant execute on function public.fullrink_create_game(text, jsonb, text) to service_role;
 grant execute on function public.fullrink_my_games(text) to service_role;
 grant execute on function public.fullrink_game_key(text, text) to service_role;
+
+-- Server key variant (applied 2026-11-07 as migration fullrink_boards_server_key): without a service-role key the
+-- server calls fullrink_*_k(p_key, ...) with the anon key plus Vercel env FULLRINK_BOARDS_KEY. Only the key's
+-- SHA-256 lives in fullrink_private.server_key (schema not exposed by the API). To rotate: generate a new key,
+-- set it in Vercel, then: update fullrink_private.server_key set sha256 = encode(extensions.digest('<new key>','sha256'),'hex');
+create schema if not exists fullrink_private;
+revoke all on schema fullrink_private from public, anon, authenticated;
+create table if not exists fullrink_private.server_key (id int primary key default 1 check (id = 1), sha256 text not null);
+revoke all on fullrink_private.server_key from public, anon, authenticated;
+create or replace function fullrink_private.key_ok(p_key text)
+returns boolean language sql stable security definer set search_path = fullrink_private, extensions as $$
+  select exists (select 1 from fullrink_private.server_key where sha256 = encode(extensions.digest(coalesce(p_key, ''), 'sha256'), 'hex'))
+$$;
+create or replace function public.fullrink_create_game_k(p_key text, p_id text, p_state jsonb, p_sub text)
+returns text language sql volatile security definer set search_path = public, extensions as $$
+  select case when fullrink_private.key_ok(p_key) then public.fullrink_create_game(p_id, p_state, p_sub) end
+$$;
+create or replace function public.fullrink_my_games_k(p_key text, p_sub text)
+returns table (id text, key text, title text, home text, away text, updated_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select * from public.fullrink_my_games(p_sub) where fullrink_private.key_ok(p_key)
+$$;
+create or replace function public.fullrink_game_key_k(p_key text, p_id text, p_sub text)
+returns text language sql stable security definer set search_path = public as $$
+  select case when fullrink_private.key_ok(p_key) then public.fullrink_game_key(p_id, p_sub) end
+$$;
+revoke all on function public.fullrink_create_game_k(text, text, jsonb, text) from public;
+revoke all on function public.fullrink_my_games_k(text, text) from public;
+revoke all on function public.fullrink_game_key_k(text, text, text) from public;
+grant execute on function public.fullrink_create_game_k(text, text, jsonb, text) to anon, service_role;
+grant execute on function public.fullrink_my_games_k(text, text) to anon, service_role;
+grant execute on function public.fullrink_game_key_k(text, text, text) to anon, service_role;

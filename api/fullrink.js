@@ -19,12 +19,20 @@ export function createHandler({ verify = verifyAccessToken, env = process.env, f
     try { user = await verify(bearer(req)) } catch { return res.status(401).json({ error: 'Sign in with your FullRink account again.' }) }
     const base = env.VITE_SUPABASE_URL
     const service = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY
-    if (!base || !service) return res.status(503).json({ error: 'FullRink boards are not set up on the server yet.', setup: true })
+    // Without the service-role key the server uses the public anon key plus its own private key
+    // (FULLRINK_BOARDS_KEY); the *_k functions check that key's hash in a schema the API does not expose.
+    const boardsKey = env.FULLRINK_BOARDS_KEY
+    const anon = env.VITE_SUPABASE_ANON_KEY
+    if (!base || !(service || (boardsKey && anon))) return res.status(503).json({ error: 'FullRink boards are not set up on the server yet.', setup: true })
     const rpc = async (name, args) => {
-      const headers = { apikey: service, 'Content-Type': 'application/json' }
-      if (service.startsWith('eyJ')) headers.Authorization = `Bearer ${service}` // legacy JWT service_role key
-      const r = await fetchImpl(`${base}/rest/v1/rpc/${name}`, { method: 'POST', headers, body: JSON.stringify(args), signal: AbortSignal.timeout(10000) })
-      if (!r.ok) { const e = new Error(`rpc ${name} ${r.status}`); e.status = r.status; throw e }
+      const viaKey = !service
+      const apikey = viaKey ? anon : service
+      const headers = { apikey, 'Content-Type': 'application/json' }
+      if (apikey.startsWith('eyJ')) headers.Authorization = `Bearer ${apikey}` // legacy JWT keys
+      const fn = viaKey ? `${name}_k` : name
+      const body = viaKey ? { p_key: boardsKey, ...args } : args
+      const r = await fetchImpl(`${base}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) })
+      if (!r.ok) { const e = new Error(`rpc ${fn} ${r.status}`); e.status = r.status; throw e }
       return r.json()
     }
     const input = req.method === 'GET' ? req.query || {} : (req.body && typeof req.body === 'object' ? req.body : {})
